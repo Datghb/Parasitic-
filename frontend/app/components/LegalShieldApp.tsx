@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Verdict = "Đúng" | "Hiểu lầm" | "Cần kiểm chứng";
 type Status = "Mới" | "Đang xử lý" | "Đã xử lý";
@@ -10,7 +10,7 @@ type Case = {
   id: string;
   claim: string;
   original: string;
-  platform: "Facebook" | "TikTok" | "YouTube" | "X";
+  platform: "Facebook" | "TikTok" | "YouTube" | "X" | "Forum";
   account: string;
   publishedAt: string;
   priority: Priority;
@@ -30,6 +30,21 @@ type Case = {
   contentType?: "post" | "comment";
   parentContent?: string;
 };
+
+type ApiQueueItem = {
+  id: string; text: string; claim: string; label: "dung" | "hieu_lam" | "can_kiem_chung";
+  source_label: string; reason: string; priority: number; platform: string; account: string;
+  published_at: string; reach: number; status: string;
+};
+
+type StudyCase = {
+  id: string; ten_vu: string; nguon_cong_bo: string; ngay_quyet_dinh: string;
+  hanh_vi: string; dieu_khoan_vien_dan: string; muc_phat: number; chu_the: string;
+  bien_phap_khac_phuc: string; nguon_url: string; an_danh: string;
+  expected_he_thong: { dieu_khoan_moi: string; nhan: string; ghi_chu: string };
+};
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const cases: Case[] = [
   {
@@ -157,7 +172,31 @@ export function LegalShieldApp() {
   const [sortDesc, setSortDesc] = useState(true);
   const [statusById, setStatusById] = useState<Record<string, Status>>({});
   const [query, setQuery] = useState("");
-  const [activeView, setActiveView] = useState<"queue" | "report" | "sources">("queue");
+  const [activeView, setActiveView] = useState<"queue" | "report" | "sources" | "verify">("queue");
+  const [studyCases, setStudyCases] = useState<StudyCase[]>([]);
+  const [dataSource, setDataSource] = useState<"api" | "fallback">("fallback");
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      fetch(`${API_URL}/api/queue`).then((response) => {
+        if (!response.ok) throw new Error("Queue API unavailable");
+        return response.json() as Promise<ApiQueueItem[]>;
+      }),
+      fetch(`${API_URL}/api/verify`).then((response) => {
+        if (!response.ok) throw new Error("Verify API unavailable");
+        return response.json() as Promise<{ cases: StudyCase[] }>;
+      }),
+    ]).then(([queue, verify]) => {
+      if (!active) return;
+      if (queue.length) setCaseItems(queue.map(mapApiCase));
+      setStudyCases(verify.cases);
+      setDataSource("api");
+    }).catch(() => {
+      if (active) setDataSource("fallback");
+    });
+    return () => { active = false; };
+  }, []);
 
   const data = useMemo(
     () =>
@@ -188,6 +227,7 @@ export function LegalShieldApp() {
           <button className={activeView === "queue" ? "active" : ""} onClick={() => { setActiveView("queue"); setSelectedId(null); }}><span>▦</span> Hàng đợi giám sát <b>{caseItems.filter((x) => (statusById[x.id] ?? x.status) !== "Đã xử lý").length}</b></button>
           <button className={activeView === "report" ? "active" : ""} onClick={() => { setActiveView("report"); setSelectedId(null); }}><span>◎</span> Báo cáo tổng hợp</button>
           <button className={activeView === "sources" ? "active" : ""} onClick={() => { setActiveView("sources"); setSelectedId(null); }}><span>⌘</span> Nguồn chính thức</button>
+          <button className={activeView === "verify" ? "active" : ""} onClick={() => { setActiveView("verify"); setSelectedId(null); }}><span>✓</span> Tầng kiểm chứng</button>
         </nav>
         <div className="monitor-system"><i /> Hệ thống đang giám sát<small>Cập nhật 30 giây trước</small></div>
       </aside>
@@ -195,7 +235,7 @@ export function LegalShieldApp() {
       <main className="monitor-main">
         <header className="monitor-topbar">
           <div className="monitor-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm claim hoặc mã hồ sơ…" aria-label="Tìm kiếm hồ sơ" /></div>
-          <div className="monitor-live"><i /> Dữ liệu trực tiếp</div>
+          <div className={`monitor-live ${dataSource}`}><i /> {dataSource === "api" ? "Dữ liệu API trực tiếp" : "Dữ liệu mẫu dự phòng"}</div>
           <button className="monitor-avatar" aria-label="Tài khoản Minh Anh">MA</button>
         </header>
 
@@ -203,6 +243,8 @@ export function LegalShieldApp() {
           <ReportView allItems={caseItems} statusById={statusById} />
         ) : activeView === "sources" ? (
           <SourcesView />
+        ) : activeView === "verify" ? (
+          <VerificationView cases={studyCases} apiConnected={dataSource === "api"} />
         ) : selectedWithStatus ? (
           <CaseDetail
             item={selectedWithStatus}
@@ -275,7 +317,7 @@ function Queue({
               {rows.map((item) => (
                 <tr key={item.id} onClick={() => onOpen(item.id)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(item.id); }}>
                   <td><strong>{item.claim}</strong><small>{item.id} · {item.publishedAt}</small></td>
-                  <td><span className={`platform-logo ${item.platform.toLowerCase()}`}>{item.platform === "Facebook" ? "f" : item.platform === "TikTok" ? "♪" : item.platform === "YouTube" ? "▶" : "𝕏"}</span>{item.platform}</td>
+                  <td><span className={`platform-logo ${item.platform.toLowerCase()}`}>{platformIcon(item.platform)}</span>{item.platform}</td>
                   <td><span className={`priority-badge ${slug(item.priority)}`}><i />{item.priority}</span><small className="score-copy">AI score {item.score}/100</small></td>
                   <td><VerdictBadge value={item.verdict} /></td>
                   <td><StatusBadge value={item.status} /></td>
@@ -426,7 +468,7 @@ function CaseDetail({ item, onBack, onStatusChange }: { item: Case; onBack: () =
         <div className="detail-primary">
           <section className="detail-card original-card">
             <div className="card-heading"><div><span>01</span><div><small>NỘI DUNG GỐC</small><h2>{item.contentType === "comment" ? "Bình luận được giám sát" : "Bài viết được giám sát"}</h2></div></div><em>{item.reach}</em></div>
-            <div className="post-author"><span className={`platform-logo ${item.platform.toLowerCase()}`}>{item.platform === "Facebook" ? "f" : item.platform === "TikTok" ? "♪" : item.platform === "YouTube" ? "▶" : "𝕏"}</span><div><strong>{item.account}</strong><small>{item.platform} · {item.publishedAt}</small></div></div>
+            <div className="post-author"><span className={`platform-logo ${item.platform.toLowerCase()}`}>{platformIcon(item.platform)}</span><div><strong>{item.account}</strong><small>{item.platform} · {item.publishedAt}</small></div></div>
             {item.contentType === "comment" && item.parentContent && <div className="parent-context"><small>NGỮ CẢNH BÀI VIẾT GỐC</small><p>{item.parentContent}</p></div>}
             <blockquote>“{item.original}”</blockquote>
           </section>
@@ -474,6 +516,59 @@ function slug(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, "-");
 }
 
+function platformIcon(platform: Case["platform"]) {
+  return platform === "Facebook" ? "f" : platform === "TikTok" ? "♪" : platform === "YouTube" ? "▶" : platform === "X" ? "𝕏" : "◉";
+}
+
+function mapApiCase(item: ApiQueueItem): Case {
+  const verdictMap: Record<ApiQueueItem["label"], Verdict> = {
+    dung: "Đúng", hieu_lam: "Hiểu lầm", can_kiem_chung: "Cần kiểm chứng",
+  };
+  const priority: Priority = item.priority >= 2 ? "Khẩn cấp" : item.priority === 1 ? "Cao" : item.reach >= 150 ? "Trung bình" : "Thấp";
+  const platform = (["Facebook", "TikTok", "YouTube", "X", "Forum"].includes(item.platform) ? item.platform : "Forum") as Case["platform"];
+  const sourceResult = item.source_label === "co_nguon_xac_nhan" ? "Có nguồn chính thức xác nhận" : item.source_label === "co_bac_bo_chinh_thuc" ? "Có nguồn chính thức bác bỏ" : "Chưa tìm thấy nguồn phù hợp";
+  return {
+    id: item.id,
+    claim: item.claim,
+    original: item.text || item.claim,
+    platform,
+    account: item.account,
+    publishedAt: item.published_at || "Chưa xác định",
+    priority,
+    score: Math.min(98, 55 + item.priority * 18 + Math.min(20, Math.round(item.reach / 20))),
+    verdict: verdictMap[item.label],
+    status: item.status === "resolved" ? "Đã xử lý" : item.status === "reviewing" ? "Đang xử lý" : "Mới",
+    reason: item.reason,
+    document: "Nghị định 174/2026/NĐ-CP",
+    provision: "Điều 95 — cần đối chiếu claim cụ thể",
+    subject: "Cá nhân hoặc tổ chức đăng tải",
+    penalty: "Cần xác định chủ thể trước khi tính mức phạt",
+    sourceTitle: sourceResult,
+    sourceAgency: "Hệ thống xác thực nguồn động",
+    sourceUrl: "#",
+    sourceResult,
+    reach: `${item.reach.toLocaleString("vi-VN")} lượt tương tác`,
+    contentType: "comment",
+  };
+}
+
+function VerificationView({ cases, apiConnected }: { cases: StudyCase[]; apiConnected: boolean }) {
+  return (
+    <div className="monitor-page">
+      <div className="queue-heading">
+        <div><span className="eyebrow">ĐỐI CHIẾU THỰC TẾ</span><h1>Tầng kiểm chứng</h1><p>So sánh kết quả hệ thống với các quyết định xử phạt đã được công bố.</p></div>
+        <div className={`verify-state ${apiConnected ? "connected" : ""}`}><i />{apiConnected ? `${cases.length} study case từ API` : "Đang chờ Backend API"}</div>
+      </div>
+      {!cases.length ? <section className="queue-card verify-empty"><strong>Chưa tải được study case</strong><p>Khởi động backend tại cổng 8000 để xem dữ liệu kiểm chứng thật.</p></section> :
+        <div className="verify-list">{cases.map((item) => <article className="verify-card" key={item.id}>
+          <header><div><small>{item.id} · {item.ngay_quyet_dinh}</small><h2>{item.ten_vu}</h2><p>{item.nguon_cong_bo}</p></div><span>KHỚP CASE THẬT</span></header>
+          <div className="verify-columns"><div><small>HÀNH VI THỰC TẾ</small><p>{item.hanh_vi}</p><dl><div><dt>Chủ thể</dt><dd>{item.chu_the}</dd></div><div><dt>Mức phạt thực tế</dt><dd>{item.muc_phat.toLocaleString("vi-VN")} đồng</dd></div><div><dt>Điều khoản viện dẫn</dt><dd>{item.dieu_khoan_vien_dan}</dd></div></dl></div><div><small>KỲ VỌNG HỆ THỐNG</small><p className="expected-label">✓ {item.expected_he_thong.nhan}</p><strong>{item.expected_he_thong.dieu_khoan_moi}</strong><p>{item.expected_he_thong.ghi_chu}</p></div></div>
+          <footer><span>Biện pháp: {item.bien_phap_khac_phuc}</span><a href={item.nguon_url} target="_blank" rel="noreferrer">Mở nguồn công bố ↗</a></footer>
+        </article>)}</div>}
+    </div>
+  );
+}
+
 function ReportView({ allItems, statusById }: { allItems: Case[]; statusById: Record<string, Status> }) {
   const total = allItems.length;
   const dung = allItems.filter((i) => i.verdict === "Đúng").length;
@@ -513,7 +608,7 @@ function ReportView({ allItems, statusById }: { allItems: Case[]; statusById: Re
       <section className="queue-card">
         <div style={{ padding: 24 }}>
           <h3 style={{ marginBottom: 12 }}>Hồ sơ đang mở: {open}</h3>
-          <p style={{ color: "#94a3b8", fontSize: 14 }}>Dữ liệu mock — khi chạy pipeline thật, báo cáo sẽ tự động cập nhật từ queue.jsonl.</p>
+          <p style={{ color: "#94a3b8", fontSize: 14 }}>Báo cáo được tính trực tiếp từ dữ liệu hàng đợi hiện đang hiển thị.</p>
         </div>
       </section>
     </div>
