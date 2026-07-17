@@ -17,6 +17,20 @@ from .source_classifier import xac_thuc_nguon
 from .guardrails import validate_label, sanitize_injection
 
 
+def analyze_comment(comment: str) -> dict:
+    from pathlib import Path
+    data_dir = Path(__file__).resolve().parent.parent.parent / "data"
+    kg = load_kg(data_dir / "kg" / "kg_nodes.json", data_dir / "kg" / "kg_edges.json")
+    nhan, ly_do, citations = phan_loai_claim(comment, None, kg)
+    return {
+        "id": str(uuid4()),
+        "claim": comment,
+        "label": nhan,
+        "source_label": NhanNguon.CHUA_TIM_THAY_NGUON,
+        "reason": ly_do,
+    }
+
+
 class CommentIngestor:
     """Pipeline: raw comment -> LLM extract -> engine -> runs/queue.jsonl."""
 
@@ -140,3 +154,5 @@ class CommentIngestor:
                 seen_ids.add(comment["id"])
                 appended += 1
         return appended
+
+

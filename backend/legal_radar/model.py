@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from dataclasses import dataclass
@@ -30,6 +30,11 @@ class NhanNguon(str, Enum):
     CO_NGUON_XAC_NHAN = "co_nguon_xac_nhan"
     CO_BAC_BO_CHINH_THUC = "co_bac_bo_chinh_thuc"
     CHUA_TIM_THAY_NGUON = "chua_tim_thay_nguon"
+
+
+# Backward-compatible aliases for B1 API code
+ClaimLabel = NhanPhanLoai
+SourceLabel = NhanNguon
 
 
 # ── Frozen dataclasses (nodes) ──
@@ -257,3 +262,5 @@ def validate_kg(kg: KnowledgeGraph) -> list[str]:
             errors.append(f"Edge target '{e.target}' not found")
 
     return errors
+
+
