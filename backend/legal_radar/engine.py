@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 import math
@@ -159,8 +159,8 @@ def match_hanh_vi(text: str, kg: KnowledgeGraph, min_score: float = 0.8) -> list
 
 # ── P2.3: Phân loại claim ──
 
-_AMOUNT_RANGE_RE = re.compile(r'(\d+)\s*(?:[-–—~])\s*(\d+)\s*(?:triệu|tr)')
-_AMOUNT_SINGLE_RE = re.compile(r'(\d+)\s*(?:triệu|tr)\b')
+_AMOUNT_RANGE_RE = re.compile(r'(\d+)\s*(?:[-\u2013\u2014~])\s*(\d+)\s*(?:trieu|tri\u1ec7u|tr)')
+_AMOUNT_SINGLE_RE = re.compile(r'(\d+)\s*(?:trieu|tri\u1ec7u|tr)\b')
 
 
 def _extract_amounts_millions(text: str) -> list[tuple[int, int]]:
@@ -498,3 +498,4 @@ _NHAN_PRIORITY = {
 
 def xep_uu_tien(items: list[QueueItem]) -> list[QueueItem]:
     return sorted(items, key=lambda x: (-x.priority, _NHAN_PRIORITY.get(x.nhan, 99), x.id))
+
