@@ -27,6 +27,8 @@ type Case = {
   sourceUrl: string;
   sourceResult: string;
   reach: string;
+  contentType?: "post" | "comment";
+  parentContent?: string;
 };
 
 const cases: Case[] = [
@@ -286,7 +288,9 @@ function Queue({
 }
 
 function ManualInput({ onClose, onSave }: { onClose: () => void; onSave: (item: Case) => void }) {
+  const [contentType, setContentType] = useState<"post" | "comment">("post");
   const [content, setContent] = useState("");
+  const [parentContent, setParentContent] = useState("");
   const [platform, setPlatform] = useState<Case["platform"]>("Facebook");
   const [account, setAccount] = useState("");
   const [publishedAt, setPublishedAt] = useState("");
@@ -317,6 +321,8 @@ function ManualInput({ onClose, onSave }: { onClose: () => void; onSave: (item: 
       sourceUrl: "#",
       sourceResult: "Chưa đủ bằng chứng",
       reach: reach.trim() ? `${reach.trim()} lượt tương tác` : "Chưa có số liệu tương tác",
+      contentType,
+      parentContent: contentType === "comment" ? parentContent.trim() : undefined,
     });
   }
 
@@ -326,10 +332,15 @@ function ManualInput({ onClose, onSave }: { onClose: () => void; onSave: (item: 
       <aside className="input-drawer" aria-labelledby="manual-input-title">
         <div className="input-drawer-head"><div><span className="eyebrow">MVP · NHẬP THỦ CÔNG</span><h2 id="manual-input-title">Thêm nội dung giám sát</h2><p>Nhập nguyên văn bài đăng để tạo hồ sơ mới trong hàng đợi.</p></div><button onClick={onClose} aria-label="Đóng">×</button></div>
         <form onSubmit={submit}>
-          <label className="manual-field"><span>Nội dung bài đăng <b>*</b></span><textarea required value={content} onChange={(event) => setContent(event.target.value)} placeholder="Dán nguyên văn nội dung cần kiểm tra…" /><small>{content.length} / 5.000 ký tự</small></label>
+          <div className="input-type-tabs" role="tablist" aria-label="Loại nội dung">
+            <button type="button" role="tab" aria-selected={contentType === "post"} className={contentType === "post" ? "active" : ""} onClick={() => setContentType("post")}><span>▤</span><div><strong>Bài viết</strong><small>Nhập nội dung bài đăng độc lập</small></div></button>
+            <button type="button" role="tab" aria-selected={contentType === "comment"} className={contentType === "comment" ? "active" : ""} onClick={() => setContentType("comment")}><span>◌</span><div><strong>Bình luận</strong><small>Nhập comment và ngữ cảnh bài gốc</small></div></button>
+          </div>
+          {contentType === "comment" && <label className="manual-field"><span>Ngữ cảnh bài viết gốc</span><textarea className="context-textarea" value={parentContent} onChange={(event) => setParentContent(event.target.value)} placeholder="Dán nội dung hoặc tóm tắt bài viết chứa bình luận…" /></label>}
+          <label className="manual-field"><span>{contentType === "post" ? "Nội dung bài viết" : "Nội dung bình luận"} <b>*</b></span><textarea required value={content} onChange={(event) => setContent(event.target.value)} placeholder={contentType === "post" ? "Dán nguyên văn nội dung bài viết cần kiểm tra…" : "Dán nguyên văn bình luận cần kiểm tra…"} /><small>{content.length} / 5.000 ký tự</small></label>
           <div className="manual-grid">
             <label className="manual-field"><span>Nền tảng</span><select value={platform} onChange={(event) => setPlatform(event.target.value as Case["platform"])}><option>Facebook</option><option>TikTok</option><option>YouTube</option><option>X</option></select></label>
-            <label className="manual-field"><span>Tài khoản đăng</span><input value={account} onChange={(event) => setAccount(event.target.value)} placeholder="Tên tài khoản hoặc kênh" /></label>
+            <label className="manual-field"><span>{contentType === "post" ? "Tài khoản đăng" : "Người bình luận"}</span><input value={account} onChange={(event) => setAccount(event.target.value)} placeholder={contentType === "post" ? "Tên tài khoản hoặc kênh" : "Tên tài khoản bình luận"} /></label>
           </div>
           <div className="manual-grid">
             <label className="manual-field"><span>Thời gian đăng</span><input type="datetime-local" value={publishedAt} onChange={(event) => setPublishedAt(event.target.value)} /></label>
@@ -355,8 +366,9 @@ function CaseDetail({ item, onBack, onStatusChange }: { item: Case; onBack: () =
       <div className="detail-grid">
         <div className="detail-primary">
           <section className="detail-card original-card">
-            <div className="card-heading"><div><span>01</span><div><small>NỘI DUNG GỐC</small><h2>Bài đăng được giám sát</h2></div></div><em>{item.reach}</em></div>
+            <div className="card-heading"><div><span>01</span><div><small>NỘI DUNG GỐC</small><h2>{item.contentType === "comment" ? "Bình luận được giám sát" : "Bài viết được giám sát"}</h2></div></div><em>{item.reach}</em></div>
             <div className="post-author"><span className={`platform-logo ${item.platform.toLowerCase()}`}>{item.platform === "Facebook" ? "f" : item.platform === "TikTok" ? "♪" : item.platform === "YouTube" ? "▶" : "𝕏"}</span><div><strong>{item.account}</strong><small>{item.platform} · {item.publishedAt}</small></div></div>
+            {item.contentType === "comment" && item.parentContent && <div className="parent-context"><small>NGỮ CẢNH BÀI VIẾT GỐC</small><p>{item.parentContent}</p></div>}
             <blockquote>“{item.original}”</blockquote>
           </section>
 
