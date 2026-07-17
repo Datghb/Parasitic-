@@ -19,8 +19,7 @@ class NHAN_NGUON_ENUM(str, Enum):
 FORBIDDEN_LABELS = {"vi_pham", "sai", "dung_100", "violation"}
 
 PII_PATTERNS = [
-    (r"\b[A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+\b", "N.V.A"),
-    (r"\b(?:Nguyễn|Trần|Lê|Phạm|Hoàng|Huỳnh|Phan|Vũ|Võ|Đặng|Bùi|Đỗ|Hồ|Ngô|Dương|Lý)\s+[A-ZĐ][a-zđ]+\s+[A-ZĐ][a-zđ]+\b", "N.V.A"),
+    (r"(?:Nguyễn|Trần|Lê|Phạm|Hoàng|Huỳnh|Phan|Vũ|Võ|Đặng|Bùi|Đỗ|Hồ|Ngô|Dương|Lý)\s+[A-ZÀ-ỸĐ][a-zà-ỹđ]*\s+[A-ZÀ-ỸĐ][a-zà-ỹđ]*", "N.V.A"),
     (r"https?://(?:www\.)?facebook\.com/[^\s]+", "[đã ẩn danh]"),
     (r"https?://(?:www\.)?tiktok\.com/@[^\s]+", "[đã ẩn danh]"),
 ]
