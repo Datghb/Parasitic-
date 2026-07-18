@@ -70,5 +70,29 @@
       "nhan": "dung",
       "ghi_chu": "7.5tr nằm trong khung 5-10tr cá nhân NĐ15 — khớp đúng. Vụ xử phạt ngày 06/5/2025, trước khi NĐ174 có hiệu lực hơn 1 năm. Nếu hành vi tương tự xảy ra sau 01/7/2026 → khung mới 10-15tr cá nhân theo Điều 95 NĐ174. Đây là case mẫu cho domain giám sát tin đồn sáp nhập ĐVHC — đối chiếu được với fact_references fr-001/fr-002/fr-003."
     }
+  },
+  {
+    "id": "sc-004",
+    "ten_vu": "Đăng tin sai sự thật \"Việt Nam sáp nhập còn 16 tỉnh, thành\" trên mạng xã hội",
+    "nguon_cong_bo": "Công an tỉnh Phú Thọ (theo Báo Gia Lai)",
+    "ngay_quyet_dinh": "2026-03-05",
+    "so_quyet_dinh": "không công bố số cụ thể",
+    "hanh_vi": "Chia sẻ nội dung kèm ảnh khẳng định \"Việt Nam sẽ tổ chức lại còn 16 tỉnh, thành\" trên mạng xã hội. Bộ Nội vụ đã bác bỏ thông tin này chính thức 1 ngày trước đó (04/3/2026, xem fact-014/fr-003). Người vi phạm đã tự nguyện gỡ bài và cam kết không tái phạm.",
+    "dieu_khoan_vien_dan": "Điểm a khoản 1 Điều 101 NĐ 15/2020/NĐ-CP",
+    "muc_phat": 7500000,
+    "chu_the": "ca_nhan",
+    "bien_phap_khac_phuc": "Buộc gỡ bỏ thông tin sai sự thật",
+    "nguon_url": "https://baogialai.com.vn/bi-phat-75-trieu-vi-dang-tin-sai-su-that-viet-nam-sap-nhap-con-16-tinh-post581564.html",
+    "an_danh": "Cá nhân nữ — Công an tỉnh Phú Thọ xử phạt ngày 05/3/2026",
+    "expected_he_thong": {
+      "dieu_khoan_cu": "điểm a, khoản 1, Điều 101 — NĐ 15/2020/NĐ-CP",
+      "dieu_khoan_moi": "điểm a, khoản 1, Điều 95 — NĐ 174/2026/NĐ-CP",
+      "muc_phat_to_chuc_cu": [10000000, 20000000],
+      "muc_phat_ca_nhan_cu": [5000000, 10000000],
+      "muc_phat_to_chuc_moi": [20000000, 30000000],
+      "muc_phat_ca_nhan_moi": [10000000, 15000000],
+      "nhan": "dung",
+      "ghi_chu": "Case chính cho domain ĐVHC — đây là vụ xử phạt thật khớp trực tiếp với tin đồn fr-003 (\"còn 16 tỉnh\"), không phải case sáp nhập chung chung như sc-003. Timeline chặt: Bộ Nội vụ bác bỏ chính thức 04/3/2026 (fact-014) → cá nhân vẫn đăng/chia sẻ → bị phạt 05/3/2026, chỉ 1 ngày sau. 7.5tr nằm trong khung 5-10tr cá nhân NĐ15 (trước hiệu lực NĐ174 hơn 1 năm). Nếu hành vi tương tự xảy ra sau 01/7/2026 → khung mới 10-15tr cá nhân theo Điều 95 NĐ174."
+    }
   }
 ]

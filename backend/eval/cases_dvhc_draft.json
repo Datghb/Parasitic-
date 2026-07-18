@@ -62,10 +62,11 @@
   {
     "id": "ev-dvhc-09",
     "group": "study_case",
-    "comment": "binh luan tieu cuc sai su that ve viec sap nhap tinh tren mang xa hoi",
+    "comment": "dang tin sai su that viet nam sap nhap con 16 tinh thanh tren mang xa hoi",
     "expected_label": "dung",
     "expected_muc_phat_match": true,
-    "expected_study_case_id": "sc-003"
+    "expected_study_case_id": "sc-004",
+    "expected_fact_ref_match": "fr-003"
   },
   {
     "id": "ev-dvhc-10",

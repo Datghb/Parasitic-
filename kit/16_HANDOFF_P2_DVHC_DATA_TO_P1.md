@@ -55,4 +55,12 @@ Tất cả JSON đã valid, 315 test hiện tại (`backend/tests/`) vẫn xanh 
 ## 5. Việc P2 sẽ làm tiếp khi P1 xong
 
 - Chạy lại toàn bộ 45 comment qua engine thật, đối chiếu nhãn ra có đúng kỳ vọng (đúng/hiểu lầm/cần kiểm chứng) như thiết kế không — hiện tại mới verify được bằng mắt + `classify_tier()`, chưa chạy qua `match_fact_ref()` thật vì hàm chưa tồn tại.
-- P2.8: verify lại `sc-003.expected_he_thong` sau khi engine thật chạy case này (hiện đối chiếu thủ công với Điều 4 khoản 3 NĐ174, số liệu khớp nhưng chưa qua code).
+- P2.8: verify lại `sc-004.expected_he_thong` sau khi engine thật chạy case này (hiện đối chiếu thủ công với Điều 4 khoản 3 NĐ174, số liệu khớp nhưng chưa qua code).
+- Sau khi engine thật chạy được: tính confusion matrix + macro-F1 + Recall("hieu_lam") trên 45 comment, đề xuất thêm điều kiện `macro_f1 ≥ 0.7` và `Recall("hieu_lam") ≥ 0.8` vào Gate G2 (không chỉ "JSON valid, load được" như hiện tại).
+
+## 6. Cập nhật sau lượt review lần 2 (đối chiếu lại theo checklist P2.1→P2.8 chi tiết)
+
+- **`data/facts/_verify_log.md`** (mới) — ghi lại ai/khi nào/verify bằng nguồn nào cho từng FactRef, kể cả 1 lỗi đã tự phát hiện và sửa (fr-003 ban đầu gán nhầm ngày đợt tin đồn tái phát lần 2).
+- **`sc-004`** (mới, `study_cases.json`) — case xử phạt thật **khớp trực tiếp** tin đồn "còn 16 tỉnh" (fr-003): cá nhân ở Phú Thọ bị phạt 7.5tr ngày 05/3/2026, chỉ 1 ngày sau khi Bộ Nội vụ bác bỏ lại (04/3/2026, fact-014). Đây mới là case chính cho demo — `sc-003` (Tuổi Trẻ, case sáp nhập tỉnh chung chung, không khớp variant tin đồn nào) giữ lại làm case phụ. `cases_dvhc_draft.json` (ev-dvhc-09) đã trỏ sang `sc-004`.
+- **`comments_batch_2.json`** viết lại: chia 3 tầng khó (5 câu dùng đúng từ khóa / 5 câu diễn đạt vòng không dùng đúng cụm / 5 câu teencode+emoji), và thêm field `loai_loi: "fact" | "luat"` phân biệt lỗi sai sự kiện (mâu thuẫn FactRef) với lỗi sai luật (nhầm mức phạt tổ chức/cá nhân) — 12 câu `fact`, 3 câu `luat`. P1 lưu ý field này khi thiết kế eval để biết đang test tầng nào (`match_fact_ref` hay `match_hanh_vi`/`phan_loai_claim`).
+- Chưa làm (do cần engine thật): confusion matrix, macro-F1, Recall("hieu_lam") — xem mục 5.
