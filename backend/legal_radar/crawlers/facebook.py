@@ -11,7 +11,7 @@ import json
 import logging
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import requests
@@ -41,12 +41,12 @@ def _bd_headers() -> dict[str, str]:
 # ── Discover API: keyword → URLs ──
 
 
-def _discover_urls(queries: list[str], needed: int) -> list[str]:
-    """Use Bright Data Discover API to find Facebook post URLs by keyword."""
-    urls: list[str] = []
+def _discover_urls(queries: list[str], needed: int) -> list[dict]:
+    """Use Bright Data Discover API to find Facebook URLs. Returns full result items."""
+    items: list[dict] = []
     seen: set[str] = set()
     for query in queries:
-        if len(urls) >= needed:
+        if len(items) >= needed:
             break
         logger.info("Discover: %s", query)
         try:
@@ -77,30 +77,17 @@ def _discover_urls(queries: list[str], needed: int) -> list[str]:
         for item in results:
             link = item.get("link", "")
             if "facebook.com" not in link:
-                logger.debug("Skip non-facebook: %s", link)
-                continue
-            if not _is_post_url(link):
-                logger.debug("Skip non-post URL: %s", link)
                 continue
             dedup = re.sub(r"[?&].*", "", link)
             if dedup in seen:
                 continue
             seen.add(dedup)
-            urls.append(link)
-            if len(urls) >= needed:
+            items.append(item)
+            if len(items) >= needed:
                 break
-    logger.info("Discovered %d post URLs from %d queries", len(urls), len(queries))
-    return urls
+    logger.info("Discovered %d items from %d queries", len(items), len(queries))
+    return items
 
-
-def _is_post_url(url: str) -> bool:
-    """Check if URL looks like a scrapable Facebook content URL."""
-    if "facebook.com" not in url:
-        return False
-    skip_patterns = ["/login", "/help", "/policies", "/privacy", "/terms", "/about"]
-    if any(pat in url for pat in skip_patterns):
-        return False
-    return True
 
 
 def _poll_discover(task_id: str) -> list[dict]:
@@ -241,8 +228,8 @@ def crawl_facebook(
 ) -> list[dict]:
     """Crawl Facebook posts via Bright Data Discover + Scraper API.
 
-    Flow: keywords → Discover API → post URLs → scrape content + comments.
-    No Playwright or browser automation required.
+    Flow: keywords → Discover API → scrape content + comments.
+    Falls back to Discover metadata (title + description) if scraper fails.
     """
     t_start = time.time()
     settings = get_settings()
@@ -254,31 +241,52 @@ def crawl_facebook(
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    urls = _discover_urls(queries, max_posts)
-    if not urls:
+    discover_items = _discover_urls(queries, max_posts)
+    if not discover_items:
         logger.error("No URLs found after %.1fs", time.time() - t_start)
         return []
 
     results: list[dict] = []
     failed = 0
-    logger.info("Crawling %d posts...", len(urls))
-    with ThreadPoolExecutor(max_workers=min(len(urls), 3)) as pool:
-        futures = {pool.submit(_crawl_one_post, u): u for u in urls}
-        for future in as_completed(futures):
-            if len(results) >= max_posts:
-                break
-            try:
-                result = future.result()
-                if result:
-                    results.append(result)
-                    with open(out, "a", encoding="utf-8") as f:
-                        f.write(json.dumps(result, ensure_ascii=False) + "\n")
-                    logger.info("[%d/%d] %s - %d comments", len(results), max_posts, result["author"], len(result["comments"]))
-                else:
-                    failed += 1
-            except Exception as exc:
-                failed += 1
-                logger.warning("Error: %s", exc)
+    logger.info("Processing %d discovered items...", len(discover_items))
 
-    logger.info("Done! %d/%d posts scraped, %d failed in %.1fs -> %s", len(results), max_posts, failed, time.time() - t_start, out)
+    for item in discover_items:
+        if len(results) >= max_posts:
+            break
+        url = item.get("link", "")
+        title = item.get("title", "")
+        description = item.get("description", "")
+
+        scraped = _crawl_one_post(url)
+        if scraped:
+            results.append(scraped)
+            with open(out, "a", encoding="utf-8") as f:
+                f.write(json.dumps(scraped, ensure_ascii=False) + "\n")
+            logger.info("[%d/%d] scraped %s - %d comments", len(results), max_posts, scraped["author"], len(scraped["comments"]))
+        else:
+            fallback = {
+                "platform": "facebook",
+                "content_type": "post",
+                "text": description or title,
+                "author": title[:50] if title else "Unknown",
+                "author_id": "",
+                "author_url": url,
+                "author_handle": "",
+                "page_followers": None,
+                "page_verified": False,
+                "url": url,
+                "timestamp": "",
+                "engagement": {"likes": 0, "shares": 0, "comments": 0},
+                "comments": [],
+            }
+            if fallback["text"] and len(fallback["text"]) >= 20:
+                results.append(fallback)
+                with open(out, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(fallback, ensure_ascii=False) + "\n")
+                logger.info("[%d/%d] fallback from Discover metadata: %s", len(results), max_posts, title[:60])
+            else:
+                failed += 1
+                logger.warning("Skipped %s — scraper failed and no Discover metadata", url[:80])
+
+    logger.info("Done! %d/%d items, %d failed in %.1fs -> %s", len(results), max_posts, failed, time.time() - t_start, out)
     return results
