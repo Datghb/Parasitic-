@@ -1,0 +1,7 @@
+theoria-lab.io.vn {
+    reverse_proxy frontend:3000
+}
+
+api.theoria-lab.io.vn {
+    reverse_proxy backend:8000
+}

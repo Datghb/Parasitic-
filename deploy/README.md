@@ -14,10 +14,36 @@ cp frontend/.env.example frontend/.env
 
 Hai file `.env` chứa cấu hình riêng và secret, không được commit lên Git.
 
-Chạy hai service từ thư mục root của repo:
+## DNS và HTTPS
+
+Trước khi chạy Compose, cả hai domain phải có DNS `A record` trỏ về địa chỉ
+IPv4 của VPS:
+
+- `theoria-lab.io.vn`
+- `api.theoria-lab.io.vn`
+
+Nếu DNS chưa trỏ đúng, Caddy sẽ không thể lấy chứng chỉ HTTPS từ Let's Encrypt.
+
+## Firewall
+
+Chỉ cần mở hai cổng public trên VPS:
+
+- `80/tcp`
+- `443/tcp`
+
+Không cần mở cổng `3000` hoặc `8000`. Frontend và backend chỉ được truy cập
+trong Docker network nội bộ thông qua Caddy.
+
+## Khởi chạy
+
+Chạy các service từ thư mục root của repo:
 
 ```bash
 docker compose -f deploy/compose.yaml up --build -d
 ```
 
-Backend được publish tại cổng `8000`; frontend được publish tại cổng `3000`.
+Caddy tự động lấy và gia hạn chứng chỉ HTTPS. Chứng chỉ được lưu trong named
+volume `caddy_data`; không xóa volume này khi deploy lại.
+
+Lệnh `docker compose down` thông thường không xóa named volume. Không sử dụng
+`docker compose down -v` trừ khi chủ động muốn xóa dữ liệu chứng chỉ.
