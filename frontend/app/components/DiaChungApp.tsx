@@ -53,7 +53,7 @@ const verdicts: Array<"Tất cả" | Verdict> = ["Tất cả", "Đúng", "Hiểu
 const statuses: Array<"Tất cả" | Status> = ["Tất cả", "Mới", "Đang xử lý", "Đã xử lý"];
 const priorityRank: Record<Priority, number> = { "Khẩn cấp": 4, Cao: 3, "Trung bình": 2, Thấp: 1 };
 
-export function LegalShieldApp() {
+export function DiaChungApp() {
   const [caseItems, setCaseItems] = useState<Case[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showInput, setShowInput] = useState(false);
@@ -299,7 +299,7 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
   });
   const points = days.map((day, index) => `${36 + index * 116},${168 - day.value * 1.25}`);
   const linePath = points.length ? `M${points.join(" L")}` : "";
-  const peak = days.reduce((best, day, index) => day.value > best.value ? { ...day, index } : best, { value: -1, index: 0, label: "" });
+  const peak = days.reduce<{ label: string; value: number; index: number }>((best, day, index) => day.value > best.value ? { ...day, index } : best, { value: -1, index: 0, label: "" });
   const signed = (value: number) => `${value >= 0 ? "+" : ""}${value}%`;
   const trendClass = (value: number) => value >= 0 ? "up" : "down";
 
@@ -608,7 +608,7 @@ function Queue({
               ))}
             </tbody>
           </table>
-          {visibleRows.length === 0 && <div className="queue-empty"><strong>Chưa có hồ sơ trong hàng đợi</strong><span>Bấm "Quét MXH" để thu thập dữ liệu từ mạng xã hội.</span></div>}
+          {visibleRows.length === 0 && <div className="queue-empty"><strong>Chưa có hồ sơ trong hàng đợi</strong><span>Bấm &ldquo;Quét MXH&rdquo; để thu thập dữ liệu từ mạng xã hội.</span></div>}
         </div>
         <footer className="queue-footer">Hiển thị <strong>{visibleRows.length}</strong> / {allItems.length} hồ sơ</footer>
       </section>
