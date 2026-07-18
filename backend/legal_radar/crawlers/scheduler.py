@@ -12,6 +12,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from ..paths import runs_dir
 from .facebook import crawl_facebook
 from .youtube import crawl_youtube
 
@@ -28,7 +29,7 @@ CRAWL_KEYWORDS: list[str] = [
 ]
 YOUTUBE_MAX_RESULTS = 10
 
-_DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent.parent.parent.parent / "runs"
+_DEFAULT_OUTPUT_DIR = runs_dir()
 _DEFAULT_OUTPUT_FILE = "crawled_raw.jsonl"
 
 

@@ -16,6 +16,21 @@ def test_health() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_cors_preflight_allows_production_frontend() -> None:
+    response = client.options(
+        "/api/crawl",
+        headers={
+            "Origin": "https://theoria-lab.io.vn",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert response.status_code == 200
+    assert (
+        response.headers["access-control-allow-origin"]
+        == "https://theoria-lab.io.vn"
+    )
+
+
 def test_queue_returns_fixture_backed_items() -> None:
     response = client.get("/api/queue")
     assert response.status_code == 200

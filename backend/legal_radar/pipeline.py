@@ -20,13 +20,15 @@ from .engine import phan_loai_claim, match_hanh_vi, muc_phat_cho_chu_the, normal
 from .providers import GeminiProvider, GroqProvider, OpenRouterProvider
 from .source_classifier import xac_thuc_nguon
 from .guardrails import validate_label, sanitize_injection
+from .paths import data_dir as project_data_dir
+from .paths import repo_root
+from .paths import runs_dir as project_runs_dir
 
 logger = logging.getLogger(__name__)
 
 
 def analyze_comment(comment: str) -> dict:
-    from pathlib import Path
-    data_dir = Path(__file__).resolve().parent.parent.parent / "data"
+    data_dir = project_data_dir()
     kg = load_kg(data_dir / "kg" / "kg_nodes.json", data_dir / "kg" / "kg_edges.json")
     nhan, ly_do, citations = phan_loai_claim(comment, None, kg)
     return {
@@ -236,11 +238,11 @@ class CommentIngestor:
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent
+    return repo_root()
 
 
 def _queue_path() -> Path:
-    return _repo_root() / "runs" / "queue.jsonl"
+    return project_runs_dir() / "queue.jsonl"
 
 
 def _load_seen_queue_ids(path: Path) -> set[str]:
@@ -274,7 +276,7 @@ def _default_provider():
 
 
 def _build_crawled_ingestor(queue_path: Path) -> CommentIngestor:
-    data_dir = _repo_root() / "data"
+    data_dir = project_data_dir()
     kg = load_kg(
         data_dir / "kg" / "kg_nodes.json",
         data_dir / "kg" / "kg_edges.json",
