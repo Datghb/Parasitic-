@@ -5,6 +5,8 @@ services:
       dockerfile: deploy/Dockerfile.backend
     env_file:
       - ../backend/.env
+    volumes:
+      - runs_data:/app/runs
     restart: unless-stopped
 
   frontend:
@@ -36,3 +38,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  runs_data:
