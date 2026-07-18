@@ -38,9 +38,9 @@ def _try_live_crawl(keywords, max_posts, output_path):
             logger.warning("Live crawl failed: %s", exc)
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
-    thread.join(timeout=45)
+    thread.join(timeout=90)
     if thread.is_alive():
-        error = "Crawl timeout (45s)"
+        error = "Crawl timeout (90s)"
     return result, error
 
 

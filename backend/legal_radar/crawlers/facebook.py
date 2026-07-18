@@ -27,14 +27,8 @@ BD_COMMENTS_DATASET = "gd_lkay758p1eanlolqw8"
 
 FALLBACK_QUERIES = [
     "sáp nhập tỉnh",
-    "giảm đơn vị hành chính",
-    "34 tỉnh còn 16",
-    "sáp nhập đơn vị hành chính cấp tỉnh",
-    "gộp tỉnh 2026",
-    "giảm số lượng tỉnh",
-    "Bộ Nội vụ sáp nhập",
+    "đơn vị hành chính sáp nhập",
     "tin đồn sáp nhập tỉnh",
-    "sắp xếp đơn vị hành chính",
 ]
 
 
@@ -66,7 +60,7 @@ def _discover_urls(queries: list[str], needed: int) -> list[str]:
                     "language": "vi",
                     "country": "VN",
                 },
-                timeout=30,
+                timeout=15,
             )
         except requests.RequestException:
             continue
@@ -100,13 +94,13 @@ def _is_post_url(url: str) -> bool:
 
 def _poll_discover(task_id: str) -> list[dict]:
     """Poll Discover API until done. Returns list of result items."""
-    for _ in range(20):
-        time.sleep(3)
+    for _ in range(10):
+        time.sleep(2)
         try:
             r = requests.get(
                 f"{BD_DISCOVER_URL}?task_id={task_id}",
                 headers=_bd_headers(),
-                timeout=30,
+                timeout=15,
             )
         except requests.RequestException:
             continue

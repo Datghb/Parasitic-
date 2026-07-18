@@ -88,13 +88,13 @@ def _build_source_query(keywords: list[str]) -> list[str]:
 
 def _poll_discover(task_id: str) -> list[dict]:
     """Poll Bright Data Discover API until done. Returns list of result items."""
-    for _ in range(20):
-        time.sleep(3)
+    for _ in range(10):
+        time.sleep(2)
         try:
             r = http_requests.get(
                 f"{BD_DISCOVER_URL}?task_id={task_id}",
                 headers=_bd_headers(),
-                timeout=30,
+                timeout=15,
             )
         except http_requests.RequestException:
             continue
@@ -166,7 +166,7 @@ def search_brightdata(
                     "language": "vi",
                     "country": "VN",
                 },
-                timeout=30,
+                timeout=15,
             )
         except http_requests.RequestException as exc:
             logger.warning("BrightData Discover request error: %s", exc)
