@@ -31,10 +31,10 @@ test("server-renders the Legal Radar strategic market dashboard", async () => {
   const html = await response.text();
   assert.match(html, /<title>Legal Radar — Giám sát nội dung mạng xã hội<\/title>/i);
   assert.match(html, /Toàn cảnh thị trường thông tin/);
-  assert.match(html, /Xung nhịp rủi ro pháp lý/);
-  assert.match(html, /Phân bổ theo nền tảng/);
+  assert.match(html, /Xung nhịp rủi ro thị trường/);
+  assert.match(html, /Top chủ đề pháp lý nóng/);
   assert.match(html, /Heatmap điểm nóng/);
-  assert.match(html, /Knowledge Graph nổi bật/);
+  assert.match(html, /Nhận định điều hành/);
   assert.match(html, /Hàng đợi giám sát/);
   assert.match(html, /Tầng kiểm chứng/);
   assert.match(html, /Dữ liệu mẫu dự phòng/);

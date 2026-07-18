@@ -275,7 +275,7 @@ export function LegalShieldApp() {
         </header>
 
         {activeView === "market" ? (
-          <MarketOverview allItems={caseItems.map((item) => ({ ...item, status: statusById[item.id] ?? item.status }))} />
+          <MarketOverviewV2 allItems={caseItems.map((item) => ({ ...item, status: statusById[item.id] ?? item.status }))} />
         ) : activeView === "report" ? (
           <ReportView allItems={caseItems} statusById={statusById} />
         ) : activeView === "sources" ? (
@@ -324,6 +324,129 @@ export function LegalShieldApp() {
   );
 }
 
+function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
+  const [period, setPeriod] = useState<1 | 7 | 30>(7);
+  const rows = allItems.map((item) => ({ item, date: parseCaseDate(item.publishedAt) }));
+  const dated = rows.filter((row): row is { item: Case; date: Date } => Boolean(row.date));
+  const latest = dated.reduce((value, row) => row.date > value ? row.date : value, new Date());
+  const start = new Date(latest);
+  start.setDate(start.getDate() - period + 1);
+  const previousStart = new Date(start);
+  previousStart.setDate(previousStart.getDate() - period);
+  const current = rows.filter((row) => !row.date || row.date >= start).map((row) => row.item);
+  const previous = rows.filter((row) => row.date && row.date >= previousStart && row.date < start).map((row) => row.item);
+  const average = (items: Case[]) => items.length ? Math.round(items.reduce((sum, item) => sum + item.score, 0) / items.length) : 0;
+  const delta = (now: number, before: number) => before ? Math.round(((now - before) / before) * 100) : now ? 100 : 0;
+  const riskIndex = average(current);
+  const riskDelta = delta(riskIndex, average(previous));
+  const urgent = current.filter((item) => item.priority === "Khẩn cấp").length;
+  const urgentDelta = delta(urgent, previous.filter((item) => item.priority === "Khẩn cấp").length);
+
+  const topicMap = (items: Case[]) => items.reduce((map, item) => {
+    const topic = legalTopicName(item.document);
+    map.set(topic, (map.get(topic) || 0) + 1);
+    return map;
+  }, new Map<string, number>());
+  const currentTopics = topicMap(current);
+  const previousTopics = topicMap(previous);
+  const topics = Array.from(currentTopics).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const maxTopic = Math.max(1, ...topics.map(([, count]) => count));
+  const hotTopics = topics.filter(([, count]) => count >= maxTopic * .5).length;
+  const platforms = (["Facebook", "TikTok", "YouTube", "X", "Forum"] as Case["platform"][]);
+  const heatMax = Math.max(1, ...topics.flatMap(([topic]) => platforms.map((platform) =>
+    current.filter((item) => legalTopicName(item.document) === topic && item.platform === platform).length
+  )));
+  const topPlatform = platforms.map((platform) => ({
+    platform,
+    count: current.filter((item) => item.platform === platform).length,
+  })).sort((a, b) => b.count - a.count)[0]?.platform || "Facebook";
+
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(latest);
+    date.setDate(date.getDate() - 6 + index);
+    const matches = dated.filter((row) => row.date.toDateString() === date.toDateString()).map((row) => row.item);
+    return { label: `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`, value: average(matches) };
+  });
+  const points = days.map((day, index) => `${36 + index * 116},${168 - day.value * 1.25}`);
+  const linePath = points.length ? `M${points.join(" L")}` : "";
+  const peak = days.reduce((best, day, index) => day.value > best.value ? { ...day, index } : best, { value: -1, index: 0, label: "" });
+  const signed = (value: number) => `${value >= 0 ? "+" : ""}${value}%`;
+  const trendClass = (value: number) => value >= 0 ? "up" : "down";
+
+  return (
+    <div className="monitor-page market-page market-v2">
+      <div className="market-title market-v2-title">
+        <div><small>BẢNG ĐIỀU KHIỂN CHIẾN LƯỢC</small><h1>Toàn cảnh thị trường thông tin</h1><p>Giúp lãnh đạo theo dõi rủi ro pháp lý &amp; sai lệch thông tin, chủ động ra quyết định kịp thời.</p></div>
+        <div className="period-switch" aria-label="Khoảng thời gian">
+          <button className={period === 1 ? "active" : ""} onClick={() => setPeriod(1)}>24 giờ</button>
+          <button className={period === 7 ? "active" : ""} onClick={() => setPeriod(7)}>7 ngày</button>
+          <button className={period === 30 ? "active" : ""} onClick={() => setPeriod(30)}>30 ngày</button>
+          <span className="period-calendar">▣</span>
+        </div>
+      </div>
+
+      <section className="market-v2-kpis">
+        <article><i className="shield-icon">◇</i><div><small>Risk Index</small><strong>{riskIndex}<b>/100</b></strong><span className={trendClass(riskDelta)}>↑ {signed(riskDelta)} <em>so với kỳ trước</em></span></div></article>
+        <article><i className="warning-icon">△</i><div><small>Claim rủi ro cao</small><strong>{urgent}</strong><span className={trendClass(urgentDelta)}>↑ {signed(urgentDelta)} <em>so với kỳ trước</em></span></div></article>
+        <article><i className="search-icon">⌕</i><div><small>Chủ đề nóng</small><strong>{hotTopics}</strong><span className="up">↑ {topics.length} <em>chủ đề đang theo dõi</em></span></div></article>
+        <article><i className="trend-icon">⌁</i><div><small>Biến động {period} ngày</small><strong>{signed(riskDelta)}</strong><span className={trendClass(riskDelta)}>{riskDelta >= 0 ? "xu hướng tăng" : "xu hướng giảm"}</span></div></article>
+      </section>
+
+      <div className="market-v2-grid">
+        <section className="chart-panel risk-v2">
+          <header><h2>Xung nhịp rủi ro thị trường <small>ⓘ</small></h2><span className={trendClass(riskDelta)}>↑ {signed(riskDelta)} <em>so với kỳ trước</em></span><b>⋮</b></header>
+          <div className="risk-v2-legend"><span><i /> Risk Index</span><span><i /> Vùng rủi ro cao</span></div>
+          <div className="risk-v2-chart">
+            <div className="risk-y">{[100, 75, 50, 25, 0].map((value) => <span key={value}>{value}</span>)}</div>
+            <svg viewBox="0 0 768 190" preserveAspectRatio="none" aria-label="Biểu đồ Risk Index 7 ngày">
+              <defs><linearGradient id="riskAreaV2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ed198b" stopOpacity=".24" /><stop offset="1" stopColor="#ed198b" stopOpacity="0" /></linearGradient></defs>
+              {[18, 55, 92, 129, 166].map((y) => <line key={y} x1="36" x2="752" y1={y} y2={y} className="grid-line" />)}
+              <line x1="36" x2="752" y1="73" y2="73" className="threshold-line" />
+              <path d={`${linePath} L732,168 L36,168 Z`} className="risk-area" />
+              <path d={linePath} className="risk-line" />
+              <line x1={36 + peak.index * 116} x2={36 + peak.index * 116} y1="18" y2="168" className="peak-line" />
+              <circle cx={36 + peak.index * 116} cy={168 - Math.max(0, peak.value) * 1.25} r="6" className="peak-dot" />
+            </svg>
+            <div className="peak-note">Đột biến: {topics[0]?.[0]?.toLowerCase() || "chưa xác định"}</div>
+            <div className="risk-x">{days.map((day) => <span key={day.label}>{day.label}</span>)}</div>
+          </div>
+        </section>
+
+        <section className="chart-panel topics-v2">
+          <header><h2>Top chủ đề pháp lý nóng</h2><b>⋮</b></header>
+          <div className="topics-v2-list">{topics.map(([topic, count]) => {
+            const change = delta(count, previousTopics.get(topic) || 0);
+            return <div key={topic}><strong>{topic}</strong><i><b style={{ width: `${Math.max(8, count / maxTopic * 100)}%` }} /></i><em>{count}</em><span className={trendClass(change)}>{change >= 0 ? "↑" : "↓"} {Math.abs(change)}%</span></div>;
+          })}</div>
+          <footer><span>● &nbsp;Chỉ số chủ đề (số hồ sơ)</span><span>so với kỳ trước</span></footer>
+        </section>
+
+        <section className="chart-panel heatmap-v2">
+          <header><h2>Heatmap điểm nóng <small>ⓘ</small></h2><b>⋮</b></header>
+          <div className="heat-v2-platforms"><span>Chủ đề</span>{platforms.map((platform) => <span key={platform}>{platformIcon(platform)} {platform === "Forum" ? "Khác" : platform}</span>)}</div>
+          <div className="heat-v2-body">{topics.map(([topic]) => <div key={topic}><strong>{topic}</strong>{platforms.map((platform) => {
+            const count = current.filter((item) => legalTopicName(item.document) === topic && item.platform === platform).length;
+            const level = Math.min(4, 4 - Math.round(count / heatMax * 4));
+            return <i key={platform} className={`heat-level-${level}`} title={`${topic} · ${platform}: ${count} hồ sơ`} />;
+          })}</div>)}</div>
+          <div className="heat-v2-legend"><span>■ Rất cao</span><span>■ Cao</span><span>■ Trung bình</span><span>■ Thấp</span><span>■ Rất thấp</span></div>
+        </section>
+
+        <section className="chart-panel executive-v2">
+          <header><h2><span>✪</span> Nhận định điều hành</h2><b>⋮</b></header>
+          <div className="executive-v2-list">
+            <p><i>◎</i><span>Rủi ro đang tập trung vào nhóm <b>{topics[0]?.[0] || "chưa xác định"}</b>.</span></p>
+            <p><i>{platformIcon(topPlatform)}</i><span><b>{topPlatform}</b> là nền tảng ghi nhận nhiều tín hiệu nhất trong kỳ.</span></p>
+            <p><i>△</i><span><b>{urgent || 0} claim</b> ở mức khẩn cấp cần được ưu tiên xử lý.</span></p>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// Kept temporarily as a reference while the compact dashboard rolls out.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function MarketOverview({ allItems }: { allItems: Case[] }) {
   const [period, setPeriod] = useState<1 | 7 | 30>(7);
   const parsedItems = allItems.map((item) => ({ item, date: parseCaseDate(item.publishedAt) }));
@@ -456,7 +579,19 @@ function MarketOverview({ allItems }: { allItems: Case[] }) {
 
 function parseCaseDate(value: string) {
   const match = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  return match ? new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1])) : null;
+  if (match) return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function legalTopicName(document: string) {
+  const value = document.toLocaleLowerCase("vi");
+  if (/tín dụng|ngân hàng|bank/.test(value)) return "Tổ chức tín dụng";
+  if (/căn cước|cư trú/.test(value)) return "Cư trú";
+  if (/bảo hiểm|bhyt|y tế/.test(value)) return "BHYT";
+  if (/lao động|việc làm/.test(value)) return "Lao động";
+  if (/giao thông|đường bộ|phương tiện/.test(value)) return "Giao thông";
+  return document.replace(/\s*\(.+?\)\s*/g, " ").trim().slice(0, 34) || "Khác";
 }
 
 function platformGradient(counts: Array<{ platform: Case["platform"]; count: number }>, total: number) {
