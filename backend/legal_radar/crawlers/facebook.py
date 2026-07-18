@@ -131,6 +131,11 @@ def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
     except requests.Timeout:
         logger.warning("Scrape POST timeout for %s", url)
         return []
+    except requests.RequestException as exc:
+        logger.warning("Scrape POST error for %s: %s", url, exc)
+        return []
+
+    logger.info("Scrape %s got HTTP %s", url[:80], resp.status_code)
 
     if resp.status_code == 200:
         data = resp.json()
@@ -143,8 +148,8 @@ def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
         sid = data.get("snapshot_id")
         if not sid:
             return []
-        for i in range(5):
-            time.sleep(2)
+        for i in range(15):
+            time.sleep(3)
             try:
                 r = requests.get(f"{BD_BASE_URL}/snapshot/{sid}", headers=_bd_headers(), timeout=15)
             except requests.Timeout:
