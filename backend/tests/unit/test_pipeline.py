@@ -293,7 +293,7 @@ class TestIngestCrawledItems:
         }
 
         with patch(
-            "legal_radar.source_search.dynamic_search_gemini",
+            "legal_radar.source_search.search_brightdata",
             return_value=[],
         ), patch(
             "legal_radar.pipeline.xac_thuc_nguon",
