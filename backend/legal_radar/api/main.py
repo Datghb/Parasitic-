@@ -29,7 +29,7 @@ app.add_middleware(
     # Keep local development usable even when FRONTEND_ORIGIN is overridden
     # with only production domains in the process environment.
     allow_origin_regex=r"https://.*\.chatgpt\.site|http://(?:localhost|127\.0\.0\.1)(?::\d+)?",
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,
 )

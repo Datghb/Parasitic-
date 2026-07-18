@@ -31,24 +31,48 @@ def analyze_comment(comment: str) -> dict:
     data_dir = project_data_dir()
     kg = load_kg(data_dir / "kg" / "kg_nodes.json", data_dir / "kg" / "kg_edges.json")
     result = classify_claim_full(comment, None, kg)
+
+    nhan_nguon = NhanNguon.CHUA_TIM_THAY_NGUON
+    source_title = ""
+    source_url = ""
+    source_agency = ""
+
+    try:
+        from .source_search import dynamic_search_gemini
+        search_results = dynamic_search_gemini(result.citations or [comment], "")
+        from .source_classifier import xac_thuc_nguon
+        nhan_nguon, matched_docs, ly_do_nguon = xac_thuc_nguon(
+            result.citations or [comment], "", search_results,
+        )
+        if matched_docs:
+            doc = matched_docs[0]
+            source_title = doc.get("tieu_de", "") if isinstance(doc, dict) else getattr(doc, "tieu_de", "")
+            source_url = doc.get("url", "") if isinstance(doc, dict) else getattr(doc, "url", "")
+            source_agency = doc.get("nguon", "") if isinstance(doc, dict) else getattr(doc, "nguon", "")
+    except Exception as exc:
+        logger.warning("Source search failed in analyze_comment: %s", exc)
+
     return {
         "id": str(uuid4()),
         "claim": comment,
         "label": result.nhan,
-        "source_label": NhanNguon.CHUA_TIM_THAY_NGUON,
+        "source_label": nhan_nguon,
         "reason": result.ly_do,
         "citations": result.citations,
         "subject": result.subject,
         "provision": result.provision,
         "penalty": result.penalty,
         "document": result.document,
+        "source_title": source_title,
+        "source_url": source_url,
+        "source_agency": source_agency,
         "platform": "Manual",
         "account": "",
         "published_at": "",
         "reach": 0,
         "status": "new",
         "score": _compute_score(result.nhan, 0, 0),
-        "confidence": _compute_confidence(result.nhan, NhanNguon.CHUA_TIM_THAY_NGUON, bool(result.citations)),
+        "confidence": _compute_confidence(result.nhan, nhan_nguon, bool(result.citations)),
     }
 
 
@@ -412,7 +436,7 @@ def ingest_crawled_items(items: list[dict]) -> list[QueueItem]:
                 if not candidate.get("text", "").strip():
                     continue
                 try:
-                    queue_item = ingestor.process_one(candidate, skip_source_search=True)
+                    queue_item = ingestor.process_one(candidate, skip_source_search=False)
                     queue_file.write(
                         json.dumps(asdict(queue_item), ensure_ascii=False) + "\n"
                     )
