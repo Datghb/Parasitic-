@@ -32,18 +32,31 @@ def _fallback_fact_source(comment: str) -> tuple[str, str, str]:
     """Search fact_references.json and facts_corpus.json for a matching verified source."""
     try:
         import json as _json
+        import unicodedata
         comment_lower = comment.lower()
+        comment_stripped = "".join(
+            c for c in unicodedata.normalize("NFD", comment_lower)
+            if unicodedata.category(c) != "Mn"
+        )
+
+        def _match(text: str, keywords: list[str]) -> bool:
+            text_lower = text.lower()
+            text_stripped = "".join(
+                c for c in unicodedata.normalize("NFD", text_lower)
+                if unicodedata.category(c) != "Mn"
+            )
+            return any(kw.lower() in text_lower or kw.lower() in text_stripped for kw in keywords)
 
         facts_path = project_data_dir() / "facts" / "fact_references.json"
         if facts_path.exists():
             facts = _json.loads(facts_path.read_text(encoding="utf-8"))
             for fact in facts:
                 keywords = fact.get("tu_khoa", [])
-                if any(kw.lower() in comment_lower for kw in keywords):
+                if _match(comment, keywords) or _match(comment_stripped, keywords):
                     return fact.get("nguon", ""), fact.get("url", ""), fact.get("nguon", "")
 
-        merger_kw = ["sáp nhập", "sap nhap", "đơn vị hành chính", "don vi hanh chinh", "tỉnh", "tinh", "huyện", "huyen", "xã", "xa", "bộ nội vụ", "bo noi vu"]
-        if any(kw in comment_lower for kw in merger_kw):
+        merger_kw = ["sáp nhập", "sap nhap", "đơn vị hành chính", "don vi hanh chinh", "tỉnh", "tinh", "16 tinh", "16 tỉnh"]
+        if any(kw in comment_lower or kw in comment_stripped for kw in merger_kw):
             corpus_path = project_data_dir() / "facts" / "facts_corpus.json"
             if corpus_path.exists():
                 corpus = _json.loads(corpus_path.read_text(encoding="utf-8"))
@@ -84,6 +97,8 @@ def analyze_comment(comment: str) -> dict:
 
     if not source_url:
         source_title, source_url, source_agency = _fallback_fact_source(comment)
+        if source_url:
+            nhan_nguon = NhanNguon.CO_NGUON_XAC_NHAN
 
     return {
         "id": str(uuid4()),
@@ -306,6 +321,8 @@ class CommentIngestor:
                 source_agency = matched_docs[0].get("nguon", "") if isinstance(matched_docs[0], dict) else ""
             if not source_url:
                 source_title, source_url, source_agency = _fallback_fact_source(extracted["claim"])
+                if source_url:
+                    nhan_nguon = NhanNguon.CO_NGUON_XAC_NHAN
 
         except Exception as exc:
             nhan = NhanPhanLoai.CAN_KIEM_CHUNG

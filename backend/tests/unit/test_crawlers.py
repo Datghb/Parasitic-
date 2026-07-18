@@ -39,7 +39,7 @@ class TestFacebookCrawler:
                 with patch("backend.legal_radar.crawlers.facebook.requests.get", return_value=mock_poll_resp):
                     urls = _discover_urls(["test query"], 10)
                     assert len(urls) == 2
-                    assert "https://www.facebook.com/user/posts/111" in urls
+                    assert urls[0]["link"] == "https://www.facebook.com/user/posts/111"
 
     def test_discover_urls_filters_non_facebook(self):
         from backend.legal_radar.crawlers.facebook import _discover_urls
@@ -60,7 +60,7 @@ class TestFacebookCrawler:
                 with patch("backend.legal_radar.crawlers.facebook.requests.get", return_value=mock_poll_resp):
                     urls = _discover_urls(["test"], 10)
                     assert len(urls) == 1
-                    assert "facebook.com" in urls[0]
+                    assert "facebook.com" in urls[0]["link"]
 
     def test_bd_scrape_sync_response(self):
         from backend.legal_radar.crawlers.facebook import _bd_scrape
