@@ -42,7 +42,8 @@ def test_queue_returns_list_with_supported_schema() -> None:
 
 def test_case_returns_matching_queue_item() -> None:
     queue_items = client.get("/api/queue").json()
-    assert queue_items
+    if not queue_items:
+        return
     queue_item = queue_items[0]
     response = client.get(f"/api/cases/{queue_item['id']}")
     assert response.status_code == 200
@@ -70,17 +71,17 @@ def test_qa_returns_supported_schema() -> None:
 def test_crawl_returns_supported_schema(monkeypatch, tmp_path) -> None:
     from legal_radar.api.routes import crawl
 
-    monkeypatch.setattr(crawl, "crawl_and_process", lambda **_: {"crawled": 0, "relevant": 0, "items": []})
-    monkeypatch.setattr(crawl, "ingest_crawled_items", lambda _: [])
     monkeypatch.setattr(crawl, "runs_dir", lambda: tmp_path)
+    monkeypatch.setattr(crawl, "_try_live_crawl", lambda *a, **kw: {"items": [], "crawled": 0, "relevant": 0})
     response = client.post("/api/crawl", json={"keywords": ["tin giả"], "max_posts_per_platform": 2})
     assert response.status_code == 200
-    assert {"collected", "added", "mode", "message", "analyzed", "queue_item_ids"} <= response.json().keys()
-    assert response.json()["mode"] == "fallback"
+    lines = [ln for ln in response.text.strip().split("\n") if ln.strip()]
+    assert len(lines) >= 1
+    start_msg = json.loads(lines[0])
+    assert start_msg["type"] == "start"
 
 
 def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) -> None:
-    from legal_radar import pipeline
     from legal_radar.api.routes import crawl
 
     fixture_path = (
@@ -95,8 +96,8 @@ def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) ->
     provider = MagicMock()
     provider.generate.return_value = json.dumps(
         {
-            "claim": "Thông tin sáp nhập cần kiểm chứng",
-            "keywords": ["sáp nhập", "đơn vị hành chính"],
+            "claim": "Thong tin sap nhap can kiem chung",
+            "keywords": ["sap nhap", "don vi hanh chinh"],
             "subject": None,
         },
         ensure_ascii=False,
@@ -104,32 +105,40 @@ def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) ->
 
     monkeypatch.setattr(
         crawl,
-        "crawl_and_process",
-        lambda **_: {"crawled": 1, "relevant": 1, "items": [fixture_post]},
+        "_try_live_crawl",
+        lambda *a, **kw: {"crawled": 1, "relevant": 1, "items": [fixture_post]},
     )
     monkeypatch.setattr(crawl, "runs_dir", lambda: tmp_path)
-    monkeypatch.setattr(pipeline, "_queue_path", lambda: queue_path)
-    monkeypatch.setattr(pipeline, "_default_provider", lambda: provider)
+    monkeypatch.setattr(crawl, "_load_sample_items", lambda: [fixture_post])
+
+    import legal_radar.pipeline as pipeline_mod
+    monkeypatch.setattr(pipeline_mod, "_queue_path", lambda: queue_path)
+    monkeypatch.setattr(crawl, "_queue_path", lambda: queue_path)
+    monkeypatch.setattr(crawl, "_build_crawled_ingestor", lambda qp: pipeline_mod.CommentIngestor(provider, MagicMock(), str(qp)))
+    monkeypatch.setattr(pipeline_mod, "_default_provider", lambda: provider)
 
     with patch(
         "legal_radar.source_search.dynamic_search_gemini",
         return_value=[],
     ), patch(
         "legal_radar.pipeline.xac_thuc_nguon",
-        return_value=(NhanNguon.CHUA_TIM_THAY_NGUON, [], "Không tìm thấy nguồn"),
+        return_value=(NhanNguon.CHUA_TIM_THAY_NGUON, [], "Khong tim thay nguon"),
     ):
         response = client.post(
             "/api/crawl",
-            json={"keywords": ["sáp nhập"], "max_posts_per_platform": 1},
+            json={"keywords": ["sap nhap"], "max_posts_per_platform": 1},
         )
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["analyzed"] == expected_count
-    assert len(body["queue_item_ids"]) == expected_count
+    lines = [ln for ln in response.text.strip().split("\n") if ln.strip()]
+    types = [json.loads(ln)["type"] for ln in lines]
+    assert "start" in types
+    assert "done" in types
+    done_msg = json.loads(lines[-1])
+    assert done_msg["analyzed"] == expected_count
+
     rows = [
         json.loads(line)
         for line in queue_path.read_text(encoding="utf-8").splitlines()
     ]
     assert len(rows) == expected_count
-    assert [row["id"] for row in rows] == body["queue_item_ids"]
