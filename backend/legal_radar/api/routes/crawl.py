@@ -111,7 +111,7 @@ def trigger_crawl(request: CrawlRequest):
                     if not candidate.get("text", "").strip():
                         continue
                     try:
-                        queue_item = ingestor.process_one(candidate, skip_source_search=True)
+                        queue_item = ingestor.process_one(candidate, skip_source_search=False)
                         queue_file.write(json.dumps(asdict(queue_item), ensure_ascii=False) + "\n")
                         queue_file.flush()
                         count += 1
