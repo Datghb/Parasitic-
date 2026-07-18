@@ -908,9 +908,9 @@ function CaseDetail({ item, onBack, onStatusChange }: { item: Case; onBack: () =
           <section className="detail-card original-card">
             <div className="card-heading"><div><span>01</span><div><small>NỘI DUNG GỐC</small><h2>Bài viết được giám sát</h2></div></div><em>{item.reach}</em></div>
             <div className="post-author"><span className={`platform-logo ${item.platform.toLowerCase()}`}>{platformIcon(item.platform)}</span><div><strong>{item.account}</strong><small>{item.platform} · {item.publishedAt}</small></div></div>
-            {item.sourceUrl && item.sourceUrl !== "#" && (
+            {item.url && item.url !== "#" && (
               <div className="post-link" style={{ marginBottom: 12 }}>
-                <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#3b82f6", fontSize: 13, textDecoration: "none" }}>
+                <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: "#3b82f6", fontSize: 13, textDecoration: "none" }}>
                   🔗 Xem bài viết gốc trên {item.platform} ↗
                 </a>
               </div>
