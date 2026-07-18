@@ -23,17 +23,19 @@ async function render(pathname = "/") {
   );
 }
 
-test("server-renders the Legal Radar monitoring queue", async () => {
+test("server-renders the Legal Radar strategic market dashboard", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /<title>Legal Radar — Giám sát nội dung mạng xã hội<\/title>/i);
+  assert.match(html, /Toàn cảnh thị trường thông tin/);
+  assert.match(html, /Xung nhịp rủi ro pháp lý/);
+  assert.match(html, /Phân bổ theo nền tảng/);
+  assert.match(html, /Heatmap điểm nóng/);
+  assert.match(html, /Knowledge Graph nổi bật/);
   assert.match(html, /Hàng đợi giám sát/);
-  assert.match(html, /Kết quả AI/);
-  assert.match(html, /Trạng thái/);
-  assert.match(html, /Nhập nội dung mới/);
   assert.match(html, /Tầng kiểm chứng/);
   assert.match(html, /Dữ liệu mẫu dự phòng/);
 });
