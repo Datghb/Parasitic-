@@ -33,9 +33,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="vi">
       <body className={`${geist.variable} ${mono.variable}`}>
         <Providers>
-          <div className="monitor-app">
+          <div className="relative min-h-screen overflow-hidden bg-[#f7f8fc] text-[15px] text-[#19283b]">
             <Sidebar />
-            <main className="monitor-main">
+            <main className="ml-[272px] min-w-0 bg-[#f7f8fc] max-[980px]:ml-[78px] max-[700px]:ml-0">
               <Topbar />
               {children}
             </main>

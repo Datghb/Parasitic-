@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { ReactFlow, Background, Controls, useNodesState, useEdgesState } from "@xyflow/react";
 import { useQueueQuery } from "../../hooks/use-queries";
 import { Case } from "../../types";
-import { slug } from "../common/badge";
+import { VerdictBadge } from "../common/badge";
 import "@xyflow/react/dist/style.css";
 
 export function KnowledgeGraphView() {
@@ -165,12 +165,12 @@ export function KnowledgeGraphView() {
 
   if (!graphItem) {
     return (
-      <div className="monitor-page">
-        <div className="queue-heading">
+      <div className="mx-auto max-w-[1640px] px-[28px] pt-[25px] pb-8 max-[700px]:px-[15px] max-[700px]:pt-[26px] max-[700px]:pb-6">
+        <div className="mb-[18px] flex items-center justify-between gap-[25px] max-[700px]:flex-col max-[700px]:items-start">
           <div>
-            <span className="eyebrow">KNOWLEDGE GRAPH</span>
-            <h1>Đồ thị tri thức</h1>
-            <p>Chưa có dữ liệu. Quét MXH hoặc nhập nội dung để xem đồ thị quan hệ.</p>
+            <span className="text-[10px] font-extrabold tracking-[1.5px] text-[#c01cad]">KNOWLEDGE GRAPH</span>
+            <h1 className="my-[6px] text-[38px] font-[760] tracking-[-1.6px] text-[#202944] max-[480px]:text-[31px]">Đồ thị tri thức</h1>
+            <p className="m-0 text-[12px] text-[#738195]">Chưa có dữ liệu. Quét MXH hoặc nhập nội dung để xem đồ thị quan hệ.</p>
           </div>
         </div>
       </div>
@@ -182,12 +182,12 @@ export function KnowledgeGraphView() {
     .slice(0, 3);
 
   return (
-    <div className="monitor-page">
-      <div className="queue-heading">
+    <div className="mx-auto max-w-[1640px] px-[28px] pt-[25px] pb-8 max-[700px]:px-[15px] max-[700px]:pt-[26px] max-[700px]:pb-6">
+      <div className="mb-[18px] flex items-center justify-between gap-[25px] max-[700px]:flex-col max-[700px]:items-start">
         <div>
-          <span className="eyebrow">KNOWLEDGE GRAPH</span>
-          <h1>Đồ thị tri thức</h1>
-          <p>Quan hệ giữa Claim → Chủ thể → Điều luật → Nguồn kiểm chứng.</p>
+          <span className="text-[10px] font-extrabold tracking-[1.5px] text-[#c01cad]">KNOWLEDGE GRAPH</span>
+          <h1 className="my-[6px] text-[38px] font-[760] tracking-[-1.6px] text-[#202944] max-[480px]:text-[31px]">Đồ thị tri thức</h1>
+          <p className="m-0 text-[12px] text-[#738195]">Quan hệ giữa Claim → Chủ thể → Điều luật → Nguồn kiểm chứng.</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <select
@@ -211,7 +211,7 @@ export function KnowledgeGraphView() {
         </div>
       </div>
 
-      <section className="queue-card" style={{ marginBottom: 24, height: 350, position: "relative" }}>
+      <section className="overflow-hidden rounded-[17px] bg-white shadow-[0_10px_30px_#28304f0b,0_2px_7px_#28304f08] max-[700px]:rounded-[14px]" style={{ marginBottom: 24, height: 350, position: "relative" }}>
         <div style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}>
           <ReactFlow
             nodes={nodes}
@@ -228,7 +228,7 @@ export function KnowledgeGraphView() {
         </div>
       </section>
 
-      <section className="queue-card" style={{ marginBottom: 24 }}>
+      <section className="overflow-hidden rounded-[17px] bg-white shadow-[0_10px_30px_#28304f0b,0_2px_7px_#28304f08] max-[700px]:rounded-[14px]" style={{ marginBottom: 24 }}>
         <div style={{ padding: 24 }}>
           <h3 style={{ marginBottom: 4 }}>Kết quả phân loại</h3>
           <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>
@@ -255,34 +255,31 @@ export function KnowledgeGraphView() {
       </section>
 
       {relatedItems.length > 0 && (
-        <section className="queue-card">
+        <section className="overflow-hidden rounded-[17px] bg-white shadow-[0_10px_30px_#28304f0b,0_2px_7px_#28304f08] max-[700px]:rounded-[14px]">
           <div style={{ padding: 24 }}>
             <h3 style={{ marginBottom: 4 }}>Hồ sơ liên quan (cùng văn bản)</h3>
             <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>
               {relatedItems.length} hồ sơ khác cùng viện dẫn {graphItem.document}
             </p>
-            <table className="queue-table">
+            <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th>CLAIM</th>
-                  <th>CHỦ THỂ</th>
-                  <th>ĐIỀU KHOẢN</th>
-                  <th>ĐÁNH GIÁ</th>
+                  <th className="border-b border-[#eff1f5] bg-[#fafbfe] px-3 py-2.5 text-left text-[8px] font-[650] tracking-[.55px] text-[#989dae]">CLAIM</th>
+                  <th className="border-b border-[#eff1f5] bg-[#fafbfe] px-3 py-2.5 text-left text-[8px] font-[650] tracking-[.55px] text-[#989dae]">CHỦ THỂ</th>
+                  <th className="border-b border-[#eff1f5] bg-[#fafbfe] px-3 py-2.5 text-left text-[8px] font-[650] tracking-[.55px] text-[#989dae]">ĐIỀU KHOẢN</th>
+                  <th className="border-b border-[#eff1f5] bg-[#fafbfe] px-3 py-2.5 text-left text-[8px] font-[650] tracking-[.55px] text-[#989dae]">ĐÁNH GIÁ</th>
                 </tr>
               </thead>
               <tbody>
                 {relatedItems.map((item) => (
                   <tr key={item.id}>
-                    <td>
-                      <strong>{item.claim.slice(0, 60)}</strong>
+                    <td className="border-b border-[#f0f1f5] px-3 py-[11px] align-middle text-[10px] text-[#445468]">
+                      <strong className="block max-w-[280px] text-[11px] leading-[1.4] text-[#26384d]">{item.claim.slice(0, 60)}</strong>
                     </td>
-                    <td>{item.subject}</td>
-                    <td>{item.provision}</td>
-                    <td>
-                      <span className={`verdict-new ${slug(item.verdict)}`}>
-                        <i />
-                        {item.verdict}
-                      </span>
+                    <td className="border-b border-[#f0f1f5] px-3 py-[11px] align-middle text-[10px] text-[#445468]">{item.subject}</td>
+                    <td className="border-b border-[#f0f1f5] px-3 py-[11px] align-middle text-[10px] text-[#445468]">{item.provision}</td>
+                    <td className="border-b border-[#f0f1f5] px-3 py-[11px] align-middle text-[10px] text-[#445468]">
+                      <VerdictBadge value={item.verdict} />
                     </td>
                   </tr>
                 ))}

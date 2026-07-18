@@ -142,114 +142,197 @@ export function ManualInputDrawer({
     }
   }
 
+  const fieldLabel = "block text-[12px] font-[750] text-[#525d72] mb-2";
+  const fieldControl =
+    "w-full rounded-[11px] border border-[#e0e3eb] bg-[#fafbfe] px-[13px] py-3 text-[14px] text-[#293349] outline-0 focus:border-[#d638b5] focus:bg-white focus:shadow-[0_0_0_3px_#d638b512]";
+  const typeTabBase =
+    "flex items-center gap-2.5 rounded-xl border p-3 text-left";
+  const typeTabIconBase = "grid h-8 w-8 place-items-center rounded-[9px] text-[15px]";
+
   return (
     <>
-      <button className="input-backdrop" onClick={onClose} aria-label="Đóng form nhập nội dung" />
-      <aside className="input-drawer" aria-labelledby="manual-input-title">
-        <div className="input-drawer-head">
+      <button
+        className="fixed inset-0 z-[80] border-0 bg-[#1e24465c] backdrop-blur-[3px]"
+        onClick={onClose}
+        aria-label="Đóng form nhập nội dung"
+      />
+      <aside
+        className="fixed inset-y-0 right-0 z-[90] w-[min(570px,100vw)] overflow-auto bg-white p-[30px] shadow-[-20px_0_60px_#22294422] max-[700px]:px-[17px] max-[700px]:py-[22px]"
+        aria-labelledby="manual-input-title"
+      >
+        <div className="flex justify-between gap-5 border-b border-[#eceef4] pb-[22px]">
           <div>
-            <span className="eyebrow">MVP · NHẬP THỦ CÔNG</span>
-            <h2 id="manual-input-title">Thêm nội dung giám sát</h2>
-            <p>Nhập nguyên văn bài đăng để tạo hồ sơ mới trong hàng đợi.</p>
+            <span className="text-[10px] font-extrabold tracking-[1.5px] text-[#c01cad]">MVP · NHẬP THỦ CÔNG</span>
+            <h2 id="manual-input-title" className="my-[7px] text-[27px] tracking-[-.7px] text-[#252d48]">
+              Thêm nội dung giám sát
+            </h2>
+            <p className="m-0 text-[13px] text-[#788397]">
+              Nhập nguyên văn bài đăng để tạo hồ sơ mới trong hàng đợi.
+            </p>
           </div>
-          <button onClick={onClose} aria-label="Đóng">
+          <button
+            className="h-9 w-9 flex-none rounded-full border-0 bg-[#f5f2f7] text-[22px] text-[#8e4890]"
+            onClick={onClose}
+            aria-label="Đóng"
+          >
             ×
           </button>
         </div>
-        <form onSubmit={submit}>
-          <div className="input-mode-switch">
+        <form onSubmit={submit} className="grid gap-5 pt-[23px]">
+          <div className="grid grid-cols-2 rounded-[11px] bg-[#f2f3f7] p-1">
             <button
               type="button"
-              className={inputMode === "manual" ? "active" : ""}
+              className={`rounded-lg border-0 p-[9px] text-[12px] font-bold ${
+                inputMode === "manual"
+                  ? "bg-white text-[#a820a5] shadow-[0_3px_10px_#262d4d12]"
+                  : "bg-transparent text-[#7b8495]"
+              }`}
               onClick={() => setInputMode("manual")}
             >
               Nhập thủ công
             </button>
             <button
               type="button"
-              className={inputMode === "file" ? "active" : ""}
+              className={`rounded-lg border-0 p-[9px] text-[12px] font-bold ${
+                inputMode === "file"
+                  ? "bg-white text-[#a820a5] shadow-[0_3px_10px_#262d4d12]"
+                  : "bg-transparent text-[#7b8495]"
+              }`}
               onClick={() => setInputMode("file")}
             >
               Tải file hàng loạt
             </button>
           </div>
-          <div className="input-type-tabs" role="tablist" aria-label="Loại nội dung">
+          <div className="grid grid-cols-2 gap-2.5 max-[520px]:grid-cols-1" role="tablist" aria-label="Loại nội dung">
             <button
               type="button"
               role="tab"
               aria-selected={contentType === "post"}
-              className={contentType === "post" ? "active" : ""}
+              className={`${typeTabBase} ${
+                contentType === "post"
+                  ? "border-[#d63ab7] bg-[#fff8fd] text-[#717b8f] shadow-[0_0_0_3px_#d638b50d]"
+                  : "border-[#e2e5ed] bg-[#fafbfe] text-[#717b8f]"
+              }`}
               onClick={() => setContentType("post")}
             >
-              <span>▤</span>
+              <span
+                className={`${typeTabIconBase} ${
+                  contentType === "post"
+                    ? "bg-linear-145 from-[#ef35ad] to-[#a921cf] text-white"
+                    : "bg-[#f0edf4]"
+                }`}
+              >
+                ▤
+              </span>
               <div>
-                <strong>Bài viết</strong>
-                <small>Nhập nội dung bài đăng độc lập</small>
+                <strong className={`block text-[13px] ${contentType === "post" ? "text-[#a721a5]" : "text-[#3f485e]"}`}>
+                  Bài viết
+                </strong>
+                <small className="mt-[3px] block text-[10px]">Nhập nội dung bài đăng độc lập</small>
               </div>
             </button>
             <button
               type="button"
               role="tab"
               aria-selected={contentType === "comment"}
-              className={contentType === "comment" ? "active" : ""}
+              className={`${typeTabBase} ${
+                contentType === "comment"
+                  ? "border-[#d63ab7] bg-[#fff8fd] text-[#717b8f] shadow-[0_0_0_3px_#d638b50d]"
+                  : "border-[#e2e5ed] bg-[#fafbfe] text-[#717b8f]"
+              }`}
               onClick={() => setContentType("comment")}
             >
-              <span>◌</span>
+              <span
+                className={`${typeTabIconBase} ${
+                  contentType === "comment"
+                    ? "bg-linear-145 from-[#ef35ad] to-[#a921cf] text-white"
+                    : "bg-[#f0edf4]"
+                }`}
+              >
+                ◌
+              </span>
               <div>
-                <strong>Bình luận</strong>
-                <small>Nhập comment và ngữ cảnh bài gốc</small>
+                <strong
+                  className={`block text-[13px] ${contentType === "comment" ? "text-[#a721a5]" : "text-[#3f485e]"}`}
+                >
+                  Bình luận
+                </strong>
+                <small className="mt-[3px] block text-[10px]">Nhập comment và ngữ cảnh bài gốc</small>
               </div>
             </button>
           </div>
           {inputMode === "file" ? (
             <>
-              <label className={`file-drop ${parsedRows.length ? "ready" : ""}`}>
+              <label
+                className={`flex min-h-[175px] cursor-pointer flex-col items-center justify-center rounded-[15px] border-2 border-dashed p-[25px] text-center transition duration-[180ms] hover:border-[#d13ab3] hover:bg-[#fff8fd] ${
+                  parsedRows.length ? "border-[#d13ab3] bg-[#fff8fd]" : "border-[#d9dce6] bg-[#fafbfe]"
+                }`}
+              >
                 <input
+                  className="pointer-events-none absolute opacity-0"
                   type="file"
                   accept=".csv,.json,.txt,text/csv,application/json,text/plain"
                   onChange={(event) => readFile(event.target.files?.[0])}
                 />
-                <span>{parsedRows.length ? "✓" : "⇧"}</span>
-                <strong>
+                <span
+                  className={`mb-2.5 grid h-[42px] w-[42px] place-items-center rounded-xl text-[20px] ${
+                    parsedRows.length
+                      ? "bg-[#e8f7f1] text-[#278164]"
+                      : "bg-linear-145 from-[#f6e8f7] to-[#eee7fa] text-[#b421ac]"
+                  }`}
+                >
+                  {parsedRows.length ? "✓" : "⇧"}
+                </span>
+                <strong className="text-[14px] text-[#3c465b]">
                   {fileName || `Chọn file ${contentType === "post" ? "bài viết" : "bình luận"}`}
                 </strong>
-                <small>CSV, JSON hoặc TXT · tối đa theo khả năng trình duyệt</small>
+                <small className="mt-[5px] text-[11px] text-[#9299a8]">
+                  CSV, JSON hoặc TXT · tối đa theo khả năng trình duyệt
+                </small>
               </label>
               {parsedRows.length > 0 && (
-                <div className="file-result">
-                  <strong>{parsedRows.length} bản ghi hợp lệ</strong>
-                  <span>Sẵn sàng đưa vào hàng đợi giám sát</span>
+                <div className="flex items-center rounded-[11px] bg-[#eaf8f3] px-[14px] py-3 text-[#28795f]">
+                  <strong className="text-[13px]">{parsedRows.length} bản ghi hợp lệ</strong>
+                  <span className="ml-auto text-[11px]">Sẵn sàng đưa vào hàng đợi giám sát</span>
                 </div>
               )}
-              {fileError && <div className="file-error">{fileError}</div>}
-              <div className="file-format">
-                <strong>Cấu trúc gợi ý</strong>
-                <code>
+              {fileError && (
+                <div className="rounded-[10px] bg-[#fff0f2] px-[13px] py-[11px] text-[12px] text-[#b63b52]">
+                  {fileError}
+                </div>
+              )}
+              <div className="rounded-[11px] bg-[#f5f6fa] p-[13px]">
+                <strong className="mb-[7px] block text-[11px] text-[#606b7d]">Cấu trúc gợi ý</strong>
+                <code className="block rounded-[7px] border border-[#e6e8ee] bg-white p-[9px] font-(family-name:--font-mono) text-[11px] whitespace-normal text-[#9a258f]">
                   {contentType === "post"
                     ? "content, platform, account, publishedAt, reach"
                     : "comment, parentContent, platform, account, publishedAt, reach"}
                 </code>
-                <p>File TXT: mỗi dòng được xem là một bài viết hoặc bình luận.</p>
+                <p className="mt-[7px] text-[10px] text-[#8b93a2]">
+                  File TXT: mỗi dòng được xem là một bài viết hoặc bình luận.
+                </p>
               </div>
             </>
           ) : (
             <>
               {contentType === "comment" && (
-                <label className="manual-field">
-                  <span>Ngữ cảnh bài viết gốc</span>
+                <label className="relative block">
+                  <span className={fieldLabel}>Ngữ cảnh bài viết gốc</span>
                   <textarea
-                    className="context-textarea"
+                    className={`${fieldControl} h-[105px] resize-y leading-[1.55]`}
                     value={parentContent}
                     onChange={(event) => setParentContent(event.target.value)}
                     placeholder="Dán nội dung hoặc tóm tắt bài viết chứa bình luận…"
                   />
                 </label>
               )}
-              <label className="manual-field">
-                <span>
-                  {contentType === "post" ? "Nội dung bài viết" : "Nội dung bình luận"} <b>*</b>
+              <label className="relative block">
+                <span className={fieldLabel}>
+                  {contentType === "post" ? "Nội dung bài viết" : "Nội dung bình luận"}{" "}
+                  <b className="text-[#d52aa8]">*</b>
                 </span>
                 <textarea
+                  className={`${fieldControl} h-[190px] resize-y leading-[1.55]`}
                   required
                   value={content}
                   onChange={(event) => setContent(event.target.value)}
@@ -259,16 +342,19 @@ export function ManualInputDrawer({
                       : "Dán nguyên văn bình luận cần kiểm tra…"
                   }
                 />
-                <small>{content.length} / 5.000 ký tự</small>
+                <small className="absolute right-[11px] bottom-[9px] text-[10px] text-[#9ba1af]">
+                  {content.length} / 5.000 ký tự
+                </small>
               </label>
             </>
           )}
           {inputMode === "manual" && (
             <>
-              <div className="manual-grid">
-                <label className="manual-field">
-                  <span>Nền tảng</span>
+              <div className="grid grid-cols-2 gap-[14px] max-[700px]:grid-cols-1">
+                <label className="relative block">
+                  <span className={fieldLabel}>Nền tảng</span>
                   <select
+                    className={fieldControl}
                     value={platform}
                     onChange={(event) => setPlatform(event.target.value as Case["platform"])}
                   >
@@ -278,9 +364,10 @@ export function ManualInputDrawer({
                     <option>X</option>
                   </select>
                 </label>
-                <label className="manual-field">
-                  <span>{contentType === "post" ? "Tài khoản đăng" : "Người bình luận"}</span>
+                <label className="relative block">
+                  <span className={fieldLabel}>{contentType === "post" ? "Tài khoản đăng" : "Người bình luận"}</span>
                   <input
+                    className={fieldControl}
                     value={account}
                     onChange={(event) => setAccount(event.target.value)}
                     placeholder={
@@ -289,18 +376,20 @@ export function ManualInputDrawer({
                   />
                 </label>
               </div>
-              <div className="manual-grid">
-                <label className="manual-field">
-                  <span>Thời gian đăng</span>
+              <div className="grid grid-cols-2 gap-[14px] max-[700px]:grid-cols-1">
+                <label className="relative block">
+                  <span className={fieldLabel}>Thời gian đăng</span>
                   <input
+                    className={fieldControl}
                     type="datetime-local"
                     value={publishedAt}
                     onChange={(event) => setPublishedAt(event.target.value)}
                   />
                 </label>
-                <label className="manual-field">
-                  <span>Lượt tương tác</span>
+                <label className="relative block">
+                  <span className={fieldLabel}>Lượt tương tác</span>
                   <input
+                    className={fieldControl}
                     type="number"
                     min="0"
                     value={reach}
@@ -311,19 +400,26 @@ export function ManualInputDrawer({
               </div>
             </>
           )}
-          <div className="manual-note">
-            <span>i</span>
-            <p>
-              <strong>Luồng MVP</strong> Sau khi lưu, hệ thống tạo hồ sơ với kết quả “Cần kiểm chứng”. Dữ
-              liệu chỉ tồn tại trong phiên trình duyệt hiện tại.
+          <div className="flex gap-[11px] rounded-xl bg-[#f8f2fb] p-[13px] text-[#686079]">
+            <span className="grid h-[21px] w-[21px] place-items-center rounded-full bg-[#bd25b1] font-[Georgia] text-[11px] font-bold text-white">
+              i
+            </span>
+            <p className="m-0 text-[11px] leading-normal">
+              <strong className="block text-[#4c3a57]">Luồng MVP</strong> Sau khi lưu, hệ thống tạo hồ sơ với kết quả
+              “Cần kiểm chứng”. Dữ liệu chỉ tồn tại trong phiên trình duyệt hiện tại.
             </p>
           </div>
-          <div className="manual-actions">
-            <button type="button" onClick={onClose}>
+          <div className="flex justify-end gap-[9px] pt-[5px] max-[700px]:grid max-[700px]:grid-cols-2">
+            <button
+              type="button"
+              className="rounded-[10px] border border-[#e0e3ea] bg-white px-[15px] py-[11px] text-[13px] font-bold text-[#687286]"
+              onClick={onClose}
+            >
               Hủy
             </button>
             <button
               type="submit"
+              className="rounded-[10px] border-0 bg-linear-145 from-[#ef35ad] to-[#a921cf] px-[15px] py-[11px] text-[13px] font-bold text-white shadow-[0_7px_16px_#c626aa2c] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none"
               disabled={submitting || (inputMode === "manual" ? !content.trim() : !parsedRows.length)}
             >
               {submitting

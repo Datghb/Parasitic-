@@ -46,7 +46,14 @@ function kpiIcon(type: "shield" | "warning" | "search" | "trend") {
     ),
   };
   return (
-    <svg className="kpi-svg" viewBox="0 0 24 24" aria-hidden="true" style={{ width: 20, height: 20 }}>
+    <svg
+      className="fill-none stroke-current stroke-[1.9]"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      style={{ width: 20, height: 20 }}
+    >
       {paths[type]}
     </svg>
   );
@@ -64,9 +71,16 @@ function platformIcon(platform: Case["platform"]) {
     Forum:
       "M12.103 0C18.666 0 24 5.485 24 11.997c0 6.51-5.33 11.99-11.9 11.99L0 24V11.79C0 5.28 5.532 0 12.103 0zm.116 4.563c-2.593-.003-4.996 1.352-6.337 3.57-1.33 2.208-1.387 4.957-.148 7.22L4.4 19.61l4.794-1.074c2.745 1.225 5.965.676 8.136-1.39 2.17-2.054 2.86-5.228 1.737-7.997-1.135-2.778-3.84-4.59-6.84-4.585h-.008z",
   };
+  const colors: Record<Case["platform"], string> = {
+    Facebook: "text-[#1877f2]",
+    TikTok: "text-[#111]",
+    YouTube: "text-[#ff0033]",
+    X: "text-[#050505]",
+    Forum: "text-[#aeb6c2]",
+  };
   return (
     <svg
-      className={`platform-svg platform-${platform.toLowerCase()}`}
+      className={`block fill-current ${colors[platform]}`}
       viewBox="0 0 24 24"
       role="img"
       aria-label={`${platform} logo`}
@@ -76,6 +90,26 @@ function platformIcon(platform: Case["platform"]) {
     </svg>
   );
 }
+
+const kpiArticle =
+  "flex min-h-[136px] items-start gap-[18px] rounded-[15px] border border-[#e5e8ef] bg-white px-5 py-6 shadow-[0_7px_24px_#27334d0a]";
+const kpiIconBox = "grid h-[58px] w-[58px] flex-none place-items-center rounded-[17px] text-[0px] not-italic";
+const kpiLabel = "text-[12px] font-[650] text-[#536077]";
+const kpiValue = "my-3 mb-[15px] block text-[30px] leading-none tracking-[-.8px] text-[#101a34]";
+const kpiTrendEm = "ml-[13px] font-normal not-italic text-[#7b8799]";
+
+const chartPanel = "overflow-hidden rounded-[15px] border border-[#e3e6ee] bg-white shadow-[0_7px_24px_#29354e09]";
+const chartHeader = "flex h-[57px] items-center px-5";
+const chartTitle = "m-0 text-[15px] font-[780] text-[#17243d]";
+const chartMenu = "ml-auto text-[18px] font-bold text-[#53627a]";
+
+const heatGrid =
+  "grid grid-cols-[118px_repeat(5,1fr)] items-center gap-1 max-[720px]:grid-cols-[92px_repeat(5,minmax(46px,1fr))] max-[720px]:min-w-[610px]";
+const heatLevels = ["bg-[#ec4a92]", "bg-[#f59b81]", "bg-[#fbd798]", "bg-[#bde5c5]", "bg-[#e4eced]"];
+
+const periodButton = "h-full min-w-[82px] rounded-[10px] border-0 px-[17px] text-[11px] max-[720px]:min-w-0 max-[720px]:flex-1 max-[520px]:px-3";
+const periodActive =
+  "bg-linear-90 from-[#ec1fa7] to-[#b910c2] font-extrabold text-white shadow-[0_5px_12px_#ce16ad2b]";
 
 export function MarketOverview({ allItems }: { allItems: Case[] }) {
   const [period, setPeriod] = useState<1 | 7 | 30>(7);
@@ -218,7 +252,6 @@ export function MarketOverview({ allItems }: { allItems: Case[] }) {
   }, [daysData]);
 
   const signed = (value: number) => `${value >= 0 ? "+" : ""}${value}%`;
-  const trendClass = (value: number) => (value >= 0 ? "up" : "down");
   const discussionChange = previous.length
     ? signed(discussionDelta)
     : current.length
@@ -260,91 +293,140 @@ export function MarketOverview({ allItems }: { allItems: Case[] }) {
     return null;
   };
 
+  const trendTextClass = (value: number) =>
+    value >= 0 ? "text-[11px] font-[750] text-[#08a658]" : "text-[11px] font-[750] text-[#ef3540]";
+  const headerTrendClass = (value: number) =>
+    value >= 0
+      ? "ml-auto mr-4 text-[11px] font-extrabold text-[#07a75b]"
+      : "ml-auto mr-4 text-[11px] font-extrabold text-[#ef3540]";
+
   return (
-    <div className="monitor-page market-page market-v2">
-      <div className="market-title market-v2-title">
+    <div className="mx-auto min-h-[calc(100vh-66px)] max-w-[1640px] bg-[#fbfbfd] px-[26px] pt-[18px] pb-[28px] max-[720px]:p-4">
+      <div className="mb-[18px] flex items-end justify-between max-[820px]:flex-col max-[820px]:items-start max-[820px]:gap-3.5">
         <div>
-          <small>BẢNG ĐIỀU KHIỂN CHIẾN LƯỢC</small>
-          <h1>Toàn cảnh thảo luận thị trường</h1>
-          <p>
+          <small className="text-[10px] font-[850] tracking-[1.25px] text-[#d316a8]">
+            BẢNG ĐIỀU KHIỂN CHIẾN LƯỢC
+          </small>
+          <h1 className="mt-[9px] mb-[7px] text-[34px] font-extrabold leading-[1.08] tracking-[-1.25px] text-[#101b35] max-[720px]:text-[28px]">
+            Toàn cảnh thảo luận thị trường
+          </h1>
+          <p className="m-0 text-[11px] text-[#758196]">
             Giúp lãnh đạo nhận biết chủ đề đang được quan tâm, mức độ thảo luận và nền tảng phát sinh nhiều tín
             hiệu nhất.
           </p>
         </div>
-        <div className="period-switch" aria-label="Khoảng thời gian">
-          <button className={period === 1 ? "active" : ""} onClick={() => setPeriod(1)}>
+        <div
+          className="flex h-12 items-center overflow-hidden rounded-xl border border-[#e7e9f0] bg-white max-[720px]:w-full"
+          aria-label="Khoảng thời gian"
+        >
+          <button
+            className={`${periodButton} ${period === 1 ? periodActive : "bg-transparent text-[#68758b]"}`}
+            onClick={() => setPeriod(1)}
+          >
             24 giờ
           </button>
-          <button className={period === 7 ? "active" : ""} onClick={() => setPeriod(7)}>
+          <button
+            className={`${periodButton} ${period === 7 ? periodActive : "bg-transparent text-[#68758b]"}`}
+            onClick={() => setPeriod(7)}
+          >
             7 ngày
           </button>
-          <button className={period === 30 ? "active" : ""} onClick={() => setPeriod(30)}>
+          <button
+            className={`${periodButton} ${period === 30 ? periodActive : "bg-transparent text-[#68758b]"}`}
+            onClick={() => setPeriod(30)}
+          >
             30 ngày
           </button>
-          <span className="period-calendar">▣</span>
+          <span className="grid h-full w-[52px] place-items-center border-l border-[#e8e9ef] text-[16px] text-[#65738b]">
+            ▣
+          </span>
         </div>
       </div>
 
-      <section className="market-v2-kpis">
-        <article className="topic-kpi">
-          <i className="shield-icon">{kpiIcon("search")}</i>
+      <section className="mb-4 grid grid-cols-4 gap-3.5 max-[1250px]:grid-cols-2 max-[720px]:grid-cols-1">
+        <article className={kpiArticle}>
+          <i className={`${kpiIconBox} bg-linear-145 from-[#ffe5f0] to-[#fff1f7] text-[#ef197b]`}>
+            {kpiIcon("search")}
+          </i>
           <div>
-            <small>Chủ đề được bàn luận nhiều nhất</small>
-            <strong title={topTopicName}>{topTopicName}</strong>
-            <span className="up">
-              {topTopicCount} lượt đề cập <em>{topTopicShare}% thảo luận trong kỳ</em>
+            <small className={kpiLabel}>Chủ đề được bàn luận nhiều nhất</small>
+            <strong
+              className="my-2.5 mb-3 line-clamp-2 block text-[19px] leading-[1.2] tracking-[-.8px] text-[#101a34]"
+              title={topTopicName}
+            >
+              {topTopicName}
+            </strong>
+            <span className="flex flex-wrap gap-x-0 gap-y-1 text-[11px] font-[750] text-[#08a658]">
+              {topTopicCount} lượt đề cập{" "}
+              <em className="ml-2 font-normal not-italic text-[#7b8799]">{topTopicShare}% thảo luận trong kỳ</em>
             </span>
           </div>
         </article>
-        <article>
-          <i className="warning-icon">{kpiIcon("warning")}</i>
+        <article className={kpiArticle}>
+          <i className={`${kpiIconBox} bg-linear-145 from-[#ffe5ef] to-[#fff2f7] text-[#ed176f]`}>
+            {kpiIcon("warning")}
+          </i>
           <div>
-            <small>Claim rủi ro cao</small>
-            <strong style={{ fontFamily: "var(--font-geist)" }}>{urgent}</strong>
-            <span className={trendClass(urgentDelta)}>
-              {urgentDelta >= 0 ? "↑" : "↓"} {signed(urgentDelta)} <em>so với kỳ trước</em>
+            <small className={kpiLabel}>Claim rủi ro cao</small>
+            <strong className={kpiValue} style={{ fontFamily: "var(--font-geist)" }}>
+              {urgent}
+            </strong>
+            <span className={trendTextClass(urgentDelta)}>
+              {urgentDelta >= 0 ? "↑" : "↓"} {signed(urgentDelta)} <em className={kpiTrendEm}>so với kỳ trước</em>
             </span>
           </div>
         </article>
-        <article>
-          <i className="search-icon">{kpiIcon("search")}</i>
+        <article className={kpiArticle}>
+          <i className={`${kpiIconBox} bg-linear-145 from-[#fff0d9] to-[#fff8ed] text-[#ee8b00]`}>
+            {kpiIcon("search")}
+          </i>
           <div>
-            <small>Chủ đề nổi bật</small>
-            <strong style={{ fontFamily: "var(--font-geist)" }}>{hotTopics}</strong>
-            <span className="up">
-              {topics.length} <em>chủ đề đang được theo dõi</em>
+            <small className={kpiLabel}>Chủ đề nổi bật</small>
+            <strong className={kpiValue} style={{ fontFamily: "var(--font-geist)" }}>
+              {hotTopics}
+            </strong>
+            <span className="text-[11px] font-[750] text-[#08a658]">
+              {topics.length} <em className={kpiTrendEm}>chủ đề đang được theo dõi</em>
             </span>
           </div>
         </article>
-        <article>
-          <i className="trend-icon">{kpiIcon("trend")}</i>
+        <article className={kpiArticle}>
+          <i className={`${kpiIconBox} bg-linear-145 from-[#ede4ff] to-[#f8f4ff] text-[#7b38e8]`}>
+            {kpiIcon("trend")}
+          </i>
           <div>
-            <small>Lượng thảo luận {period === 1 ? "24 giờ" : `${period} ngày`}</small>
-            <strong style={{ fontFamily: "var(--font-geist)" }}>{current.length}</strong>
-            <span className={trendClass(discussionDelta)}>
-              {discussionDelta >= 0 ? "↑" : "↓"} {discussionChange} <em>so với kỳ trước</em>
+            <small className={kpiLabel}>Lượng thảo luận {period === 1 ? "24 giờ" : `${period} ngày`}</small>
+            <strong className={kpiValue} style={{ fontFamily: "var(--font-geist)" }}>
+              {current.length}
+            </strong>
+            <span className={trendTextClass(discussionDelta)}>
+              {discussionDelta >= 0 ? "↑" : "↓"} {discussionChange} <em className={kpiTrendEm}>so với kỳ trước</em>
             </span>
           </div>
         </article>
       </section>
 
-      <div className="market-v2-grid">
-        <section className="chart-panel risk-v2" style={{ overflow: "visible" }}>
-          <header>
-            <h2>
-              Xu hướng thảo luận theo thời gian <small>ⓘ</small>
+      <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(350px,1fr)] gap-4 max-[1250px]:grid-cols-1">
+        <section
+          className={`${chartPanel} h-[320px] max-[1250px]:h-auto max-[1250px]:min-h-[320px]`}
+          style={{ overflow: "visible" }}
+        >
+          <header className={chartHeader}>
+            <h2 className={chartTitle}>
+              Xu hướng thảo luận theo thời gian <small className="text-[12px] font-normal text-[#8995a8]">ⓘ</small>
             </h2>
-            <span className={trendClass(discussionDelta)}>
-              {discussionDelta >= 0 ? "↑" : "↓"} {discussionChange} <em>so với kỳ trước</em>
+            <span className={headerTrendClass(discussionDelta)}>
+              {discussionDelta >= 0 ? "↑" : "↓"} {discussionChange}{" "}
+              <em className="ml-2 font-normal not-italic text-[#96a0b0]">so với kỳ trước</em>
             </span>
-            <b>⋮</b>
+            <b className={chartMenu}>⋮</b>
           </header>
-          <div className="risk-v2-legend">
-            <span>
-              <i style={{ background: "#ed198b" }} /> Lượt đề cập
+          <div className="flex gap-7 px-[22px] pt-px pb-[5px] text-[10px] text-[#526078]">
+            <span className="flex items-center gap-2">
+              <i className="h-1 w-[21px]" style={{ background: "#ed198b" }} /> Lượt đề cập
             </span>
           </div>
-          <div className="risk-v2-chart" style={{ height: 230, position: "relative", overflow: "visible" }}>
+          <div className="pr-[18px] pb-7 pl-[38px]" style={{ height: 230, position: "relative", overflow: "visible" }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={daysData} margin={{ top: 15, right: 15, left: -20, bottom: 0 }}>
                 <defs>
@@ -382,53 +464,63 @@ export function MarketOverview({ allItems }: { allItems: Case[] }) {
           </div>
         </section>
 
-        <section className="chart-panel topics-v2">
-          <header>
-            <h2>Top chủ đề được bàn luận nhiều nhất</h2>
-            <b>⋮</b>
+        <section className={`${chartPanel} h-[320px] max-[1250px]:h-auto max-[1250px]:min-h-[320px]`}>
+          <header className={chartHeader}>
+            <h2 className={chartTitle}>Top chủ đề được bàn luận nhiều nhất</h2>
+            <b className={chartMenu}>⋮</b>
           </header>
-          <div className="topics-v2-list">
+          <div className="px-[22px] pt-[2px]">
             {topics.map(([topic, count]) => {
               const change = delta(count, previousTopics.get(topic) || 0);
               return (
-                <div key={topic}>
-                  <strong>{topic}</strong>
-                  <i>
-                    <b style={{ width: `${Math.max(8, (count / maxTopic) * 100)}%` }} />
+                <div
+                  key={topic}
+                  className="grid h-[42px] grid-cols-[126px_1fr_28px_52px] items-center gap-2.5"
+                >
+                  <strong className="text-[11px] text-[#24324b]">{topic}</strong>
+                  <i className="h-[7px] overflow-hidden rounded-md bg-[#f0f1f5]">
+                    <b
+                      className="block h-full rounded-md bg-linear-90 from-[#ec1682] to-[#ed2a91]"
+                      style={{ width: `${Math.max(8, (count / maxTopic) * 100)}%` }}
+                    />
                   </i>
-                  <em>{count}</em>
-                  <span className={trendClass(change)}>
+                  <em className="text-[11px] not-italic text-[#1f2d46]">{count}</em>
+                  <span
+                    className={`text-right text-[10px] font-[750] ${
+                      change >= 0 ? "text-[#0aa65d]" : "text-[#ef3540]"
+                    }`}
+                  >
                     {change >= 0 ? "↑" : "↓"} {Math.abs(change)}%
                   </span>
                 </div>
               );
             })}
           </div>
-          <footer>
+          <footer className="flex justify-between px-[22px] py-1.5 text-[9px] text-[#778397]">
             <span>● &nbsp;Số lượt đề cập theo chủ đề</span>
             <span>so với kỳ trước</span>
           </footer>
         </section>
 
-        <section className="chart-panel heatmap-v2">
-          <header>
-            <h2>
-              Heatmap điểm nóng <small>ⓘ</small>
+        <section className={`${chartPanel} min-h-[278px] max-[720px]:overflow-x-auto`}>
+          <header className={chartHeader}>
+            <h2 className={chartTitle}>
+              Heatmap điểm nóng <small className="text-[12px] font-normal text-[#8995a8]">ⓘ</small>
             </h2>
-            <b>⋮</b>
+            <b className={chartMenu}>⋮</b>
           </header>
-          <div className="heat-v2-platforms">
+          <div className={`${heatGrid} px-5 pt-px pb-[7px] text-[9px] font-[650] text-[#25334b]`}>
             <span>Chủ đề</span>
             {platforms.map((platform) => (
-              <span key={platform}>
+              <span key={platform} className="flex items-center justify-center gap-[5px] whitespace-nowrap">
                 {platformIcon(platform)} {platform === "Forum" ? "Khác" : platform}
               </span>
             ))}
           </div>
-          <div className="heat-v2-body">
+          <div className="px-5">
             {topics.map(([topic]) => (
-              <div key={topic}>
-                <strong>{topic}</strong>
+              <div key={topic} className={`${heatGrid} h-7`}>
+                <strong className="text-[10px] text-[#26344b]">{topic}</strong>
                 {platforms.map((platform) => {
                   const count = current.filter(
                     (item) => discussionTopicName(item) === topic && item.platform === platform
@@ -437,7 +529,7 @@ export function MarketOverview({ allItems }: { allItems: Case[] }) {
                   return (
                     <i
                       key={platform}
-                      className={`heat-level-${level}`}
+                      className={`h-6 rounded-[3px] border border-white ${heatLevels[level]}`}
                       title={`${topic} · ${platform}: ${count} hồ sơ`}
                     />
                   );
@@ -445,39 +537,48 @@ export function MarketOverview({ allItems }: { allItems: Case[] }) {
               </div>
             ))}
           </div>
-          <div className="heat-v2-legend">
-            <span>■ Rất cao</span>
-            <span>■ Cao</span>
-            <span>■ Trung bình</span>
-            <span>■ Thấp</span>
-            <span>■ Rất thấp</span>
+          <div className="flex justify-center gap-[17px] px-2.5 py-[15px] text-[9px] text-[#6d798d] max-[720px]:min-w-[610px]">
+            <span className="text-[#e43886]">■ Rất cao</span>
+            <span className="text-[#ee936c]">■ Cao</span>
+            <span className="text-[#dfb656]">■ Trung bình</span>
+            <span className="text-[#74c889]">■ Thấp</span>
+            <span className="text-[#9acfa5]">■ Rất thấp</span>
           </div>
         </section>
 
-        <section className="chart-panel executive-v2">
-          <header>
-            <h2>
-              <span>✪</span> Nhận định điều hành
+        <section className={`${chartPanel} min-h-[278px]`}>
+          <header className={chartHeader}>
+            <h2 className={chartTitle}>
+              <span className="mr-2 inline-grid h-[23px] w-[23px] place-items-center rounded-full bg-[#ffe7f3] text-[#e9177d]">
+                ✪
+              </span>{" "}
+              Nhận định điều hành
             </h2>
-            <b>⋮</b>
+            <b className={chartMenu}>⋮</b>
           </header>
-          <div className="executive-v2-list">
-            <p>
-              <i>◎</i>
+          <div className="mx-3.5 mb-3.5 overflow-hidden rounded-xl border border-[#e6e8ee]">
+            <p className="m-0 flex min-h-[64px] items-center gap-[17px] border-b border-[#e7e9ef] px-3 py-[9px] text-[11px] text-[#2a374d]">
+              <i className="grid h-[45px] w-[45px] flex-none place-items-center rounded-xl bg-[#fde9f5] text-[25px] not-italic text-[#e6167c]">
+                ◎
+              </i>
               <span>
-                Thảo luận đang tập trung vào chủ đề <b>{topics[0]?.[0] || "chưa xác định"}</b>.
+                Thảo luận đang tập trung vào chủ đề <b className="font-[750]">{topics[0]?.[0] || "chưa xác định"}</b>.
               </span>
             </p>
-            <p>
-              <i>{platformIcon(topPlatform)}</i>
+            <p className="m-0 flex min-h-[64px] items-center gap-[17px] border-b border-[#e7e9ef] px-3 py-[9px] text-[11px] text-[#2a374d]">
+              <i className="grid h-[45px] w-[45px] flex-none place-items-center rounded-xl bg-[#fde9f5] text-[25px] not-italic text-[#e6167c]">
+                {platformIcon(topPlatform)}
+              </i>
               <span>
-                <b>{topPlatform}</b> là nền tảng ghi nhận nhiều tín hiệu nhất trong kỳ.
+                <b className="font-[750]">{topPlatform}</b> là nền tảng ghi nhận nhiều tín hiệu nhất trong kỳ.
               </span>
             </p>
-            <p>
-              <i>△</i>
+            <p className="m-0 flex min-h-[64px] items-center gap-[17px] px-3 py-[9px] text-[11px] text-[#2a374d]">
+              <i className="grid h-[45px] w-[45px] flex-none place-items-center rounded-xl bg-[#fde9f5] text-[25px] not-italic text-[#e6167c]">
+                △
+              </i>
               <span>
-                <b>{urgent || 0} claim</b> ở mức khẩn cấp cần được ưu tiên xử lý.
+                <b className="font-[750]">{urgent || 0} claim</b> ở mức khẩn cấp cần được ưu tiên xử lý.
               </span>
             </p>
           </div>

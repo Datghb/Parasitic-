@@ -43,12 +43,12 @@ export default function SourcesPage() {
   ];
 
   return (
-    <div className="monitor-page">
-      <div className="queue-heading">
+    <div className="mx-auto max-w-[1640px] px-[28px] pt-[25px] pb-8 max-[700px]:px-[15px] max-[700px]:pt-[26px] max-[700px]:pb-6">
+      <div className="mb-[18px] flex items-center justify-between gap-[25px] max-[700px]:flex-col max-[700px]:items-start">
         <div>
-          <span className="eyebrow">NGUỒN TIN</span>
-          <h1>Nguồn chính thức</h1>
-          <p>
+          <span className="text-[10px] font-extrabold tracking-[1.5px] text-[#c01cad]">NGUỒN TIN</span>
+          <h1 className="my-[6px] text-[38px] font-[760] tracking-[-1.6px] text-[#202944] max-[480px]:text-[31px]">Nguồn chính thức</h1>
+          <p className="m-0 text-[12px] text-[#738195]">
             Danh sách whitelist nguồn tin theo tầng thẩm quyền — hệ thống chỉ dùng các nguồn này để xác minh nội
             dung.
           </p>
@@ -56,7 +56,7 @@ export default function SourcesPage() {
       </div>
 
       {[0, 1, 2].map((tier) => (
-        <section key={tier} className="queue-card" style={{ marginBottom: 24 }}>
+        <section key={tier} className="overflow-hidden rounded-[17px] bg-white shadow-[0_10px_30px_#28304f0b,0_2px_7px_#28304f08] max-[700px]:rounded-[14px]" style={{ marginBottom: 24 }}>
           <div style={{ padding: 24 }}>
             <h3 style={{ marginBottom: 4 }}>
               Tier {tier}:{" "}
@@ -73,12 +73,12 @@ export default function SourcesPage() {
                 ? "Cần ≥2 nguồn Tier 1/2 độc lập xác nhận. Bác bỏ hợp lệ khi dẫn lời Tier 0."
                 : "Chỉ dùng để bổ sung — không đơn phương quyết định."}
             </p>
-            <table className="queue-table">
+            <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th>TÊN</th>
-                  <th>DOMAIN</th>
-                  <th>MÔ TẢ</th>
+                  <th className="border-b border-[#eff1f5] bg-[#fafbfe] px-3 py-2.5 text-left text-[8px] font-[650] tracking-[.55px] text-[#989dae]">TÊN</th>
+                  <th className="border-b border-[#eff1f5] bg-[#fafbfe] px-3 py-2.5 text-left text-[8px] font-[650] tracking-[.55px] text-[#989dae]">DOMAIN</th>
+                  <th className="border-b border-[#eff1f5] bg-[#fafbfe] px-3 py-2.5 text-left text-[8px] font-[650] tracking-[.55px] text-[#989dae]">MÔ TẢ</th>
                 </tr>
               </thead>
               <tbody>
@@ -86,13 +86,13 @@ export default function SourcesPage() {
                   .filter((s) => s.tier === tier)
                   .map((s) => (
                     <tr key={s.domain}>
-                      <td>
-                        <strong>{s.name}</strong>
+                      <td className="border-b border-[#f0f1f5] px-3 py-[11px] align-middle text-[10px] text-[#445468]">
+                        <strong className="block text-[11px] leading-[1.4] text-[#26384d]">{s.name}</strong>
                       </td>
-                      <td>
-                        <code>{s.domain}</code>
+                      <td className="border-b border-[#f0f1f5] px-3 py-[11px] align-middle text-[10px] text-[#445468]">
+                        <code className="font-(family-name:--font-mono) text-[9px]">{s.domain}</code>
                       </td>
-                      <td>{s.desc}</td>
+                      <td className="border-b border-[#f0f1f5] px-3 py-[11px] align-middle text-[10px] text-[#445468]">{s.desc}</td>
                     </tr>
                   ))}
               </tbody>

@@ -20,9 +20,16 @@ function platformIcon(platform: Case["platform"]) {
     Forum:
       "M12.103 0C18.666 0 24 5.485 24 11.997c0 6.51-5.33 11.99-11.9 11.99L0 24V11.79C0 5.28 5.532 0 12.103 0zm.116 4.563c-2.593-.003-4.996 1.352-6.337 3.57-1.33 2.208-1.387 4.957-.148 7.22L4.4 19.61l4.794-1.074c2.745 1.225 5.965.676 8.136-1.39 2.17-2.054 2.86-5.228 1.737-7.997-1.135-2.778-3.84-4.59-6.84-4.585h-.008z",
   };
+  const colors: Record<Case["platform"], string> = {
+    Facebook: "text-[#1877f2]",
+    TikTok: "text-[#111]",
+    YouTube: "text-[#ff0033]",
+    X: "text-[#050505]",
+    Forum: "text-[#aeb6c2]",
+  };
   return (
     <svg
-      className={`platform-svg platform-${platform.toLowerCase()}`}
+      className={`block fill-current ${colors[platform]}`}
       viewBox="0 0 24 24"
       role="img"
       aria-label={`${platform} logo`}
@@ -32,6 +39,24 @@ function platformIcon(platform: Case["platform"]) {
     </svg>
   );
 }
+
+const platformBg: Record<Case["platform"], string> = {
+  Facebook: "bg-[#e8f0f8] text-[#286298]",
+  TikTok: "bg-[#202a34] text-white",
+  YouTube: "bg-[#ffebe9] text-[#c54137]",
+  X: "bg-[#e9edf0] text-[#19232d]",
+  Forum: "bg-[#e8f0f8] text-[#286298]",
+};
+
+const detailCard = "rounded-[13px] border border-[#e8eaf1] bg-white p-4";
+const cardLabel = "block text-[10px] tracking-[.9px] text-[#8090a0]";
+const cardHeading = "flex items-center justify-between border-b border-[#eff0f5] pb-[11px]";
+const cardHeadingIcon =
+  "grid h-[25px] w-[25px] place-items-center rounded-full bg-linear-145 from-[#fff0fb] to-[#f2e8ff] text-[9px] font-extrabold text-[#ba1eaa]";
+const cardHeadingTitle = "mt-[3px] text-[14px] font-[750] text-[#293149]";
+const confidenceRow = "flex text-[12px] text-[#788499]";
+const confidenceTrack = "mt-2 mb-3 h-[5px] overflow-hidden rounded-[5px] bg-[#f0e8f0]";
+const flowStep = "flex-1 rounded-[9px] px-[5px] py-[11px] text-center text-[8px] font-extrabold";
 
 export function CaseDetail({ item }: { item: Case }) {
   const router = useRouter();
@@ -105,21 +130,33 @@ export function CaseDetail({ item }: { item: Case }) {
   }
 
   return (
-    <div className="monitor-page detail-page">
-      <button className="drawer-close" onClick={handleBack} aria-label="Đóng hồ sơ">
+    <div className="fixed inset-y-0 right-0 z-[80] w-[min(590px,100vw)] overflow-y-auto bg-white px-[26px] pt-[26px] pb-[86px] shadow-[-18px_0_55px_#1e294426] max-[700px]:px-4 max-[700px]:pt-[22px]">
+      <button
+        className="absolute top-[17px] right-[18px] h-[34px] w-[34px] rounded-full border-0 bg-[#f7f3f7] text-[22px] text-[#4e5970]"
+        onClick={handleBack}
+        aria-label="Đóng hồ sơ"
+      >
         ×
       </button>
-      <div className="detail-heading">
+      <div className="mb-[15px] border-b border-[#e8eaf1] pt-1 pr-[42px] pb-[18px]">
         <div>
-          <span className="eyebrow">CHI TIẾT HỒ SƠ · {item.id}</span>
-          <h1>{item.claim}</h1>
-          <p>
+          <span className="text-[10px] font-extrabold tracking-[1.5px] text-[#c01cad]">
+            CHI TIẾT HỒ SƠ · {item.id}
+          </span>
+          <h1 className="my-[9px] text-[19px] font-[760] leading-[1.35] tracking-[-.4px] text-[#202944]">
+            {item.claim}
+          </h1>
+          <p className="m-0 text-[10px] text-[#738195]">
             {item.platform} · Công khai · {item.publishedAt}
           </p>
         </div>
-        <label className="status-control">
+        <label className="mt-[15px] flex items-center gap-3 text-[10px] font-bold tracking-[.7px] text-[#728194]">
           Trạng thái xử lý
-          <select value={currentStatus} onChange={(event) => handleStatusChange(event.target.value as Status)}>
+          <select
+            className="flex-1 rounded-[10px] border border-[#e7e9f0] bg-[#fafbfe] px-3 py-2.5 text-[13px] text-[#35495e] outline-none focus:border-[#d638b5] focus:shadow-[0_0_0_3px_#d638b512]"
+            value={currentStatus}
+            onChange={(event) => handleStatusChange(event.target.value as Status)}
+          >
             {statuses.map((value) => (
               <option key={value}>{value}</option>
             ))}
@@ -127,32 +164,34 @@ export function CaseDetail({ item }: { item: Case }) {
         </label>
       </div>
 
-      <div className="detail-grid">
-        <div className="detail-primary">
-          <section className="detail-card original-card">
-            <div className="card-heading">
-              <div>
-                <span>01</span>
+      <div>
+        <div className="grid gap-[13px]">
+          <section className={detailCard}>
+            <div className={cardHeading}>
+              <div className="flex items-center gap-[11px]">
+                <span className={cardHeadingIcon}>01</span>
                 <div>
-                  <small>NỘI DUNG GỐC</small>
-                  <h2>Bài viết được giám sát</h2>
+                  <small className={cardLabel}>NỘI DUNG GỐC</small>
+                  <h2 className={cardHeadingTitle}>Bài viết được giám sát</h2>
                 </div>
               </div>
-              <em>{item.reach}</em>
+              <em className="text-[11px] not-italic text-[#778698]">{item.reach}</em>
             </div>
-            <div className="post-author">
-              <span className={`platform-logo ${item.platform.toLowerCase()}`}>
+            <div className="flex items-center pt-4 pb-[5px]">
+              <span
+                className={`mr-[7px] inline-grid h-[25px] w-[25px] place-items-center rounded-full font-extrabold shadow-[inset_0_0_0_1px_#ffffff90] ${platformBg[item.platform]}`}
+              >
                 {platformIcon(item.platform)}
               </span>
               <div>
-                <strong>{item.account}</strong>
-                <small>
+                <strong className="block text-[13px]">{item.account}</strong>
+                <small className="mt-[3px] block text-[11px] text-[#8593a1]">
                   {item.platform} · {item.publishedAt}
                 </small>
               </div>
             </div>
             {item.postUrl && item.postUrl !== "#" && (
-              <div className="post-link" style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 12 }}>
                 <a
                   href={item.postUrl}
                   target="_blank"
@@ -163,9 +202,13 @@ export function CaseDetail({ item }: { item: Case }) {
                 </a>
               </div>
             )}
-            <blockquote>{"\u201C"}{item.original}{"\u201D"}</blockquote>
+            <blockquote className="my-3 rounded-r-xl border-l-[3px] border-[#d721ac] bg-[#fdf8ff] p-[13px] font-[Georgia] text-[13px] leading-[1.55] text-[#283d52]">
+              {"\u201C"}
+              {item.original}
+              {"\u201D"}
+            </blockquote>
             {item.postComments && item.postComments.length > 0 && (
-              <div className="post-comments" style={{ marginTop: 16 }}>
+              <div style={{ marginTop: 16 }}>
                 <div
                   style={{
                     display: "flex",
@@ -212,58 +255,70 @@ export function CaseDetail({ item }: { item: Case }) {
             )}
           </section>
 
-          <section className="detail-card">
-            <div className="card-heading">
-              <div>
-                <span>02</span>
+          <section className={detailCard}>
+            <div className={cardHeading}>
+              <div className="flex items-center gap-[11px]">
+                <span className={cardHeadingIcon}>02</span>
                 <div>
-                  <small>PHÂN TÍCH AI</small>
-                  <h2>Claim được trích xuất</h2>
+                  <small className={cardLabel}>PHÂN TÍCH AI</small>
+                  <h2 className={cardHeadingTitle}>Claim được trích xuất</h2>
                 </div>
               </div>
               <VerdictBadge value={item.verdict} />
             </div>
-            <div className="claim-quote">“{item.claim}”</div>
-            <div className="analysis-reason">
-              <small>LÝ DO PHÂN LOẠI</small>
-              <p>{item.reason}</p>
+            <div className="my-3 rounded-[7px] bg-linear-145 from-[#faf6ff] to-[#f6f7fc] p-[13px] font-[Georgia] text-[14px] font-semibold leading-[1.5] text-[#292e4a]">
+              “{item.claim}”
+            </div>
+            <div className="border-l-2 border-[#d929b2] pl-3">
+              <small className={cardLabel}>LÝ DO PHÂN LOẠI</small>
+              <p className="mt-[6px] mb-0 text-[11px] leading-[1.6] text-[#586a7c]">{item.reason}</p>
             </div>
           </section>
 
-          <section className="detail-card source-card">
-            <div className="card-heading">
-              <div>
-                <span>03</span>
+          <section className={detailCard}>
+            <div className={cardHeading}>
+              <div className="flex items-center gap-[11px]">
+                <span className={cardHeadingIcon}>03</span>
                 <div>
-                  <small>KIỂM CHỨNG NGUỒN</small>
-                  <h2>Đối chiếu nguồn chính thức</h2>
+                  <small className={cardLabel}>KIỂM CHỨNG NGUỒN</small>
+                  <h2 className={cardHeadingTitle}>Đối chiếu nguồn chính thức</h2>
                 </div>
               </div>
               <span
-                className={`source-result ${
+                className={`inline-flex items-center gap-1.5 rounded-[9px] px-2.5 py-[7px] text-[11px] font-[750] whitespace-nowrap ${
                   item.verdict === "Đúng"
-                    ? "confirmed"
+                    ? "bg-[#e8f5ef] text-[#247656]"
                     : item.verdict === "Hiểu lầm"
-                    ? "conflict"
-                    : "pending"
+                    ? "bg-[#ffebe8] text-[#a63b35]"
+                    : "bg-[#fff4d9] text-[#90621a]"
                 }`}
               >
                 {item.verdict === "Đúng" ? "✓" : item.verdict === "Hiểu lầm" ? "↯" : "?"} {item.sourceResult}
               </span>
             </div>
-            <div className="official-source">
-              <div className="agency-mark">CQ</div>
+            <div className="flex items-center gap-3 pt-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-linear-145 from-[#3d4774] to-[#202a53] font-[Georgia] text-[12px] font-semibold text-white shadow-[0_7px_15px_#20294b25]">
+                CQ
+              </div>
               <div>
-                <small>NGUỒN CHÍNH THỨC</small>
-                <h3>{item.sourceTitle}</h3>
-                <p>{item.sourceAgency}</p>
+                <small className={cardLabel}>NGUỒN CHÍNH THỨC</small>
+                <h3 className="my-[3px] text-[14px]">{item.sourceTitle}</h3>
+                <p className="m-0 text-[11px] text-[#83909e]">{item.sourceAgency}</p>
               </div>
               {item.sourceUrl && item.sourceUrl !== "#" ? (
-                <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">
+                <a
+                  className="ml-auto rounded-[9px] bg-[#fbf0fb] px-2.5 py-2 text-[12px] text-[#b51aa8] no-underline"
+                  href={item.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Mở nguồn ↗
                 </a>
               ) : (
-                <span className="source-unavailable" aria-disabled="true">
+                <span
+                  className="ml-auto rounded-[9px] bg-[#f3f4f7] px-2.5 py-2 text-[11px] whitespace-nowrap text-[#9aa2b1]"
+                  aria-disabled="true"
+                >
                   Chưa có URL nguồn
                 </span>
               )}
@@ -271,67 +326,83 @@ export function CaseDetail({ item }: { item: Case }) {
           </section>
         </div>
 
-        <aside className="detail-aside">
-          <section className="decision-card">
-            <small>KẾT QUẢ THẨM ĐỊNH AI</small>
+        <aside className="mt-[13px] grid gap-[13px]">
+          <section className={detailCard}>
+            <small className="block text-[10px] tracking-[.9px] text-[#788499]">KẾT QUẢ THẨM ĐỊNH AI</small>
             <VerdictBadge value={item.verdict} large />
-            <div className="confidence-row">
+            <div className={confidenceRow}>
               <span>Mức rủi ro</span>
-              <strong>{item.score}/100</strong>
+              <strong className="ml-auto text-[#1d2940]">{item.score}/100</strong>
             </div>
-            <div className="confidence-track">
-              <i style={{ width: `${item.score}%` }} />
+            <div className={confidenceTrack}>
+              <i
+                className="block h-full rounded-[5px] bg-linear-90 from-[#ff4cb7] to-[#b731e3]"
+                style={{ width: `${item.score}%` }}
+              />
             </div>
-            <div className="confidence-row">
+            <div className={confidenceRow}>
               <span>Độ tin cậy</span>
-              <strong>{item.confidence}/100</strong>
+              <strong className="ml-auto text-[#1d2940]">{item.confidence}/100</strong>
             </div>
-            <div className="confidence-track">
-              <i style={{ width: `${item.confidence}%` }} />
+            <div className={confidenceTrack}>
+              <i
+                className="block h-full rounded-[5px] bg-linear-90 from-[#ff4cb7] to-[#b731e3]"
+                style={{ width: `${item.confidence}%` }}
+              />
             </div>
-            <p>Kết quả tự động hỗ trợ sàng lọc, không thay thế kết luận của chuyên viên.</p>
+            <p className="m-0 text-[11px] leading-[1.5] text-[#788499]">
+              Kết quả tự động hỗ trợ sàng lọc, không thay thế kết luận của chuyên viên.
+            </p>
           </section>
-          <section className="legal-card-new">
-            <div className="legal-title">
-              <span>⚖</span>
+          <section className={detailCard}>
+            <div className="flex gap-2.5 border-b border-[#e7ebef] pb-[14px]">
+              <span className="text-[20px] text-[#c524ad]">⚖</span>
               <div>
-                <small>CĂN CỨ PHÁP LUẬT</small>
-                <h2>{item.document}</h2>
+                <small className={cardLabel}>CĂN CỨ PHÁP LUẬT</small>
+                <h2 className={cardHeadingTitle}>{item.document}</h2>
               </div>
             </div>
-            <dl>
-              <div>
-                <dt>Điều / khoản / điểm</dt>
-                <dd>{item.provision}</dd>
+            <dl className="m-0">
+              <div className="border-b border-[#edf0f3] py-3">
+                <dt className="mb-[5px] text-[10px] text-[#8693a0]">Điều / khoản / điểm</dt>
+                <dd className="m-0 text-[13px] font-[650] leading-[1.45] text-[#30465b]">{item.provision}</dd>
               </div>
-              <div>
-                <dt>Chủ thể</dt>
-                <dd>{item.subject}</dd>
+              <div className="border-b border-[#edf0f3] py-3">
+                <dt className="mb-[5px] text-[10px] text-[#8693a0]">Chủ thể</dt>
+                <dd className="m-0 text-[13px] font-[650] leading-[1.45] text-[#30465b]">{item.subject}</dd>
               </div>
-              <div>
-                <dt>Mức phạt</dt>
-                <dd>{item.penalty}</dd>
+              <div className="border-b border-[#edf0f3] py-3">
+                <dt className="mb-[5px] text-[10px] text-[#8693a0]">Mức phạt</dt>
+                <dd className="m-0 text-[13px] font-[650] leading-[1.45] text-[#30465b]">{item.penalty}</dd>
               </div>
             </dl>
-            <div className="legal-note">Cần đối chiếu đầy đủ hành vi, chủ thể và tình tiết thực tế trước khi áp dụng.</div>
+            <div className="mt-[13px] rounded-[11px] bg-[#fff6e7] p-2.5 text-[11px] leading-[1.5] text-[#78633e]">
+              Cần đối chiếu đầy đủ hành vi, chủ thể và tình tiết thực tế trước khi áp dụng.
+            </div>
           </section>
-          <section className="knowledge-card">
-            <small>KNOWLEDGE GRAPH</small>
-            <div className="knowledge-flow">
-              <span>Claim</span>
-              <i>→</i>
-              <span>Chủ thể</span>
-              <i>→</i>
-              <span>Điều luật</span>
-              <i>→</i>
-              <span>Nguồn</span>
+          <section className={detailCard}>
+            <small className="text-[9px] font-extrabold text-[#65738a]">KNOWLEDGE GRAPH</small>
+            <div className="mt-[14px] flex items-center justify-between gap-1.5">
+              <span className={`${flowStep} bg-[#fff0f7] text-[#c31b80]`}>Claim</span>
+              <i className="not-italic text-[#c3c9d3]">→</i>
+              <span className={`${flowStep} bg-[#fff4e4] text-[#ad7314]`}>Chủ thể</span>
+              <i className="not-italic text-[#c3c9d3]">→</i>
+              <span className={`${flowStep} bg-[#eaf8ee] text-[#24865a]`}>Điều luật</span>
+              <i className="not-italic text-[#c3c9d3]">→</i>
+              <span className={`${flowStep} bg-[#edf4fc] text-[#3970ad]`}>Nguồn</span>
             </div>
           </section>
         </aside>
       </div>
-      <div className="detail-actions">
-        <button onClick={handleBack}>← Quay lại hàng đợi</button>
+      <div className="fixed right-0 bottom-0 z-[82] grid w-[min(590px,100vw)] grid-cols-[1fr_1.25fr] gap-2.5 border-t border-[#e8eaf1] bg-white px-[26px] py-[14px] max-[700px]:px-4 max-[700px]:py-3">
         <button
+          className="rounded-[9px] border border-[#dfe2e9] bg-white p-[11px] text-[11px] font-[750] text-[#5c687c]"
+          onClick={handleBack}
+        >
+          ← Quay lại hàng đợi
+        </button>
+        <button
+          className="rounded-[9px] border-0 bg-linear-90 from-[#e213aa] to-[#a20ac1] p-[11px] text-[11px] font-[750] text-white"
           onClick={handleStartVerification}
           disabled={verifyLoading || currentStatus === "Đang xử lý"}
         >

@@ -76,10 +76,11 @@ export function Topbar() {
 
   return (
     <>
-      <header className="monitor-topbar">
-        <div className="monitor-search">
+      <header className="flex h-[66px] items-center gap-3 border-b border-[#eceef4] bg-[#ffffffcc] px-[28px] backdrop-blur-[12px] max-[980px]:h-[69px] max-[860px]:gap-[7px] max-[700px]:h-[58px] max-[700px]:px-[15px]">
+        <div className="flex max-w-[525px] flex-1 items-center gap-[9px] rounded-xl border border-[#e9ebf2] bg-white px-[15px] py-[11px] text-[#7d8da0] shadow-[0_5px_16px_#23294b08]">
           <span>⌕</span>
           <input
+            className="w-full border-0 text-[14px] outline-0"
             value={searchQuery}
             onChange={(event) => handleSearchChange(event.target.value)}
             placeholder="Tìm claim hoặc mã hồ sơ…"
@@ -87,29 +88,71 @@ export function Topbar() {
           />
         </div>
         <button
-          className={`crawl-button ${crawlState}`}
+          className="crawl-button ml-auto rounded-[9px] bg-linear-90 from-[#e51aa6] to-[#ae0bc5] px-[13px] py-2.5 text-[10px] font-extrabold whitespace-nowrap text-white shadow-[0_5px_14px_#c613ad24] disabled:cursor-wait disabled:opacity-70 max-[860px]:ml-0"
           onClick={runCrawl}
           disabled={crawlState === "loading"}
         >
-          {crawlState === "loading" ? <><i /> Đang quét MXH…</> : "⌁ Quét MXH"}
+          {crawlState === "loading" ? (
+            <>
+              <i className="mr-[5px] inline-block h-2.5 w-2.5 animate-[crawl-spin_.7s_linear_infinite] rounded-full border-2 border-[#ffffff66] border-t-white align-[-2px]" />{" "}
+              Đang quét MXH…
+            </>
+          ) : (
+            "⌁ Quét MXH"
+          )}
         </button>
-        <div className={`monitor-live ${isError || caseItems.length === 0 ? "fallback" : "api"}`}>
-          <i /> {isError || caseItems.length === 0 ? "Dữ liệu mẫu dự phòng" : "Dữ liệu API trực tiếp"}
+        <div
+          className={`rounded-[18px] border border-[#e8eaf1] bg-white px-[13px] py-2 text-[11px] max-[860px]:hidden ${
+            isError || caseItems.length === 0 ? "text-[#9b6b20]" : "text-[#607286]"
+          }`}
+        >
+          <i
+            className={`mr-[7px] inline-block h-[7px] w-[7px] rounded-full ${
+              isError || caseItems.length === 0
+                ? "bg-[#e3a83d] shadow-[0_0_0_3px_#e3a83d20]"
+                : "bg-[#42cf91] shadow-[0_0_0_3px_#42cf9120]"
+            }`}
+          />{" "}
+          {isError || caseItems.length === 0 ? "Dữ liệu mẫu dự phòng" : "Dữ liệu API trực tiếp"}
         </div>
-        <button className="notification-button" aria-label="Thông báo">
-          ♢<b>{urgentCount || ""}</b>
+        <button
+          className="relative h-9 w-9 border-0 bg-transparent text-[20px] text-[#65738a] max-[700px]:hidden"
+          aria-label="Thông báo"
+        >
+          ♢
+          <b className="absolute top-0 right-0 grid h-4 w-4 place-items-center rounded-full bg-[#df0c9e] text-[9px] text-white">
+            {urgentCount || ""}
+          </b>
         </button>
-        <button className="monitor-avatar" aria-label="Tài khoản Minh Anh">
+        <button
+          className="ml-1 h-[35px] w-[35px] rounded-full bg-linear-145 from-[#ff3aac] to-[#ad19d5] text-[10px] font-extrabold text-white shadow-[0_6px_14px_#d12aa13b]"
+          aria-label="Tài khoản Minh Anh"
+        >
           MA
         </button>
-        <span className="avatar-chevron">⌄</span>
+        <span className="text-[13px] text-[#66748b] max-[700px]:hidden">⌄</span>
       </header>
 
       {crawlMessage && (
-        <div className={`crawl-toast ${crawlState}`} role="status">
-          <span>{crawlState === "success" ? "✓" : "!"}</span>
-          <p>{crawlMessage}</p>
-          <button onClick={() => setCrawlMessage("")}>×</button>
+        <div
+          className={`fixed right-[22px] bottom-[22px] z-[120] flex w-[min(430px,calc(100vw-32px))] items-start gap-2.5 rounded-xl border p-[13px_14px] shadow-[0_14px_38px_#20324d22] ${
+            crawlState === "error"
+              ? "border-[#f0cbd3] bg-[#fff3f5] text-[#a43f53]"
+              : "border-[#ccebdd] bg-[#f0fbf6] text-[#276d53]"
+          }`}
+          role="status"
+        >
+          <span
+            className={`grid h-[21px] w-[21px] place-items-center rounded-full text-[11px] font-extrabold text-white ${
+              crawlState === "error" ? "bg-[#d9556e]" : "bg-[#35a87b]"
+            }`}
+          >
+            {crawlState === "success" ? "✓" : "!"}
+          </span>
+          <p className="mt-[2px] flex-1 text-[11px] leading-[1.45]">{crawlMessage}</p>
+          <button className="border-0 bg-transparent text-lg leading-none text-inherit" onClick={() => setCrawlMessage("")}>
+            ×
+          </button>
         </div>
       )}
     </>

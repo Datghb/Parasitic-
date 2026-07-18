@@ -6,7 +6,7 @@ import {
   useQueueQuery,
   useClearQueueMutation,
 } from "../../hooks/use-queries";
-import { VerdictBadge, StatusBadge } from "../common/badge";
+import { VerdictBadge, StatusBadge, slug } from "../common/badge";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ManualInputDrawer } from "./manual-input-drawer";
 import { Case, Verdict, Status, Priority } from "../../types";
@@ -27,9 +27,16 @@ function platformIcon(platform: Case["platform"]) {
     Forum:
       "M12.103 0C18.666 0 24 5.485 24 11.997c0 6.51-5.33 11.99-11.9 11.99L0 24V11.79C0 5.28 5.532 0 12.103 0zm.116 4.563c-2.593-.003-4.996 1.352-6.337 3.57-1.33 2.208-1.387 4.957-.148 7.22L4.4 19.61l4.794-1.074c2.745 1.225 5.965.676 8.136-1.39 2.17-2.054 2.86-5.228 1.737-7.997-1.135-2.778-3.84-4.59-6.84-4.585h-.008z",
   };
+  const colors: Record<Case["platform"], string> = {
+    Facebook: "text-[#1877f2]",
+    TikTok: "text-[#111]",
+    YouTube: "text-[#ff0033]",
+    X: "text-[#050505]",
+    Forum: "text-[#aeb6c2]",
+  };
   return (
     <svg
-      className={`platform-svg platform-${platform.toLowerCase()}`}
+      className={`block fill-current ${colors[platform]}`}
       viewBox="0 0 24 24"
       role="img"
       aria-label={`${platform} logo`}
@@ -39,6 +46,40 @@ function platformIcon(platform: Case["platform"]) {
     </svg>
   );
 }
+
+const pageShell =
+  "mx-auto max-w-[1640px] px-[28px] pt-[25px] pb-8 max-[700px]:px-[15px] max-[700px]:pt-[26px] max-[700px]:pb-6";
+
+const metricArticle =
+  "flex min-h-[119px] items-start justify-between rounded-[15px] border border-[#e8eaf1] bg-white px-5 py-[18px] shadow-[0_6px_24px_#24304b08] max-[700px]:min-h-[102px] max-[700px]:p-[14px] max-[480px]:min-h-[92px]";
+const metricLabel = "block text-[11px] text-[#6d7990]";
+const metricValue = "my-2 block text-[27px] text-[#111d36]";
+const metricIcon = "grid h-[45px] w-[45px] place-items-center rounded-full text-[19px] not-italic";
+
+const tabButton = "relative border-0 bg-transparent px-[14px] text-[11px] max-[700px]:whitespace-nowrap";
+const tabActive =
+  "font-extrabold text-[#bd0aae] after:absolute after:right-2 after:bottom-0 after:left-2 after:h-[2px] after:bg-[#d80aa1] after:content-['']";
+const tabCount = "ml-[6px] rounded-[10px] bg-[#f0f1f5] px-[6px] py-[2px] text-[9px] text-[#7c8799]";
+
+const priorityColors: Record<string, string> = {
+  "khan-cap": "bg-[#fff0f4] text-[#bd315b]",
+  cao: "bg-[#fff7e5] text-[#a16b15]",
+  "trung-binh": "bg-[#eaf2f8] text-[#3b668b]",
+  thap: "bg-[#edf1f4] text-[#687789]",
+};
+
+const platformBg: Record<Case["platform"], string> = {
+  Facebook: "bg-[#e8f0f8] text-[#286298]",
+  TikTok: "bg-[#202a34] text-white",
+  YouTube: "bg-[#ffebe9] text-[#c54137]",
+  X: "bg-[#e9edf0] text-[#19232d]",
+  Forum: "bg-[#e8f0f8] text-[#286298]",
+};
+
+const thCell =
+  "border-b border-[#eff1f5] bg-[#fafbfe] px-3 py-2.5 text-left text-[8px] font-[650] tracking-[.55px] text-[#989dae]";
+const tdCell = "border-b border-[#f0f1f5] px-3 py-[11px] align-middle text-[10px] text-[#445468]";
+const tdSmall = "mt-[3px] block text-[8px] text-[#91a0af]";
 
 export function QueueView() {
   const router = useRouter();
@@ -123,97 +164,118 @@ export function QueueView() {
 
   if (isLoading) {
     return (
-      <div className="monitor-page">
+      <div className={pageShell}>
         <div style={{ padding: "100px", textAlign: "center" }}>Đang tải hàng đợi giám sát...</div>
       </div>
     );
   }
 
   return (
-    <div className="monitor-page">
-      <div className="queue-heading">
+    <div className={pageShell}>
+      <div className="mb-[18px] flex items-center justify-between gap-[25px] max-[700px]:flex-col max-[700px]:items-start">
         <div>
-          <span className="eyebrow">ĐIỀU PHỐI NỘI DUNG</span>
-          <h1>Hàng đợi giám sát</h1>
-          <p>Nhập thủ công nội dung cần theo dõi, sau đó rà soát kết quả phân tích của AI.</p>
+          <span className="text-[10px] font-extrabold tracking-[1.5px] text-[#c01cad]">ĐIỀU PHỐI NỘI DUNG</span>
+          <h1 className="my-[6px] text-[38px] font-[760] tracking-[-1.6px] text-[#202944] max-[480px]:text-[31px]">
+            Hàng đợi giám sát
+          </h1>
+          <p className="m-0 text-[12px] text-[#738195]">
+            Nhập thủ công nội dung cần theo dõi, sau đó rà soát kết quả phân tích của AI.
+          </p>
         </div>
-        <div className="trend-card">
-          <div>
-            <small>Xu hướng rủi ro 7 ngày</small>
-            <strong>
+        <div className="w-[260px] rounded-[15px] border border-[#e8eaf1] bg-white px-[15px] py-[13px] shadow-[0_7px_24px_#242d4b0b] max-[1200px]:hidden">
+          <div className="flex justify-between">
+            <small className="text-[9px] text-[#65738a]">Xu hướng rủi ro 7 ngày</small>
+            <strong className="text-[13px] text-[#d40ca0]">
               {allItems.length > 0 ? `↑ ${Math.min(99, allItems.length * 3)}%` : "Chưa có dữ liệu"}
             </strong>
           </div>
-          <svg viewBox="0 0 250 55" aria-hidden="true">
-            <path d="M3 48 L25 23 L47 30 L69 17 L91 19 L113 8 L135 12 L157 4 L179 33 L201 42 L224 18 L247 25" />
+          <svg viewBox="0 0 250 55" aria-hidden="true" className="mt-[5px] block h-12 w-full">
+            <path
+              className="fill-none stroke-[#dd15aa] stroke-2"
+              d="M3 48 L25 23 L47 30 L69 17 L91 19 L113 8 L135 12 L157 4 L179 33 L201 42 L224 18 L247 25"
+            />
           </svg>
         </div>
       </div>
 
-      <section className="queue-metrics">
-        <article>
+      <section className="mb-[15px] grid grid-cols-4 gap-[14px] max-[1200px]:grid-cols-2 max-[480px]:grid-cols-1">
+        <article className={metricArticle}>
           <div>
-            <small>Hồ sơ mới</small>
-            <strong>{allItems.filter((item) => item.status === "Mới").length}</strong>
+            <small className={metricLabel}>Hồ sơ mới</small>
+            <strong className={metricValue}>{allItems.filter((item) => item.status === "Mới").length}</strong>
           </div>
-          <i className="metric-icon purple">▣</i>
+          <i className={`${metricIcon} bg-[#f2eaff] text-[#8d22dc]`}>▣</i>
         </article>
-        <article>
+        <article className={metricArticle}>
           <div>
-            <small>Khẩn cấp</small>
-            <strong>{urgentCount}</strong>
+            <small className={metricLabel}>Khẩn cấp</small>
+            <strong className={metricValue}>{urgentCount}</strong>
             {urgentCount > 0 && (
-              <span className="hot">
-                <em>{allItems.length ? Math.round((urgentCount / allItems.length) * 100) : 0}% tổng hồ sơ</em>
+              <span className="text-[9px] font-[750] text-[#dc1998]">
+                <em className="font-normal not-italic text-[#94a0b1] max-[700px]:hidden">
+                  {allItems.length ? Math.round((urgentCount / allItems.length) * 100) : 0}% tổng hồ sơ
+                </em>
               </span>
             )}
           </div>
-          <i className="metric-icon pink">ϟ</i>
+          <i className={`${metricIcon} bg-[#ffedf4] text-[#e31b87]`}>ϟ</i>
         </article>
-        <article>
+        <article className={metricArticle}>
           <div>
-            <small>Cần kiểm chứng</small>
-            <strong>{verifyCount}</strong>
+            <small className={metricLabel}>Cần kiểm chứng</small>
+            <strong className={metricValue}>{verifyCount}</strong>
             {verifyCount > 0 && (
-              <span className="up">
-                <em>{allItems.length ? Math.round((verifyCount / allItems.length) * 100) : 0}% tổng hồ sơ</em>
+              <span className="text-[9px] font-[750] text-[#1ba86b]">
+                <em className="font-normal not-italic text-[#94a0b1] max-[700px]:hidden">
+                  {allItems.length ? Math.round((verifyCount / allItems.length) * 100) : 0}% tổng hồ sơ
+                </em>
               </span>
             )}
           </div>
-          <i className="metric-icon amber">◇</i>
+          <i className={`${metricIcon} bg-[#fff4de] text-[#df971b]`}>◇</i>
         </article>
-        <article>
+        <article className={metricArticle}>
           <div>
-            <small>Đang xử lý</small>
-            <strong>{processingCount || openCount}</strong>
+            <small className={metricLabel}>Đang xử lý</small>
+            <strong className={metricValue}>{processingCount || openCount}</strong>
           </div>
-          <i className="metric-icon rose">◷</i>
+          <i className={`${metricIcon} bg-[#ffedf6] text-[#e11a8c]`}>◷</i>
         </article>
       </section>
 
-      <section className="queue-card">
-        <div className="queue-tabs">
-          <button className={quickTab === "all" ? "active" : ""} onClick={() => setQuickTab("all")}>
+      <section className="overflow-hidden rounded-[17px] bg-white shadow-[0_10px_30px_#28304f0b,0_2px_7px_#28304f08] max-[700px]:rounded-[14px]">
+        <div className="flex h-[54px] items-stretch gap-2 border-b border-[#e8eaf1] px-[15px] max-[700px]:overflow-x-auto">
+          <button
+            className={`${tabButton} ${quickTab === "all" ? tabActive : "text-[#6f7b91]"}`}
+            onClick={() => setQuickTab("all")}
+          >
             Tất cả
           </button>
-          <button className={quickTab === "urgent" ? "active" : ""} onClick={() => setQuickTab("urgent")}>
-            Khẩn cấp <b>{urgentCount}</b>
-          </button>
-          <button className={quickTab === "verify" ? "active" : ""} onClick={() => setQuickTab("verify")}>
-            Cần kiểm chứng <b>{verifyCount}</b>
+          <button
+            className={`${tabButton} ${quickTab === "urgent" ? tabActive : "text-[#6f7b91]"}`}
+            onClick={() => setQuickTab("urgent")}
+          >
+            Khẩn cấp <b className={tabCount}>{urgentCount}</b>
           </button>
           <button
-            className={quickTab === "processing" ? "active" : ""}
+            className={`${tabButton} ${quickTab === "verify" ? tabActive : "text-[#6f7b91]"}`}
+            onClick={() => setQuickTab("verify")}
+          >
+            Cần kiểm chứng <b className={tabCount}>{verifyCount}</b>
+          </button>
+          <button
+            className={`${tabButton} ${quickTab === "processing" ? tabActive : "text-[#6f7b91]"}`}
             onClick={() => setQuickTab("processing")}
           >
-            Đang xử lý <b>{processingCount}</b>
+            Đang xử lý <b className={tabCount}>{processingCount}</b>
           </button>
         </div>
-        <div className="queue-toolbar">
-          <div className="filter-group">
-            <label>
+        <div className="flex items-end justify-between border-b border-[#f0f1f6] px-[15px] py-[13px] max-[700px]:flex-col max-[700px]:items-stretch max-[700px]:gap-2.5">
+          <div className="flex gap-[9px] max-[700px]:grid max-[700px]:grid-cols-2">
+            <label className="flex items-center rounded-[9px] border border-[#e4e7ee] pl-2.5 text-[10px] font-bold tracking-[.7px] text-[#8290a5]">
               Kết quả AI
               <select
+                className="min-w-[150px] border-0 bg-transparent py-2 pr-[25px] pl-[9px] text-[11px] text-[#35495e] outline-none max-[700px]:w-full max-[700px]:min-w-0"
                 value={verdictFilter}
                 onChange={(event) => setVerdictFilter(event.target.value as (typeof verdicts)[number])}
               >
@@ -222,9 +284,10 @@ export function QueueView() {
                 ))}
               </select>
             </label>
-            <label>
+            <label className="flex items-center rounded-[9px] border border-[#e4e7ee] pl-2.5 text-[10px] font-bold tracking-[.7px] text-[#8290a5]">
               Trạng thái
               <select
+                className="min-w-[150px] border-0 bg-transparent py-2 pr-[25px] pl-[9px] text-[11px] text-[#35495e] outline-none max-[700px]:w-full max-[700px]:min-w-0"
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value as (typeof statuses)[number])}
               >
@@ -234,62 +297,75 @@ export function QueueView() {
               </select>
             </label>
           </div>
-          <div className="queue-actions">
-            <button className="sort-button" onClick={() => setSortDesc((v) => !v)}>
+          <div className="flex items-center gap-[9px] max-[700px]:flex-col max-[700px]:items-stretch">
+            <button
+              className="rounded-[10px] border border-[#e7e9f0] bg-[#fafbfe] px-3 py-[9px] text-[11px] text-[#35495e] hover:border-[#dca1d4] hover:text-[#b51aa8] max-[700px]:w-full"
+              onClick={() => setSortDesc((v) => !v)}
+            >
               ↕ Mức ưu tiên: {sortDesc ? "cao trước" : "thấp trước"}
             </button>
-            <button className="create-button" onClick={() => setShowInput(true)}>
+            <button
+              className="rounded-[10px] border-0 bg-linear-145 from-[#ef35ad] to-[#a921cf] px-3 py-[9px] text-[11px] font-[750] text-white shadow-[0_7px_16px_#c626aa2c] hover:-translate-y-px hover:shadow-[0_9px_20px_#c626aa3d] max-[700px]:w-full"
+              onClick={() => setShowInput(true)}
+            >
               ＋ Nhập nội dung mới
             </button>
-            <button
-              className="clear-button"
-              onClick={handleClearQueue}
-              disabled={clearQueueMutation.isPending}
-            >
+            <button onClick={handleClearQueue} disabled={clearQueueMutation.isPending}>
               ✕ Xóa hàng đợi
             </button>
           </div>
         </div>
-        <div className="queue-table-wrap">
-          <table className="queue-table">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1120px] border-collapse">
             <thead>
               <tr>
-                <th>
-                  <span className="fake-checkbox" />
+                <th className={`${thCell} w-[44px] max-w-[44px] min-w-[44px] pr-[6px] pl-2.5 text-center`}>
+                  <span className="inline-block h-3.5 w-3.5 rounded-[3px] border border-[#cfd5df] bg-white" />
                 </th>
-                <th>CLAIM / NỘI DUNG</th>
-                <th>NỀN TẢNG</th>
-                <th>MỨC RỦI RO</th>
-                <th>ĐÁNH GIÁ AI</th>
-                <th>ĐỘ TIN CẬY</th>
-                <th>CHỦ ĐỀ PHÁP LÝ</th>
-                <th>TRẠNG THÁI</th>
-                <th />
+                <th className={`${thCell} w-[340px] min-w-[340px]`}>CLAIM / NỘI DUNG</th>
+                <th className={thCell}>NỀN TẢNG</th>
+                <th className={thCell}>MỨC RỦI RO</th>
+                <th className={thCell}>ĐÁNH GIÁ AI</th>
+                <th className={thCell}>ĐỘ TIN CẬY</th>
+                <th className={thCell}>CHỦ ĐỀ PHÁP LÝ</th>
+                <th className={thCell}>TRẠNG THÁI</th>
+                <th className={thCell} />
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map((item) => (
+              {visibleRows.map((item, index) => (
                 <tr
                   key={item.id}
+                  className={`group cursor-pointer transition-[background,transform] duration-[180ms] hover:bg-[#fdf8ff] focus:outline-2 focus:outline-offset-[-2px] focus:outline-[#47799f] ${
+                    index === 0 ? "shadow-[inset_0_0_0_1px_#ef54c4]" : ""
+                  }`}
                   onClick={() => handleOpenCase(item.id)}
                   tabIndex={0}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") handleOpenCase(item.id);
                   }}
                 >
-                  <td>
-                    <span className="fake-checkbox" />
+                  <td className={`${tdCell} w-[44px] max-w-[44px] min-w-[44px] pr-[6px] pl-2.5 text-center`}>
+                    <span
+                      className={`inline-block h-3.5 w-3.5 rounded-[3px] border ${
+                        index === 0
+                          ? "border-[#c51db4] bg-[#c51db4] shadow-[inset_0_0_0_3px_#c51db4]"
+                          : "border-[#cfd5df] bg-white"
+                      }`}
+                    />
                   </td>
-                  <td>
-                    <strong>{item.claim}</strong>
-                    <small>
+                  <td className={`${tdCell} w-[340px] min-w-[340px]`}>
+                    <strong className="block max-w-[280px] text-[11px] leading-[1.4] text-[#26384d]">
+                      {item.claim}
+                    </strong>
+                    <small className={tdSmall}>
                       {item.id} · {item.publishedAt}
                       {item.sourceUrl && item.sourceUrl !== "#" ? (
                         <a
                           href={item.sourceUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="source-link"
+                          className="text-[#2e638f]"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {" "}
@@ -298,46 +374,55 @@ export function QueueView() {
                       ) : null}
                     </small>
                   </td>
-                  <td>
-                    <span className={`platform-logo ${item.platform.toLowerCase()}`}>
+                  <td className={tdCell}>
+                    <span
+                      className={`mr-[7px] inline-grid h-[25px] w-[25px] place-items-center rounded-full font-extrabold shadow-[inset_0_0_0_1px_#ffffff90] ${platformBg[item.platform]}`}
+                    >
                       {platformIcon(item.platform)}
                     </span>
                     {item.platform}
                   </td>
-                  <td>
+                  <td className={tdCell}>
                     <span
-                      className={`priority-badge ${item.priority
-                        .normalize("NFD")
-                        .replace(/[\u0300-\u036f]/g, "")
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")}`}
+                      className={`inline-flex items-center gap-1.5 rounded-[9px] px-2 py-[5px] text-[8px] font-[750] whitespace-nowrap ${
+                        priorityColors[slug(item.priority)] ?? ""
+                      }`}
                     >
-                      <i />
+                      <i className="h-[5px] w-[5px] rounded-full bg-current" />
                       {item.priority}
                     </span>
                   </td>
-                  <td>
+                  <td className={tdCell}>
                     <VerdictBadge value={item.verdict} />
-                    <small className="score-copy">AI score {item.score}/100</small>
+                    <small className={`${tdSmall} ml-1`}>AI score {item.score}/100</small>
                   </td>
-                  <td>
+                  <td className={tdCell}>
                     <span
-                      className={`confidence-ring ${
-                        item.confidence >= 85 ? "strong" : item.confidence >= 65 ? "medium" : ""
+                      className={`grid h-9 w-9 place-items-center rounded-full border-2 text-[9px] font-extrabold ${
+                        item.confidence >= 85
+                          ? "border-[#32be7a] text-[#11975c]"
+                          : item.confidence >= 65
+                            ? "border-[#e0a52d] text-[#b87b08]"
+                            : "border-[#aab8c8] text-[#69778d]"
                       }`}
                     >
                       {item.confidence}%
                     </span>
                   </td>
-                  <td>
-                    <strong className="legal-topic">{item.document}</strong>
-                    <small>{item.provision}</small>
+                  <td className={tdCell}>
+                    <strong className="block max-w-[120px] text-[9px] font-semibold text-[#26384d]">
+                      {item.document}
+                    </strong>
+                    <small className={tdSmall}>{item.provision}</small>
                   </td>
-                  <td>
+                  <td className={tdCell}>
                     <StatusBadge value={item.status} />
                   </td>
-                  <td>
-                    <button className="row-arrow" aria-label={`Mở hồ sơ ${item.id}`}>
+                  <td className={tdCell}>
+                    <button
+                      className="h-8 w-8 rounded-full border-0 bg-[#f5eff9] text-[14px] text-[#b51aa8] transition-all duration-[180ms] group-hover:translate-x-[2px] group-hover:bg-[#c71bb0] group-hover:text-white"
+                      aria-label={`Mở hồ sơ ${item.id}`}
+                    >
                       →
                     </button>
                   </td>
@@ -346,14 +431,18 @@ export function QueueView() {
             </tbody>
           </table>
           {visibleRows.length === 0 && (
-            <div className="queue-empty">
-              <strong>Chưa có hồ sơ trong hàng đợi</strong>
-              <span>Bấm &ldquo;Quét MXH&rdquo; để thu thập dữ liệu từ mạng xã hội.</span>
+            <div className="p-[65px] text-center text-[#8492a1]">
+              <strong className="block font-[Georgia] text-[17px] font-semibold text-[#35495d]">
+                Chưa có hồ sơ trong hàng đợi
+              </strong>
+              <span className="mt-[5px] block text-[9px]">
+                Bấm &ldquo;Quét MXH&rdquo; để thu thập dữ liệu từ mạng xã hội.
+              </span>
             </div>
           )}
         </div>
-        <footer className="queue-footer">
-          Hiển thị <strong>{visibleRows.length}</strong> / {allItems.length} hồ sơ
+        <footer className="flex border-t border-[#f0f1f5] px-4 py-3 text-[11px] text-[#84909e]">
+          Hiển thị&nbsp;<strong>{visibleRows.length}</strong>&nbsp;/ {allItems.length} hồ sơ
         </footer>
       </section>
 

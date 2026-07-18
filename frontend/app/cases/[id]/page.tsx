@@ -23,7 +23,7 @@ export default function CasePage({ params }: { params: Promise<{ id: string }> }
 
   if (isLoading) {
     return (
-      <div className="monitor-page">
+      <div className="mx-auto max-w-[1640px] px-[28px] pt-[25px] pb-8 max-[700px]:px-[15px] max-[700px]:pt-[26px] max-[700px]:pb-6">
         <div style={{ padding: "100px", textAlign: "center" }}>Đang tải chi tiết hồ sơ...</div>
       </div>
     );
@@ -35,7 +35,7 @@ export default function CasePage({ params }: { params: Promise<{ id: string }> }
 
   if (!item) {
     return (
-      <div className="monitor-page">
+      <div className="mx-auto max-w-[1640px] px-[28px] pt-[25px] pb-8 max-[700px]:px-[15px] max-[700px]:pt-[26px] max-[700px]:pb-6">
         <div style={{ padding: "100px", textAlign: "center" }}>
           Hồ sơ <strong>{id}</strong> không tồn tại hoặc đã bị xóa.
         </div>
