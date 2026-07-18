@@ -47,3 +47,4 @@ html,body{background:#f7f8fc}body{padding:0}.monitor-app{min-height:100vh;border
 /* Keep the selection column compact instead of letting the auto table layout stretch it. */
 .queue-table th:first-child,.queue-table td:first-child{width:44px;min-width:44px;max-width:44px;text-align:center;padding-left:10px;padding-right:6px}
 .queue-table th:nth-child(2),.queue-table td:nth-child(2){width:340px;min-width:340px}
+.platform-logo svg{width:14px;height:14px;display:block;fill:currentColor}
