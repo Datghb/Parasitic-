@@ -107,11 +107,18 @@ def crawl_and_process(
     logger.info("crawl_and_process: %d raw items from crawler", len(raw_items))
 
     relevant_items: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
     for raw in raw_items:
         cleaned = clean_post(raw)
         if not cleaned:
             logger.debug("clean_post returned None for: %s", str(raw.get("url", ""))[:80])
             continue
+
+        url = cleaned.get("url", "")
+        if url and url in seen_urls:
+            continue
+        if url:
+            seen_urls.add(url)
 
         all_text = cleaned["text"]
         for c in cleaned.get("comments", []):
