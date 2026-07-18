@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 
@@ -78,6 +79,19 @@ class SearchDoc:
     la_xac_nhan: bool = False
 
 
+def _parse_date(date_str: str) -> datetime | None:
+    """Parse multiple date formats (ISO, Vietnamese, etc.)."""
+    if not date_str:
+        return None
+    cleaned = date_str.strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%Y · %H:%M", "%d-%m-%Y", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            return datetime.strptime(cleaned, fmt)
+        except ValueError:
+            continue
+    return None
+
+
 def apply_fusion_rules(
     docs: list[SearchDoc],
     thoi_gian_claim: str,
@@ -106,8 +120,16 @@ def apply_fusion_rules(
         )
 
     tier01_denies = [d for d in deny_docs if d.tier in (0, 1)]
+    claim_date = _parse_date(thoi_gian_claim)
     for d in tier01_denies:
-        if d.ngay_dang > thoi_gian_claim:
+        source_date = _parse_date(d.ngay_dang)
+        if claim_date and source_date and source_date > claim_date:
+            return (
+                NhanNguon.CO_BAC_BO_CHINH_THUC,
+                [d],
+                f"{d.nguon} (Tier {d.tier}) bác bỏ ngày {d.ngay_dang}",
+            )
+        elif not claim_date and d.ngay_dang > thoi_gian_claim:
             return (
                 NhanNguon.CO_BAC_BO_CHINH_THUC,
                 [d],

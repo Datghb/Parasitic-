@@ -47,17 +47,34 @@ def analyze_comment(comment: str) -> dict:
         "published_at": "",
         "reach": 0,
         "status": "new",
-        "score": 30,
+        "score": _compute_score(result.nhan, 0, 0),
+        "confidence": _compute_confidence(result.nhan, NhanNguon.CHUA_TIM_THAY_NGUON, bool(result.citations)),
     }
 
 
 def _compute_score(nhan: NhanPhanLoai, priority: int, reach: int) -> int:
-    base = 30
+    base = 50
     if nhan == NhanPhanLoai.HIEU_LAM:
-        base = 60
+        base = 80
     elif nhan == NhanPhanLoai.DUNG:
-        base = 45
-    return min(95, base + priority * 15 + min(25, reach // 10))
+        base = 15
+    reach_bump = min(15, reach // 20) if nhan == NhanPhanLoai.HIEU_LAM else 0
+    return min(95, base + priority * 10 + reach_bump)
+
+
+def _compute_confidence(nhan: NhanPhanLoai, nhan_nguon: NhanNguon, has_citations: bool) -> int:
+    base = 50
+    if nhan == NhanPhanLoai.DUNG:
+        base = 80
+    elif nhan == NhanPhanLoai.HIEU_LAM:
+        base = 75
+    if nhan_nguon == NhanNguon.CO_NGUON_XAC_NHAN:
+        base += 15
+    elif nhan_nguon == NhanNguon.CO_BAC_BO_CHINH_THUC:
+        base += 10
+    if has_citations:
+        base += 5
+    return min(95, base)
 
 
 class CommentIngestor:
@@ -183,7 +200,8 @@ class CommentIngestor:
                 published_at=str(comment.get("published_at", "")),
                 reach=int(comment.get("reach", 0) or 0),
                 status="new",
-                score=30,
+                score=50,
+                confidence=30,
             )
         try:
             cls_result = classify_claim_full(
@@ -254,6 +272,7 @@ class CommentIngestor:
             reach=int(comment.get("reach", 0) or 0),
             status="new",
             score=_compute_score(nhan, priority, int(comment.get("reach", 0) or 0)),
+            confidence=_compute_confidence(nhan, nhan_nguon, bool(getattr(cls_result, "citations", []) if cls_result else [])),
         )
 
     def run_batch(self, batch_path: str) -> int:

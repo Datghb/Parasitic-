@@ -1,14 +1,30 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
-from ..data_access import list_queue_items
+from ..data_access import list_queue_items, update_queue_item_status
 from ..schemas import QueueItemResponse
 
 router = APIRouter(tags=["queue"])
 
 
+class StatusUpdate(BaseModel):
+    status: str
+
+
 @router.get("/queue", response_model=list[QueueItemResponse])
 def list_queue() -> list[QueueItemResponse]:
     return [QueueItemResponse.model_validate(item) for item in list_queue_items()]
+
+
+@router.patch("/cases/{case_id}/status", response_model=QueueItemResponse)
+def update_case_status(case_id: str, body: StatusUpdate) -> QueueItemResponse:
+    allowed = {"new", "reviewing", "resolved"}
+    if body.status not in allowed:
+        raise HTTPException(status_code=400, detail=f"Status phải là một trong: {allowed}")
+    item = update_queue_item_status(case_id, body.status)
+    if item is None:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} không tồn tại")
+    return QueueItemResponse.model_validate(item)
 
 
 @router.delete("/queue")

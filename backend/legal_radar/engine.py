@@ -205,9 +205,7 @@ def _detect_subject_type(text: str) -> str | None:
         r'\bcá\s*nhân\b', r'\bngười\s+dùng\b', r'\btài\s+khoản\b',
         r'\buser\b', r'\bkol\b', r'\btiktoker\b', r'\bhot\s*girl\b',
         r'\bhot\s*boy\b', r'\bstreamer\b', r'\byoutuber\b',
-        r'\binfluencer\b', r'\bcreator\b', r'\bnick\b',
-        r'\btui\b', r'\bmình\b', r'\bem\b', r'\banh\b',
-        r'\bm.n\b', r'\bacc\b', r'\bb.n\b',
+        r'\binfluencer\b', r'\bcreator\b',
     ]
     to_chuc_patterns = [
         r'\btổ\s*chức\b', r'\bdoanh\s*nghiệp\b', r'\bcông\s*ty\b',
@@ -215,9 +213,9 @@ def _detect_subject_type(text: str) -> str | None:
         r'\btrang\b.*\bcộng\s*đồng\b',
         r'\bnhóm\b.*\bcộng\s*đồng\b', r'\bhội\s*nhóm\b',
         r'\bwebsite\b', r'\btrang\s*tin\b',
-        r'\bpage\b', r'\bfanpage\b', r'\bnick\b.*\bbán\b',
+        r'\bnick\s+(?:bán|shop|cửa\s*hàng)\b',
         r'\bshop\b', r'\bcửa\s*hàng\b', r'\bc.ty\b',
-        r'\bdoanh\s*nghiệp\b', r'\bsở\s*tt\b',
+        r'\bsở\s*tt\b',
     ]
     for p in ca_nhan_patterns:
         if re.search(p, normalized):
@@ -323,7 +321,7 @@ def _match_study_case(claim: str, kg: KnowledgeGraph) -> tuple[NhanPhanLoai, str
                 citations = []
                 for node in kg.nodes:
                     if isinstance(node, DieuKhoan):
-                        if node.dieu == "95" and node.khoan == "1" and node.diem == "a":
+                        if node.dieu == 95 and node.khoan == 1 and node.diem == "a":
                             citations.append(_build_citation(node, kg))
                             break
                 if not citations:
@@ -440,7 +438,7 @@ def phan_loai_claim(
 def _classify_ca_nhan(
     claim: str,
     matched_dks: list[DieuKhoan],
-    amounts: list[tuple[int, int]],
+    amounts: list[tuple[float, float]],
     citations: list[str],
     kg: KnowledgeGraph,
 ) -> tuple[NhanPhanLoai, str, list[str]]:
@@ -501,7 +499,7 @@ def _classify_ca_nhan(
 def _classify_to_chuc(
     claim: str,
     matched_dks: list[DieuKhoan],
-    amounts: list[tuple[int, int]],
+    amounts: list[tuple[float, float]],
     citations: list[str],
     kg: KnowledgeGraph,
 ) -> tuple[NhanPhanLoai, str, list[str]]:
@@ -582,7 +580,9 @@ def _classify_to_chuc(
 def _format_penalty_for_subject(dk: DieuKhoan, subject: str, kg: KnowledgeGraph) -> str:
     penalty = _get_penalty_range_millions(dk, kg)
     if not penalty:
-        return "Chưa có khung phạt trong KG"
+        van_ban = kg.find_node(dk.van_ban_id)
+        so_hieu = van_ban.so_hieu if van_ban else "không rõ"
+        return f"Chưa có khung phạt — cần bổ sung MucPhat cho Điều {dk.dieu} khoản {dk.khoan} ({so_hieu})"
     if subject == "ca_nhan":
         return f"{penalty[0] // 2}-{penalty[1] // 2} triệu đồng (cá nhân)"
     return f"{penalty[0]}-{penalty[1]} triệu đồng (tổ chức)"

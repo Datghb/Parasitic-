@@ -15,6 +15,7 @@ type Case = {
   publishedAt: string;
   priority: Priority;
   score: number;
+  confidence: number;
   verdict: Verdict;
   status: Status;
   reason: string;
@@ -38,6 +39,7 @@ type ApiQueueItem = {
   document?: string; provision?: string; penalty?: string; subject?: string;
   source_title?: string; source_url?: string; source_agency?: string;
   score?: number;
+  confidence?: number;
 };
 
 type StudyCase = {
@@ -62,7 +64,7 @@ export function DiaChungApp() {
   const [sortDesc, setSortDesc] = useState(true);
   const [statusById, setStatusById] = useState<Record<string, Status>>({});
   const [query, setQuery] = useState("");
-  const [activeView, setActiveView] = useState<"market" | "queue" | "report" | "sources" | "verify">("market");
+  const [activeView, setActiveView] = useState<"market" | "queue" | "report" | "sources" | "verify" | "graph">("market");
   const [studyCases, setStudyCases] = useState<StudyCase[]>([]);
   const [dataSource, setDataSource] = useState<"api" | "fallback">("fallback");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -181,7 +183,7 @@ export function DiaChungApp() {
           <button className={activeView === "report" ? "active" : ""} onClick={() => { setActiveView("report"); setSelectedId(null); }}><span>◎</span> Báo cáo tổng hợp</button>
           <button className={activeView === "sources" ? "active" : ""} onClick={() => { setActiveView("sources"); setSelectedId(null); }}><span>⌘</span> Nguồn chính thức</button>
           <button className={activeView === "verify" ? "active" : ""} onClick={() => { setActiveView("verify"); setSelectedId(null); }}><span>✓</span> Tầng kiểm chứng</button>
-          <button onClick={() => { setActiveView("sources"); setSelectedId(null); }}><span>⌬</span> Knowledge Graph</button>
+          <button className={activeView === "graph" ? "active" : ""} onClick={() => { setActiveView("graph"); setSelectedId(null); }}><span>⌬</span> Knowledge Graph</button>
         </nav>
         <div className="sidebar-insights">
           <div className="sidebar-mini-report">
@@ -211,6 +213,8 @@ export function DiaChungApp() {
           <SourcesView />
         ) : activeView === "verify" ? (
           <VerificationView cases={studyCases} apiConnected={dataSource === "api"} />
+        ) : activeView === "graph" ? (
+          <KnowledgeGraphView items={caseItems.map((item) => ({ ...item, status: statusById[item.id] ?? item.status }))} />
         ) : (
           <>
             <Queue
@@ -600,7 +604,7 @@ function Queue({
                   <td><span className={`platform-logo ${item.platform.toLowerCase()}`}>{platformIcon(item.platform)}</span>{item.platform}</td>
                   <td><span className={`priority-badge ${slug(item.priority)}`}><i />{item.priority}</span></td>
                   <td><VerdictBadge value={item.verdict} /><small className="score-copy">AI score {item.score}/100</small></td>
-                  <td><span className={`confidence-ring ${item.score >= 85 ? "strong" : item.score >= 65 ? "medium" : ""}`}>{item.score}%</span></td>
+                  <td><span className={`confidence-ring ${item.confidence >= 85 ? "strong" : item.confidence >= 65 ? "medium" : ""}`}>{item.confidence}%</span></td>
                   <td><strong className="legal-topic">{item.document}</strong><small>{item.provision}</small></td>
                   <td><StatusBadge value={item.status} /></td>
                   <td><button className="row-arrow" aria-label={`Mở hồ sơ ${item.id}`}>→</button></td>
@@ -644,6 +648,7 @@ function ManualInput({ onClose, onSave }: { onClose: () => void; onSave: (items:
       publishedAt: row.publishedAt || row.published_at || (publishedAt ? new Date(publishedAt).toLocaleString("vi-VN") : "Vừa nhập"),
       priority: "Cao",
       score: 75,
+      confidence: 50,
       verdict: "Cần kiểm chứng",
       status: "Mới",
       reason: "Nội dung vừa được nhập bằng file và đang chờ đối chiếu với nguồn chính thức. Kết quả hiện tại là dữ liệu mô phỏng cho luồng MVP.",
@@ -738,6 +743,28 @@ function ManualInput({ onClose, onSave }: { onClose: () => void; onSave: (items:
 }
 
 function CaseDetail({ item, onBack, onStatusChange }: { item: Case; onBack: () => void; onStatusChange: (status: Status) => void }) {
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+
+  async function handleStartVerification() {
+    setVerifyLoading(true);
+    setVerifyError("");
+    try {
+      const res = await fetch(`${API_URL}/api/cases/${item.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "reviewing" }),
+      });
+      if (!res.ok) throw new Error("API error");
+      onStatusChange("Đang xử lý");
+    } catch {
+      setVerifyError("Không thể kết nối API. Trạng thái chỉ cập nhật tạm thời.");
+      onStatusChange("Đang xử lý");
+    } finally {
+      setVerifyLoading(false);
+    }
+  }
+
   return (
     <div className="monitor-page detail-page">
       <button className="drawer-close" onClick={onBack} aria-label="Đóng hồ sơ">×</button>
@@ -769,7 +796,7 @@ function CaseDetail({ item, onBack, onStatusChange }: { item: Case; onBack: () =
 
         <aside className="detail-aside">
           <section className="decision-card">
-            <small>KẾT QUẢ THẨM ĐỊNH AI</small><VerdictBadge value={item.verdict} large /><div className="confidence-row"><span>Độ ưu tiên</span><strong>{item.score}/100</strong></div><div className="confidence-track"><i style={{ width: `${item.score}%` }} /></div><p>Kết quả tự động hỗ trợ sàng lọc, không thay thế kết luận của chuyên viên.</p>
+            <small>KẾT QUẢ THẨM ĐỊNH AI</small><VerdictBadge value={item.verdict} large /><div className="confidence-row"><span>Mức rủi ro</span><strong>{item.score}/100</strong></div><div className="confidence-track"><i style={{ width: `${item.score}%` }} /></div><div className="confidence-row"><span>Độ tin cậy</span><strong>{item.confidence}/100</strong></div><div className="confidence-track"><i style={{ width: `${item.confidence}%` }} /></div><p>Kết quả tự động hỗ trợ sàng lọc, không thay thế kết luận của chuyên viên.</p>
           </section>
           <section className="legal-card-new">
             <div className="legal-title"><span>⚖</span><div><small>CĂN CỨ PHÁP LUẬT</small><h2>{item.document}</h2></div></div>
@@ -786,7 +813,8 @@ function CaseDetail({ item, onBack, onStatusChange }: { item: Case; onBack: () =
           </section>
         </aside>
       </div>
-      <div className="detail-actions"><button onClick={onBack}>← Quay lại hàng đợi</button><button onClick={() => onStatusChange("Đang xử lý")}>Bắt đầu kiểm chứng →</button></div>
+      <div className="detail-actions"><button onClick={onBack}>← Quay lại hàng đợi</button><button onClick={handleStartVerification} disabled={verifyLoading || item.status === "Đang xử lý"}>{verifyLoading ? "Đang xử lý…" : item.status === "Đang xử lý" ? "✓ Đang kiểm chứng" : "Bắt đầu kiểm chứng →"}</button></div>
+      {verifyError && <div style={{ padding: "8px 24px", color: "#f59e0b", fontSize: 13 }}>{verifyError}</div>}
     </div>
   );
 }
@@ -844,6 +872,7 @@ function mapApiCase(item: ApiQueueItem): Case {
     publishedAt: item.published_at || "Chưa xác định",
     priority,
     score: item.score ?? Math.min(95, 30 + item.priority * 20 + Math.min(25, Math.round(item.reach / 10))),
+    confidence: item.confidence ?? 50,
     verdict: verdictMap[item.label],
     status: item.status === "resolved" ? "Đã xử lý" : item.status === "reviewing" ? "Đang xử lý" : "Mới",
     reason: item.reason,
@@ -919,6 +948,93 @@ function ReportView({ allItems, statusById }: { allItems: Case[]; statusById: Re
           <p style={{ color: "#94a3b8", fontSize: 14 }}>Báo cáo được tính trực tiếp từ dữ liệu hàng đợi hiện đang hiển thị.</p>
         </div>
       </section>
+    </div>
+  );
+}
+
+function KnowledgeGraphView({ items }: { items: Case[] }) {
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const graphItem = items[selectedIdx] || items[0];
+  if (!graphItem) {
+    return (
+      <div className="monitor-page">
+        <div className="queue-heading">
+          <div><span className="eyebrow">KNOWLEDGE GRAPH</span><h1>Đồ thị tri thức</h1><p>Chưa có dữ liệu. Quét MXH hoặc nhập nội dung để xem đồ thị quan hệ.</p></div>
+        </div>
+      </div>
+    );
+  }
+  const relatedItems = items.filter((item) => item.document === graphItem.document && item.id !== graphItem.id).slice(0, 3);
+  return (
+    <div className="monitor-page">
+      <div className="queue-heading">
+        <div><span className="eyebrow">KNOWLEDGE GRAPH</span><h1>Đồ thị tri thức</h1><p>Quan hệ giữa Claim → Chủ thể → Điều luật → Nguồn kiểm chứng.</p></div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select value={selectedIdx} onChange={(e) => setSelectedIdx(Number(e.target.value))} style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #334155", background: "#1e293b", color: "#e2e8f0", fontSize: 13 }}>
+            {items.map((item, idx) => <option key={item.id} value={idx}>{item.claim.slice(0, 60)}...</option>)}
+          </select>
+        </div>
+      </div>
+
+      <section className="queue-card" style={{ marginBottom: 24 }}>
+        <div style={{ padding: 24 }}>
+          <h3 style={{ marginBottom: 16 }}>Đồ thị quan hệ</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr", gap: 12, alignItems: "center" }}>
+            <div style={{ background: "#1e293b", border: "2px solid #3b82f6", borderRadius: 12, padding: 16, textAlign: "center" }}>
+              <small style={{ color: "#3b82f6", fontSize: 11 }}>CLAIM</small>
+              <p style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{graphItem.claim.slice(0, 80)}</p>
+            </div>
+            <span style={{ fontSize: 20, color: "#64748b" }}>→</span>
+            <div style={{ background: "#1e293b", border: "2px solid #f59e0b", borderRadius: 12, padding: 16, textAlign: "center" }}>
+              <small style={{ color: "#f59e0b", fontSize: 11 }}>CHỦ THỂ</small>
+              <p style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{graphItem.subject || "Chưa xác định"}</p>
+              <small style={{ color: "#94a3b8" }}>{graphItem.platform} · {graphItem.account}</small>
+            </div>
+            <span style={{ fontSize: 20, color: "#64748b" }}>→</span>
+            <div style={{ background: "#1e293b", border: "2px solid #8b5cf6", borderRadius: 12, padding: 16, textAlign: "center" }}>
+              <small style={{ color: "#8b5cf6", fontSize: 11 }}>ĐIỀU LUẬT</small>
+              <p style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{graphItem.document}</p>
+              <small style={{ color: "#94a3b8" }}>{graphItem.provision}</small>
+              <br /><small style={{ color: "#f59e0b" }}>{graphItem.penalty}</small>
+            </div>
+            <span style={{ fontSize: 20, color: "#64748b" }}>→</span>
+            <div style={{ background: "#1e293b", border: "2px solid #22c55e", borderRadius: 12, padding: 16, textAlign: "center" }}>
+              <small style={{ color: "#22c55e", fontSize: 11 }}>NGUỒN KIỂM CHỨNG</small>
+              <p style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{graphItem.sourceAgency || "Đang tìm kiếm"}</p>
+              <small style={{ color: "#94a3b8" }}>{graphItem.sourceTitle || "Chưa có nguồn"}</small>
+              {graphItem.sourceUrl && graphItem.sourceUrl !== "#" && <><br /><a href={graphItem.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "#3b82f6", fontSize: 12 }}>Mở nguồn ↗</a></>}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="queue-card" style={{ marginBottom: 24 }}>
+        <div style={{ padding: 24 }}>
+          <h3 style={{ marginBottom: 4 }}>Kết quả phân loại</h3>
+          <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>AI đánh giá: <strong style={{ color: graphItem.verdict === "Đúng" ? "#22c55e" : graphItem.verdict === "Hiểu lầm" ? "#ef4444" : "#f59e0b" }}>{graphItem.verdict}</strong> · Score: {graphItem.score}/100</p>
+          <div style={{ background: "#0f172a", borderRadius: 8, padding: 16 }}>
+            <small style={{ color: "#94a3b8" }}>LÝ DO PHÂN LOẠI</small>
+            <p style={{ marginTop: 4 }}>{graphItem.reason}</p>
+          </div>
+        </div>
+      </section>
+
+      {relatedItems.length > 0 && (
+        <section className="queue-card">
+          <div style={{ padding: 24 }}>
+            <h3 style={{ marginBottom: 4 }}>Hồ sơ liên quan (cùng văn bản)</h3>
+            <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>{relatedItems.length} hồ sơ khác cùng viện dẫn {graphItem.document}</p>
+            <table className="queue-table">
+              <thead><tr><th>CLAIM</th><th>CHỦ THỂ</th><th>ĐIỀU KHOẢN</th><th>ĐÁNH GIÁ</th></tr></thead>
+              <tbody>
+                {relatedItems.map((item) => (
+                  <tr key={item.id}><td><strong>{item.claim.slice(0, 60)}</strong></td><td>{item.subject}</td><td>{item.provision}</td><td><span className={`verdict-new ${slug(item.verdict)}`}><i />{item.verdict}</span></td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

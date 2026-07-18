@@ -6,7 +6,11 @@ import os
 
 import requests as http_requests
 
+from .source_classifier import TIER_0_DOMAINS, TIER_1_DOMAINS, TIER_2_DOMAINS
+
 logger = logging.getLogger(__name__)
+
+TRUSTED_DOMAINS = TIER_0_DOMAINS + TIER_1_DOMAINS + TIER_2_DOMAINS
 
 
 def _get_tokenrouter_config() -> tuple[str, str, str]:
@@ -93,4 +97,20 @@ def dynamic_search_gemini(
     if not isinstance(results, list):
         return []
 
-    return results
+    verified = []
+    for r in results:
+        url = r.get("url", "")
+        if not url:
+            continue
+        if not _is_trusted_domain(url):
+            logger.warning("Bỏ qua URL không thuộc whitelist: %s", url)
+            continue
+        verified.append(r)
+
+    return verified
+
+
+def _is_trusted_domain(url: str) -> bool:
+    """Check if URL belongs to a trusted domain whitelist."""
+    url_lower = url.lower()
+    return any(domain in url_lower for domain in TRUSTED_DOMAINS)

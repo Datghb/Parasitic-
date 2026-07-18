@@ -51,3 +51,8 @@ __pycache__/
 runs/*.jsonl
 runs/reports/*
 !runs/reports/.gitkeep
+
+# analysis / pitch docs not in main
+BUG-ANALYSIS.md
+docs/pitch/PRE_PRODUCTION_CHECKLIST.md
+docs/pitch/PRODUCT_BRIEF.md

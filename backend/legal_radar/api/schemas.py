@@ -29,6 +29,7 @@ class QueueItemResponse(BaseModel):
     source_url: str = ""
     source_agency: str = ""
     score: int = 50
+    confidence: int = 50
 
 
 class QuestionRequest(BaseModel):

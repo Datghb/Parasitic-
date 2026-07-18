@@ -76,6 +76,7 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any]:
         "source_url": source_url,
         "source_agency": source_agency,
         "score": int(raw.get("score", score)),
+        "confidence": int(raw.get("confidence", 50)),
     }
 
 
@@ -87,6 +88,25 @@ def list_queue_items() -> list[dict[str, Any]]:
 
 def get_queue_item(case_id: str) -> dict[str, Any] | None:
     return next((item for item in list_queue_items() if item["id"] == case_id), None)
+
+
+def update_queue_item_status(case_id: str, new_status: str) -> dict[str, Any] | None:
+    queue_path = runs_dir() / "queue.jsonl"
+    if not queue_path.exists():
+        return None
+    rows = _queue_from_jsonl(queue_path)
+    updated = None
+    for row in rows:
+        if str(row.get("id", "")) == case_id:
+            row["status"] = new_status
+            updated = _normalise(row)
+            break
+    if updated is None:
+        return None
+    with queue_path.open("w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    return updated
 
 
 def list_study_cases() -> list[dict[str, Any]]:

@@ -166,6 +166,7 @@ class QueueItem:
     reach: int = 0
     status: str = "new"
     score: int = 30
+    confidence: int = 50
 
     def __post_init__(self):
         if isinstance(self.nhan, str):
