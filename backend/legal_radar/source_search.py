@@ -130,6 +130,9 @@ def dynamic_search_gemini(
         if not _is_trusted_domain(url):
             logger.warning("Bỏ qua URL không thuộc whitelist: %s", url)
             continue
+        if not _url_exists(url):
+            logger.warning("Bỏ qua URL không tồn tại (404/timeout): %s", url)
+            continue
         verified.append(r)
 
     return verified
@@ -139,3 +142,15 @@ def _is_trusted_domain(url: str) -> bool:
     """Check if URL belongs to a trusted domain whitelist."""
     url_lower = url.lower()
     return any(domain in url_lower for domain in TRUSTED_DOMAINS)
+
+
+def _url_exists(url: str, timeout: int = 8) -> bool:
+    """Check if URL actually returns 200. HEAD first, fallback to GET."""
+    try:
+        resp = http_requests.head(url, timeout=timeout, allow_redirects=True, headers={"User-Agent": "LegalRadar/1.0"})
+        if resp.status_code < 400:
+            return True
+        resp = http_requests.get(url, timeout=timeout, allow_redirects=True, headers={"User-Agent": "LegalRadar/1.0"})
+        return resp.status_code < 400
+    except Exception:
+        return False
