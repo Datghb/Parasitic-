@@ -27,6 +27,24 @@ from .paths import runs_dir as project_runs_dir
 logger = logging.getLogger(__name__)
 
 
+def _fallback_fact_source(comment: str) -> tuple[str, str, str]:
+    """Search fact_references.json for a matching verified source when LLM URLs fail."""
+    try:
+        import json as _json
+        facts_path = project_data_dir() / "facts" / "fact_references.json"
+        if not facts_path.exists():
+            return "", "", ""
+        facts = _json.loads(facts_path.read_text(encoding="utf-8"))
+        comment_lower = comment.lower()
+        for fact in facts:
+            keywords = fact.get("tu_khoa", [])
+            if any(kw.lower() in comment_lower for kw in keywords):
+                return fact.get("nguon", ""), fact.get("url", ""), fact.get("nguon", "")
+    except Exception:
+        pass
+    return "", "", ""
+
+
 def analyze_comment(comment: str) -> dict:
     data_dir = project_data_dir()
     kg = load_kg(data_dir / "kg" / "kg_nodes.json", data_dir / "kg" / "kg_edges.json")
@@ -51,6 +69,9 @@ def analyze_comment(comment: str) -> dict:
             source_agency = doc.get("nguon", "") if isinstance(doc, dict) else getattr(doc, "nguon", "")
     except Exception as exc:
         logger.warning("Source search failed in analyze_comment: %s", exc)
+
+    if not source_url:
+        source_title, source_url, source_agency = _fallback_fact_source(comment)
 
     return {
         "id": str(uuid4()),
@@ -261,6 +282,8 @@ class CommentIngestor:
                 source_title = matched_docs[0].get("tieu_de", "") if isinstance(matched_docs[0], dict) else ""
                 source_url = matched_docs[0].get("url", "") if isinstance(matched_docs[0], dict) else ""
                 source_agency = matched_docs[0].get("nguon", "") if isinstance(matched_docs[0], dict) else ""
+            if not source_url:
+                source_title, source_url, source_agency = _fallback_fact_source(extracted["claim"])
 
         except Exception as exc:
             nhan = NhanPhanLoai.CAN_KIEM_CHUNG
