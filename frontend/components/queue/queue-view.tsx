@@ -9,6 +9,7 @@ import {
 import { VerdictBadge, StatusBadge, slug } from "../common/badge";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ManualInputDrawer } from "./manual-input-drawer";
+import { CaseDetail } from "../cases/case-detail";
 import { Case, Verdict, Status, Priority } from "../../types";
 import {
   TrendingUp, FilePlus, AlertTriangle, Search, Clock,
@@ -117,6 +118,7 @@ export function QueueView() {
   const [sortDesc, setSortDesc] = useState(true);
   const [quickTab, setQuickTab] = useState<"all" | "urgent" | "verify" | "processing">("all");
   const [showInput, setShowInput] = useState(false);
+  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
 
   const allItems = useMemo(() => {
     // Deduplicate: if a local case exists in backend (by ID), prefer the backend one.
@@ -153,10 +155,8 @@ export function QueueView() {
   }, [rows, quickTab]);
 
   const handleOpenCase = (id: string) => {
-    // If the case is a local case, we need to save it temporarily so the CaseDetail page can load it!
-    // Since CaseDetail page will load from backend API, it will fail for local cases.
-    // So we can save the local cases to sessionStorage under 'local_cases' which CaseDetail can read from!
-    router.push(`/cases/${id}`);
+    const item = allItems.find((x) => x.id === id);
+    if (item) setSelectedCase(item);
   };
 
   const handleClearQueue = () => {
@@ -457,10 +457,13 @@ export function QueueView() {
             saveLocalCases(updated);
             setShowInput(false);
             if (items.length === 1) {
-              router.push(`/cases/${items[0].id}`);
+              setSelectedCase(items[0]);
             }
           }}
         />
+      )}
+      {selectedCase && (
+        <CaseDetail item={selectedCase} onClose={() => setSelectedCase(null)} />
       )}
     </div>
   );

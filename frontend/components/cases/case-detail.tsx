@@ -62,7 +62,7 @@ const confidenceRow = "flex text-[12px] text-[#788499]";
 const confidenceTrack = "mt-2 mb-3 h-[5px] overflow-hidden rounded-[5px] bg-[#f0e8f0]";
 const flowStep = "flex-1 rounded-[9px] px-[5px] py-[11px] text-center text-[8px] font-extrabold";
 
-export function CaseDetail({ item }: { item: Case }) {
+export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void }) {
   const router = useRouter();
   const updateStatusMutation = useUpdateStatusMutation();
   const [currentStatus, setCurrentStatus] = useState<Status>(item.status);
@@ -74,7 +74,8 @@ export function CaseDetail({ item }: { item: Case }) {
   }, [item.status]);
 
   const handleBack = () => {
-    router.push("/queue");
+    if (onClose) onClose();
+    else router.push("/queue");
   };
 
   const handleStatusChange = async (status: Status) => {
@@ -134,9 +135,15 @@ export function CaseDetail({ item }: { item: Case }) {
   }
 
   return (
-    <div className="fixed inset-y-0 right-0 z-[80] w-[min(590px,100vw)] overflow-y-auto bg-white px-[26px] pt-[26px] pb-[86px] shadow-[-18px_0_55px_#1e294426] max-[700px]:px-4 max-[700px]:pt-[22px]">
+    <>
       <button
-        className="absolute top-[17px] right-[18px] h-[34px] w-[34px] rounded-full border-0 bg-[#f7f3f7] text-[22px] text-[#4e5970]"
+        className="fixed inset-0 z-[70] border-0 bg-[#1e24465c] backdrop-blur-[3px]"
+        onClick={handleBack}
+        aria-label="Đóng hồ sơ"
+      />
+      <div className="fixed inset-y-0 right-0 z-[80] w-[min(590px,100vw)] overflow-y-auto bg-white px-[26px] pt-[26px] pb-[86px] shadow-[-18px_0_55px_#1e294426] max-[700px]:px-4 max-[700px]:pt-[22px]">
+      <button
+        className="absolute top-[17px] right-[18px] grid h-[34px] w-[34px] place-items-center rounded-full border-0 bg-[#f7f3f7] text-[#4e5970]"
         onClick={handleBack}
         aria-label="Đóng hồ sơ"
       >
@@ -421,5 +428,6 @@ export function CaseDetail({ item }: { item: Case }) {
         <div style={{ padding: "8px 24px", color: "#f59e0b", fontSize: 13 }}>{verifyError}</div>
       )}
     </div>
+    </>
   );
 }

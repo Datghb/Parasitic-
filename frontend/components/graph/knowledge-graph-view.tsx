@@ -250,7 +250,7 @@ export function KnowledgeGraphView() {
           </p>
           <div style={{ background: "#0f172a", borderRadius: 8, padding: 16 }}>
             <small style={{ color: "#94a3b8" }}>LÝ DO PHÂN LOẠI</small>
-            <p style={{ marginTop: 4 }}>{graphItem.reason}</p>
+            <p style={{ marginTop: 4, color: "#cbd5e1" }}>{graphItem.reason}</p>
           </div>
         </div>
       </section>
