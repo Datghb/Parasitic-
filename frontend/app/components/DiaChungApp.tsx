@@ -10,7 +10,7 @@ type Case = {
   id: string;
   claim: string;
   original: string;
-  platform: "Facebook" | "TikTok" | "YouTube" | "X" | "Forum";
+  platform: "Facebook" | "TikTok" | "YouTube" | "Web" | "Forum";
   account: string;
   publishedAt: string;
   priority: Priority;
@@ -26,16 +26,19 @@ type Case = {
   sourceTitle: string;
   sourceAgency: string;
   sourceUrl: string;
+  contentUrl?: string;
   sourceResult: string;
   reach: string;
   contentType?: "post" | "comment";
   parentContent?: string;
   keywords?: string[];
+  citations?: string[];
 };
 
 type ApiQueueItem = {
   id: string; text: string; url?: string; claim: string; label: "dung" | "hieu_lam" | "can_kiem_chung";
   keywords?: string[];
+  citations?: string[];
   source_label: string; reason: string; priority: number; platform: string; account: string;
   published_at: string; reach: number; status: string;
   document?: string; provision?: string; penalty?: string; subject?: string;
@@ -137,7 +140,7 @@ export function DiaChungApp() {
       const response = await fetch(`${API_URL}/api/crawl`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords: [], max_posts_per_platform: 2 }),
+        body: JSON.stringify({ keywords: [], max_posts_per_platform: 5 }),
       });
       if (!response.ok) throw new Error("Crawl API unavailable");
       const reader = response.body?.getReader();
@@ -234,9 +237,9 @@ export function DiaChungApp() {
         ) : activeView === "report" ? (
           <ReportView allItems={caseItems} statusById={statusById} />
         ) : activeView === "sources" ? (
-          <SourcesView />
+          <SourcesView items={caseItems} />
         ) : activeView === "verify" ? (
-          <VerificationView cases={studyCases} apiConnected={dataSource === "api"} />
+          <VerificationView cases={studyCases} items={caseItems} apiConnected={dataSource === "api"} />
         ) : activeView === "graph" ? (
           <KnowledgeGraphView items={caseItems.map((item) => ({ ...item, status: statusById[item.id] ?? item.status }))} />
         ) : (
@@ -295,13 +298,37 @@ export function DiaChungApp() {
 function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
   const [period, setPeriod] = useState<1 | 7 | 30>(7);
   const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+  const [latest, setLatest] = useState<Date | null>(null);
+  const [rangeOffset, setRangeOffset] = useState(0);
+  const [isDraggingChart, setIsDraggingChart] = useState(false);
+  const chartDragStart = useRef<{ x: number; offset: number } | null>(null);
+
+  useEffect(() => {
+    setLatest(new Date());
+  }, []);
+
+  // The server and browser can have different clocks/time zones. Keep the
+  // first server render and the first client render identical, then build the
+  // time-relative dashboard after hydration.
+  if (!latest) {
+    return <div className="monitor-page market-page market-v2" aria-busy="true" />;
+  }
+
+  const rangeEnd = new Date(latest);
+  rangeEnd.setDate(rangeEnd.getDate() - rangeOffset);
+  const rangeStep = period === 1 ? 1 : period;
+  const selectPeriod = (value: 1 | 7 | 30) => {
+    setPeriod(value);
+    setRangeOffset(0);
+    setHoveredDay(null);
+  };
+
   const rows = allItems.map((item) => ({ item, date: parseCaseDate(item.publishedAt) }));
   const dated = rows.filter((row): row is { item: Case; date: Date } => Boolean(row.date));
   // Dashboard periods are relative to the user's current time, not the most
   // recent record. This keeps missing-data days visible instead of shifting
   // the entire chart backwards.
-  const latest = new Date();
-  const start = new Date(latest);
+  const start = new Date(rangeEnd);
   if (period === 1) start.setTime(start.getTime() - 24 * 60 * 60 * 1000);
   else start.setDate(start.getDate() - period + 1);
   const previousStart = new Date(start);
@@ -309,7 +336,7 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
   else previousStart.setDate(previousStart.getDate() - period);
   // Records without a usable publication time must not silently inflate a
   // time-bounded dashboard. They remain available in the monitoring queue.
-  const current = rows.filter((row) => row.date && row.date >= start && row.date <= latest).map((row) => row.item);
+  const current = rows.filter((row) => row.date && row.date >= start && row.date <= rangeEnd).map((row) => row.item);
   const previous = rows.filter((row) => row.date && row.date >= previousStart && row.date < start).map((row) => row.item);
   const delta = (now: number, before: number) => before ? Math.round(((now - before) / before) * 100) : now ? 100 : 0;
   const discussionDelta = delta(current.length, previous.length);
@@ -328,30 +355,35 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
   const hotTopics = topics.filter(([, count]) => count >= maxTopic * .5).length;
   const [topTopicName, topTopicCount] = topics[0] || ["Chưa có dữ liệu", 0];
   const topTopicShare = current.length ? Math.round(topTopicCount / current.length * 100) : 0;
-  const platforms = (["Facebook", "TikTok", "YouTube", "X", "Forum"] as Case["platform"][]);
+  const platforms = (["Facebook", "TikTok", "YouTube", "Web", "Forum"] as Case["platform"][]);
   const heatMax = Math.max(1, ...topics.flatMap(([topic]) => platforms.map((platform) =>
     current.filter((item) => discussionTopicName(item) === topic && item.platform === platform).length
   )));
-  const topPlatform = platforms.map((platform) => ({
-    platform,
-    count: current.filter((item) => item.platform === platform).length,
-  })).sort((a, b) => b.count - a.count)[0]?.platform || "Facebook";
-
   const chartDays = period === 30 ? 30 : period === 1 ? 1 : 7;
   const days = Array.from({ length: chartDays }, (_, index) => {
-    const date = new Date(latest);
+    const date = new Date(rangeEnd);
     date.setDate(date.getDate() - chartDays + 1 + index);
     const dayItems = chartDays === 1
       ? current
       : dated
-        .filter((row) => row.date >= start && row.date <= latest && row.date.toDateString() === date.toDateString())
+        .filter((row) => row.date >= start && row.date <= rangeEnd && row.date.toDateString() === date.toDateString())
         .map((row) => row.item);
     const dailyTopics = Array.from(topicMap(dayItems)).sort((a, b) => b[1] - a[1]);
+    const topTopic = dailyTopics[0]?.[0] || "Chưa có thảo luận";
+    const topicPlatforms = platforms
+      .map((platform) => ({
+        platform: platform === "Forum" ? "Khác" : platform === "Web" ? "Báo chí" : platform,
+        count: dayItems.filter(
+          (item) => discussionTopicName(item) === topTopic && item.platform === platform
+        ).length,
+      }))
+      .filter(({ count }) => count > 0);
     return {
       label: `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`,
       value: dayItems.length,
-      topTopic: dailyTopics[0]?.[0] || "Chưa có thảo luận",
+      topTopic,
       topTopicCount: dailyTopics[0]?.[1] || 0,
+      topicPlatforms,
     };
   });
   const maxDiscussions = Math.max(1, ...days.map((day) => day.value));
@@ -375,18 +407,59 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
       <div className="market-title market-v2-title">
         <div><small>BẢNG ĐIỀU KHIỂN CHIẾN LƯỢC</small><h1>Toàn cảnh thảo luận thị trường</h1><p>Giúp lãnh đạo nhận biết chủ đề đang được quan tâm, mức độ thảo luận và nền tảng phát sinh nhiều tín hiệu nhất.</p></div>
         <div className="period-switch" aria-label="Khoảng thời gian">
-          <button className={period === 1 ? "active" : ""} onClick={() => setPeriod(1)}>24 giờ</button>
-          <button className={period === 7 ? "active" : ""} onClick={() => setPeriod(7)}>7 ngày</button>
-          <button className={period === 30 ? "active" : ""} onClick={() => setPeriod(30)}>30 ngày</button>
-          <span className="period-calendar">▣</span>
+          <button className={period === 1 ? "active" : ""} onClick={() => selectPeriod(1)}>24 giờ</button>
+          <button className={period === 7 ? "active" : ""} onClick={() => selectPeriod(7)}>7 ngày</button>
+          <button className={period === 30 ? "active" : ""} onClick={() => selectPeriod(30)}>30 ngày</button>
+          <button
+            className="period-nav"
+            onClick={() => { setRangeOffset((value) => value + rangeStep); setHoveredDay(null); }}
+            title={`Xem ${rangeStep} ngày trước`}
+            aria-label={`Xem ${rangeStep} ngày trước`}
+          >‹</button>
+          <button
+            className="period-nav"
+            disabled={rangeOffset === 0}
+            onClick={() => { setRangeOffset((value) => Math.max(0, value - rangeStep)); setHoveredDay(null); }}
+            title="Xem kỳ tiếp theo"
+            aria-label="Xem kỳ tiếp theo"
+          >›</button>
+          <span className="period-calendar" title={rangeOffset ? `Đang xem kỳ cách hiện tại ${rangeOffset} ngày` : "Kỳ hiện tại"}>▣</span>
         </div>
       </div>
 
       <section className="market-v2-kpis">
-        <article className="topic-kpi"><i className="shield-icon">{kpiIcon("search")}</i><div><small>Chủ đề được bàn luận nhiều nhất</small><strong title={topTopicName}>{topTopicName}</strong><span className="up">{topTopicCount} lượt đề cập <em>{topTopicShare}% thảo luận trong kỳ</em></span></div></article>
-        <article><i className="warning-icon">{kpiIcon("warning")}</i><div><small>Claim rủi ro cao</small><strong>{urgent}</strong><span className={trendClass(urgentDelta)}>{urgentDelta >= 0 ? "↑" : "↓"} {signed(urgentDelta)} <em>so với kỳ trước</em></span></div></article>
-        <article><i className="search-icon">{kpiIcon("search")}</i><div><small>Chủ đề nổi bật</small><strong>{hotTopics}</strong><span className="up">{topics.length} <em>chủ đề đang được theo dõi</em></span></div></article>
-        <article><i className="trend-icon">{kpiIcon("trend")}</i><div><small>Lượng thảo luận {period === 1 ? "24 giờ" : `${period} ngày`}</small><strong>{current.length}</strong><span className={trendClass(discussionDelta)}>{discussionDelta >= 0 ? "↑" : "↓"} {discussionChange} <em>so với kỳ trước</em></span></div></article>
+        <article className="topic-kpi">
+          <i className="shield-icon">{kpiIcon("search")}</i>
+          <div className="kpi-content">
+            <small>Chủ đề được bàn luận nhiều nhất</small>
+            <strong className="kpi-value kpi-topic" title={topTopicName}>{topTopicName}</strong>
+            <div className="kpi-meta up"><b>{topTopicCount} lượt đề cập</b><em>{topTopicShare}% thảo luận trong kỳ</em></div>
+          </div>
+        </article>
+        <article>
+          <i className="warning-icon">{kpiIcon("warning")}</i>
+          <div className="kpi-content">
+            <small>Claim rủi ro cao</small>
+            <strong className="kpi-value">{urgent}</strong>
+            <div className={`kpi-meta ${trendClass(urgentDelta)}`}><b>{urgentDelta >= 0 ? "↑" : "↓"} {signed(urgentDelta)}</b><em>so với kỳ trước</em></div>
+          </div>
+        </article>
+        <article>
+          <i className="search-icon">{kpiIcon("search")}</i>
+          <div className="kpi-content">
+            <small>Chủ đề nổi bật</small>
+            <strong className="kpi-value">{hotTopics}</strong>
+            <div className="kpi-meta up"><b>{topics.length}</b><em>chủ đề đang được theo dõi</em></div>
+          </div>
+        </article>
+        <article>
+          <i className="trend-icon">{kpiIcon("trend")}</i>
+          <div className="kpi-content">
+            <small>Lượng thảo luận {period === 1 ? "24 giờ" : `${period} ngày`}</small>
+            <strong className="kpi-value">{current.length}</strong>
+            <div className={`kpi-meta ${trendClass(discussionDelta)}`}><b>{discussionDelta >= 0 ? "↑" : "↓"} {discussionChange}</b><em>so với kỳ trước</em></div>
+          </div>
+        </article>
       </section>
 
       <div className="market-v2-grid">
@@ -396,12 +469,44 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
           <div className="risk-v2-chart">
             <div className="risk-y">{[1, .75, .5, .25, 0].map((ratio) => <span key={ratio}>{chartCeiling * ratio}</span>)}</div>
             <svg
+              className={isDraggingChart ? "is-dragging" : ""}
               viewBox="0 0 768 190"
               preserveAspectRatio="none"
               aria-label={`Biểu đồ lượt thảo luận ${period === 1 ? "24 giờ" : `${period} ngày`}`}
-              onPointerLeave={() => setHoveredDay(null)}
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                chartDragStart.current = { x: event.clientX, offset: rangeOffset };
+                setIsDraggingChart(true);
+                setHoveredDay(null);
+              }}
+              onPointerUp={(event) => {
+                const drag = chartDragStart.current;
+                if (drag) {
+                  const bounds = event.currentTarget.getBoundingClientRect();
+                  const distance = event.clientX - drag.x;
+                  const pixelsPerDay = Math.max(24, bounds.width / Math.max(1, chartDays));
+                  const dayShift = Math.round(distance / pixelsPerDay);
+                  if (Math.abs(distance) >= 12 && dayShift !== 0) {
+                    setRangeOffset(Math.max(0, drag.offset + dayShift));
+                  }
+                }
+                chartDragStart.current = null;
+                setIsDraggingChart(false);
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                  event.currentTarget.releasePointerCapture(event.pointerId);
+                }
+              }}
+              onPointerCancel={() => {
+                chartDragStart.current = null;
+                setIsDraggingChart(false);
+              }}
+              onPointerLeave={() => {
+                if (!isDraggingChart) setHoveredDay(null);
+              }}
             >
               <defs><linearGradient id="riskAreaV2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ed198b" stopOpacity=".24" /><stop offset="1" stopColor="#ed198b" stopOpacity="0" /></linearGradient></defs>
+              <rect x="0" y="0" width="768" height="190" fill="transparent" />
               {[18, 55, 92, 129, 166].map((y) => <line key={y} x1="36" x2="752" y1={y} y2={y} className="grid-line" />)}
               <line x1="36" x2="752" y1={chartY(averageDiscussions)} y2={chartY(averageDiscussions)} className="threshold-line" />
               <path d={`${linePath} L${chartX(days.length - 1)},168 L${chartX(0)},168 Z`} className="risk-area" />
@@ -410,6 +515,7 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
                 d={linePath}
                 className="risk-line-hover"
                 onPointerMove={(event) => {
+                  if (isDraggingChart) return;
                   const bounds = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
                   if (!bounds || !days.length) return;
                   const pointerX = (event.clientX - bounds.left) / bounds.width * 768;
@@ -437,6 +543,14 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
                 <span>Lượt đề cập: <b>{days[hoveredDay].value}</b></span>
                 <span>Chủ đề nổi bật: <b>{days[hoveredDay].topTopic}</b></span>
                 {days[hoveredDay].topTopicCount > 0 && <span>Đề cập chủ đề: <b>{days[hoveredDay].topTopicCount}</b></span>}
+                {days[hoveredDay].topicPlatforms.length > 0 && (
+                  <span>
+                    Mạng xã hội:{" "}
+                    <b>{days[hoveredDay].topicPlatforms.map(
+                      ({ platform, count }) => `${platform} (${count})`
+                    ).join(", ")}</b>
+                  </span>
+                )}
               </div>
             )}
             <div className="peak-note">Cao điểm: {peak.label || "chưa có dữ liệu"} · {Math.max(0, peak.value)} lượt đề cập</div>
@@ -455,7 +569,7 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
 
         <section className="chart-panel heatmap-v2">
           <header><h2>Heatmap điểm nóng <small>ⓘ</small></h2><b>⋮</b></header>
-          <div className="heat-v2-platforms"><span>Chủ đề</span>{platforms.map((platform) => <span key={platform}>{platformIcon(platform)} {platform === "Forum" ? "Khác" : platform}</span>)}</div>
+          <div className="heat-v2-platforms"><span>Chủ đề</span>{platforms.map((platform) => <span key={platform}>{platformIcon(platform)} {platform === "Forum" ? "Khác" : platform === "Web" ? "Báo chí" : platform}</span>)}</div>
           <div className="heat-v2-body">{topics.map(([topic]) => <div key={topic}><strong>{topic}</strong>{platforms.map((platform) => {
             const count = current.filter((item) => discussionTopicName(item) === topic && item.platform === platform).length;
             const level = Math.min(4, 4 - Math.round(count / heatMax * 4));
@@ -464,14 +578,6 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
           <div className="heat-v2-legend"><span>■ Rất cao</span><span>■ Cao</span><span>■ Trung bình</span><span>■ Thấp</span><span>■ Rất thấp</span></div>
         </section>
 
-        <section className="chart-panel executive-v2">
-          <header><h2><span>✪</span> Nhận định điều hành</h2><b>⋮</b></header>
-          <div className="executive-v2-list">
-            <p><i>◎</i><span>Thảo luận đang tập trung vào chủ đề <b>{topics[0]?.[0] || "chưa xác định"}</b>.</span></p>
-            <p><i>{platformIcon(topPlatform)}</i><span><b>{topPlatform}</b> là nền tảng ghi nhận nhiều tín hiệu nhất trong kỳ.</span></p>
-            <p><i>△</i><span><b>{urgent || 0} claim</b> ở mức khẩn cấp cần được ưu tiên xử lý.</span></p>
-          </div>
-        </section>
       </div>
     </div>
   );
@@ -491,7 +597,7 @@ function MarketOverview({ allItems }: { allItems: Case[] }) {
   const verify = filtered.filter((item) => item.verdict === "Cần kiểm chứng").length;
   const misconception = filtered.filter((item) => item.verdict === "Hiểu lầm").length;
   const riskIndex = total ? Math.round(filtered.reduce((sum, item) => sum + item.score, 0) / total) : 0;
-  const platformCounts = (["Facebook", "TikTok", "YouTube", "X", "Forum"] as Case["platform"][]).map((platform) => ({
+  const platformCounts = (["Facebook", "TikTok", "YouTube", "Web", "Forum"] as Case["platform"][]).map((platform) => ({
     platform, count: filtered.filter((item) => item.platform === platform).length,
   }));
   const topicCounts = Array.from(filtered.reduce((map, item) => map.set(item.document, (map.get(item.document) || 0) + 1), new Map<string, number>()))
@@ -560,7 +666,7 @@ function MarketOverview({ allItems }: { allItems: Case[] }) {
 
         <section className="chart-panel platform-panel">
           <header><h2>Phân bổ theo nền tảng</h2><b>⋮</b></header>
-          <div className="donut-wrap"><div className="donut" style={{ background: platformGradient(platformCounts, total) }}><span><strong>{total.toLocaleString("vi-VN")}</strong><small>Tổng</small></span></div><div className="donut-list">{platformCounts.map(({ platform, count }, index) => <p key={platform}><i className={["fb","tt","yt","xx","other"][index]}/>{platform === "Forum" ? "Khác" : platform} <b>{total ? Math.round(count / total * 100) : 0}% <em>({count.toLocaleString("vi-VN")})</em></b></p>)}</div></div>
+          <div className="donut-wrap"><div className="donut" style={{ background: platformGradient(platformCounts, total) }}><span><strong>{total.toLocaleString("vi-VN")}</strong><small>Tổng</small></span></div><div className="donut-list">{platformCounts.map(({ platform, count }, index) => <p key={platform}><i className={["fb","tt","yt","web","other"][index]}/>{platform === "Forum" ? "Khác" : platform === "Web" ? "Báo chí" : platform} <b>{total ? Math.round(count / total * 100) : 0}% <em>({count.toLocaleString("vi-VN")})</em></b></p>)}</div></div>
         </section>
 
         <section className="chart-panel topics-panel">
@@ -611,7 +717,17 @@ function MarketOverview({ allItems }: { allItems: Case[] }) {
 
 function parseCaseDate(value: string) {
   const match = value.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (match) return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+  if (match) {
+    const first = Number(match[1]);
+    const second = Number(match[2]);
+    const year = Number(match[3]);
+    // API/provider output can contain either Vietnamese DD/MM/YYYY or
+    // US MM/DD/YYYY. A value above 12 identifies the day unambiguously.
+    if (second > 12 || /\b(?:AM|PM)\b/i.test(value)) {
+      return new Date(year, first - 1, second);
+    }
+    return new Date(year, second - 1, first);
+  }
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -637,7 +753,7 @@ function discussionTopicName(item: Case) {
 }
 
 function platformGradient(counts: Array<{ platform: Case["platform"]; count: number }>, total: number) {
-  const colors = ["#3b84f5", "#222d3a", "#f22f3f", "#3d4855", "#cfd3da"];
+  const colors = ["#3b84f5", "#222d3a", "#f22f3f", "#16a36a", "#cfd3da"];
   if (!total) return "#eef0f4";
   let cursor = 0;
   return `conic-gradient(${counts.map((entry, index) => {
@@ -745,7 +861,7 @@ function ManualInput({ onClose, onSave }: { onClose: () => void; onSave: (items:
     const rawContent = (row.content || row.comment || row.text || content).trim().replace(/\s+/g, " ");
     const claim = rawContent.split(/[.!?]/)[0].slice(0, 150) || rawContent.slice(0, 150);
     const rowType = (row.type === "comment" || contentType === "comment") ? "comment" : "post";
-    const allowedPlatforms: Case["platform"][] = ["Facebook", "TikTok", "YouTube", "X"];
+    const allowedPlatforms: Case["platform"][] = ["Facebook", "TikTok", "YouTube", "Web"];
     const rowPlatform = allowedPlatforms.find((value) => value.toLowerCase() === (row.platform || platform).toLowerCase()) || platform;
     return {
       id: `HS-MVP-${Date.now().toString().slice(-6)}-${index + 1}`,
@@ -854,7 +970,7 @@ function ManualInput({ onClose, onSave }: { onClose: () => void; onSave: (items:
           )}
           {inputMode === "manual" && <>
           <div className="manual-grid">
-            <label className="manual-field"><span>Nền tảng</span><select value={platform} onChange={(event) => setPlatform(event.target.value as Case["platform"])}><option>Facebook</option><option>TikTok</option><option>YouTube</option><option>X</option></select></label>
+            <label className="manual-field"><span>Nền tảng</span><select value={platform} onChange={(event) => setPlatform(event.target.value as Case["platform"])}><option>Facebook</option><option>TikTok</option><option>YouTube</option><option value="Web">Báo chí</option></select></label>
             <label className="manual-field"><span>{contentType === "post" ? "Tài khoản đăng" : "Người bình luận"}</span><input value={account} onChange={(event) => setAccount(event.target.value)} placeholder={contentType === "post" ? "Tên tài khoản hoặc kênh" : "Tên tài khoản bình luận"} /></label>
           </div>
           <div className="manual-grid">
@@ -974,7 +1090,7 @@ function platformIcon(platform: Case["platform"]) {
     Facebook: "M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z",
     TikTok: "M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z",
     YouTube: "M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z",
-    X: "M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z",
+    Web: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.92 6h-3.03a15.7 15.7 0 0 0-1.38-3.56A8.06 8.06 0 0 1 18.92 8ZM12 4c.83 1.2 1.47 2.53 1.82 4h-3.64C10.53 6.53 11.17 5.2 12 4ZM4.26 14a7.8 7.8 0 0 1 0-4h3.39a16.5 16.5 0 0 0 0 4H4.26Zm.82 2h3.03c.3 1.26.77 2.45 1.38 3.56A8.06 8.06 0 0 1 5.08 16ZM8.11 8H5.08a8.06 8.06 0 0 1 4.41-3.56A15.7 15.7 0 0 0 8.11 8ZM12 20c-.83-1.2-1.47-2.53-1.82-4h3.64c-.35 1.47-.99 2.8-1.82 4Zm2.21-6H9.79a14.3 14.3 0 0 1 0-4h4.42a14.3 14.3 0 0 1 0 4Zm.3 5.56A15.7 15.7 0 0 0 15.89 16h3.03a8.06 8.06 0 0 1-4.41 3.56ZM16.35 14a16.5 16.5 0 0 0 0-4h3.39a7.8 7.8 0 0 1 0 4h-3.39Z",
     Forum: "M12.103 0C18.666 0 24 5.485 24 11.997c0 6.51-5.33 11.99-11.9 11.99L0 24V11.79C0 5.28 5.532 0 12.103 0zm.116 4.563c-2.593-.003-4.996 1.352-6.337 3.57-1.33 2.208-1.387 4.957-.148 7.22L4.4 19.61l4.794-1.074c2.745 1.225 5.965.676 8.136-1.39 2.17-2.054 2.86-5.228 1.737-7.997-1.135-2.778-3.84-4.59-6.84-4.585h-.008z",
   };
   return (
@@ -989,7 +1105,7 @@ function mapApiCase(item: ApiQueueItem): Case {
     dung: "Đúng", hieu_lam: "Hiểu lầm", can_kiem_chung: "Cần kiểm chứng",
   };
   const priority: Priority = item.priority >= 2 ? "Khẩn cấp" : item.priority === 1 ? "Cao" : item.reach >= 150 ? "Trung bình" : "Thấp";
-  const platform = (["Facebook", "TikTok", "YouTube", "X", "Forum"].includes(item.platform) ? item.platform : "Forum") as Case["platform"];
+  const platform = (["Facebook", "TikTok", "YouTube", "Web", "Forum"].includes(item.platform) ? item.platform : "Forum") as Case["platform"];
   const sourceResult = item.source_label === "co_nguon_xac_nhan" ? "Có nguồn chính thức xác nhận" : item.source_label === "co_bac_bo_chinh_thuc" ? "Có nguồn chính thức bác bỏ" : "Chưa tìm thấy nguồn phù hợp";
   return {
     id: item.id,
@@ -1011,21 +1127,53 @@ function mapApiCase(item: ApiQueueItem): Case {
     sourceTitle: item.source_title || sourceResult,
     sourceAgency: item.source_agency || "",
     sourceUrl: item.source_url || "",
+    contentUrl: item.url || "",
     sourceResult,
     reach: `${item.reach.toLocaleString("vi-VN")} lượt tương tác`,
     contentType: "comment",
     keywords: item.keywords || [],
+    citations: item.citations || [],
   };
 }
 
-function VerificationView({ cases, apiConnected }: { cases: StudyCase[]; apiConnected: boolean }) {
+function VerificationView({ cases, items, apiConnected }: { cases: StudyCase[]; items: Case[]; apiConnected: boolean }) {
+  const sourced = items.filter((item) => item.sourceUrl || item.sourceAgency || item.sourceTitle);
+  const unresolved = items.filter((item) => !item.sourceUrl && !item.sourceAgency);
   return (
     <div className="monitor-page">
       <div className="queue-heading">
-        <div><span className="eyebrow">ĐỐI CHIẾU THỰC TẾ</span><h1>Tầng kiểm chứng</h1><p>So sánh kết quả hệ thống với các quyết định xử phạt đã được công bố.</p></div>
-        <div className={`verify-state ${apiConnected ? "connected" : ""}`}><i />{apiConnected ? `${cases.length} study case từ API` : "Đang chờ Backend API"}</div>
+        <div><span className="eyebrow">ĐỐI CHIẾU THỰC TẾ</span><h1>Tầng kiểm chứng</h1><p>Theo dõi trạng thái nguồn kiểm chứng của chính các hồ sơ đang có trong hàng đợi.</p></div>
+        <div className={`verify-state ${apiConnected ? "connected" : ""}`}><i />{apiConnected ? `${items.length} hồ sơ từ API` : "Đang chờ Backend API"}</div>
       </div>
-      {!cases.length ? <section className="queue-card verify-empty"><strong>Chưa tải được study case</strong><p>Khởi động backend tại cổng 8000 để xem dữ liệu kiểm chứng thật.</p></section> :
+
+      <section className="queue-card synced-summary">
+        <div><strong>{items.length}</strong><small>Tổng hồ sơ</small></div>
+        <div><strong>{sourced.length}</strong><small>Đã có nguồn đối chiếu</small></div>
+        <div><strong>{unresolved.length}</strong><small>Đang chờ nguồn</small></div>
+        <div><strong>{cases.length}</strong><small>Study case tham chiếu</small></div>
+      </section>
+
+      <section className="queue-card synced-section">
+        <div className="synced-section-head"><div><h2>Hồ sơ kiểm chứng trực tiếp</h2><p>Cập nhật từ cùng snapshot hàng đợi với dashboard và báo cáo.</p></div></div>
+        {!items.length ? (
+          <div className="synced-empty"><strong>Chưa có hồ sơ để kiểm chứng</strong><p>Bấm “Quét ngay” để thu thập dữ liệu mới.</p></div>
+        ) : (
+          <div className="table-wrap"><table className="queue-table verify-live-table">
+            <thead><tr><th>CLAIM</th><th>NỀN TẢNG</th><th>KẾT QUẢ</th><th>NGUỒN</th></tr></thead>
+            <tbody>{items.slice(0, 20).map((item) => (
+              <tr key={item.id}>
+                <td><strong>{item.claim}</strong><small>{item.account}</small></td>
+                <td>{item.platform === "Web" ? "Báo chí" : item.platform}</td>
+                <td><span className={`verdict-new ${slug(item.verdict)}`}><i />{item.verdict}</span></td>
+                <td>{item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer">{item.sourceAgency || item.sourceTitle || "Mở nguồn"} ↗</a> : <span className="source-pending">Đang tìm nguồn</span>}</td>
+              </tr>
+            ))}</tbody>
+          </table></div>
+        )}
+      </section>
+
+      <div className="queue-heading secondary-heading"><div><span className="eyebrow">DỮ LIỆU THAM CHIẾU</span><h2>Study case đã công bố</h2></div></div>
+      {!cases.length ? <section className="queue-card verify-empty"><strong>Chưa tải được study case</strong><p>Backend chưa trả về dữ liệu tham chiếu.</p></section> :
         <div className="verify-list">{cases.map((item) => <article className="verify-card" key={item.id}>
           <header><div><small>{item.id} · {item.ngay_quyet_dinh}</small><h2>{item.ten_vu}</h2><p>{item.nguon_cong_bo}</p></div><span>KHỚP CASE THẬT</span></header>
           <div className="verify-columns"><div><small>HÀNH VI THỰC TẾ</small><p>{item.hanh_vi}</p><dl><div><dt>Chủ thể</dt><dd>{item.chu_the}</dd></div><div><dt>Mức phạt thực tế</dt><dd>{item.muc_phat.toLocaleString("vi-VN")} đồng</dd></div><div><dt>Điều khoản viện dẫn</dt><dd>{item.dieu_khoan_vien_dan}</dd></div></dl></div><div><small>KỲ VỌNG HỆ THỐNG</small><p className="expected-label">✓ {item.expected_he_thong.nhan}</p><strong>{item.expected_he_thong.dieu_khoan_moi}</strong><p>{item.expected_he_thong.ghi_chu}</p></div></div>
@@ -1050,7 +1198,7 @@ function ReportView({ allItems, statusById }: { allItems: Case[]; statusById: Re
   const nhầmKhoản = countPattern([/khoản 1.*khoản 2|khoản 2.*khoản 1|k1.*k2|k2.*k1|nhầm khoản/i]);
   const otherHieuLam = Math.max(0, hieuLam - nhầmChủThể - nhầmNĐ15 - nhầmKhoản);
 
-  const platforms = (["Facebook", "TikTok", "YouTube", "X", "Forum"] as Case["platform"][]);
+  const platforms = (["Facebook", "TikTok", "YouTube", "Web", "Forum"] as Case["platform"][]);
   const platformCounts = platforms.map((p) => ({ platform: p, count: allItems.filter((i) => i.platform === p).length }));
 
   return (
@@ -1071,7 +1219,7 @@ function ReportView({ allItems, statusById }: { allItems: Case[]; statusById: Re
       <section className="queue-card" style={{ marginBottom: 24 }}>
         <div style={{ padding: 24 }}>
           <h3 style={{ marginBottom: 12 }}>Top hiểu lầm lặp lại</h3>
-          <table className="queue-table">
+          <table className="queue-table report-table">
             <thead><tr><th>STT</th><th>NHÓM HIỂU LẦM</th><th>SỐ LẦN</th></tr></thead>
             <tbody>
               <tr><td>1</td><td>Nhầm chủ thể tổ chức ↔ cá nhân</td><td>{nhầmChủThể}</td></tr>
@@ -1086,11 +1234,11 @@ function ReportView({ allItems, statusById }: { allItems: Case[]; statusById: Re
       <section className="queue-card" style={{ marginBottom: 24 }}>
         <div style={{ padding: 24 }}>
           <h3 style={{ marginBottom: 12 }}>Phân bổ theo nền tảng</h3>
-          <table className="queue-table">
+          <table className="queue-table report-table platform-report-table">
             <thead><tr><th>NỀN TẢNG</th><th>SỐ LƯỢNG</th><th>TỈ LỆ</th></tr></thead>
             <tbody>
               {platformCounts.filter((p) => p.count > 0).sort((a, b) => b.count - a.count).map((p) => (
-                <tr key={p.platform}><td>{p.platform}</td><td>{p.count}</td><td>{total ? Math.round(p.count / total * 100) : 0}%</td></tr>
+                <tr key={p.platform}><td>{p.platform === "Web" ? "Báo chí" : p.platform === "Forum" ? "Khác" : p.platform}</td><td>{p.count}</td><td>{total ? Math.round(p.count / total * 100) : 0}%</td></tr>
               ))}
             </tbody>
           </table>
@@ -1109,6 +1257,9 @@ function ReportView({ allItems, statusById }: { allItems: Case[]; statusById: Re
 
 function KnowledgeGraphView({ items }: { items: Case[] }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
+  useEffect(() => {
+    if (selectedIdx >= items.length) setSelectedIdx(0);
+  }, [items.length, selectedIdx]);
   const graphItem = items[selectedIdx] || items[0];
   if (!graphItem) {
     return (
@@ -1120,12 +1271,14 @@ function KnowledgeGraphView({ items }: { items: Case[] }) {
     );
   }
   const relatedItems = items.filter((item) => item.document === graphItem.document && item.id !== graphItem.id).slice(0, 3);
+  const graphSourceUrl = graphItem.sourceUrl || graphItem.contentUrl;
+  const graphSourceName = graphItem.sourceAgency || (graphItem.platform === "Web" ? graphItem.account : "");
   return (
     <div className="monitor-page">
       <div className="queue-heading">
         <div><span className="eyebrow">KNOWLEDGE GRAPH</span><h1>Đồ thị tri thức</h1><p>Quan hệ giữa Claim → Chủ thể → Điều luật → Nguồn kiểm chứng.</p></div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <select value={selectedIdx} onChange={(e) => setSelectedIdx(Number(e.target.value))} style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #334155", background: "#1e293b", color: "#e2e8f0", fontSize: 13 }}>
+          <select className="graph-record-select" value={selectedIdx} onChange={(e) => setSelectedIdx(Number(e.target.value))}>
             {items.map((item, idx) => <option key={item.id} value={idx}>{item.claim.slice(0, 60)}...</option>)}
           </select>
         </div>
@@ -1134,42 +1287,71 @@ function KnowledgeGraphView({ items }: { items: Case[] }) {
       <section className="queue-card" style={{ marginBottom: 24 }}>
         <div style={{ padding: 24 }}>
           <h3 style={{ marginBottom: 16 }}>Đồ thị quan hệ</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr", gap: 12, alignItems: "center" }}>
-            <div style={{ background: "#1e293b", border: "2px solid #3b82f6", borderRadius: 12, padding: 16, textAlign: "center" }}>
-              <small style={{ color: "#3b82f6", fontSize: 11 }}>CLAIM</small>
-              <p style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{graphItem.claim.slice(0, 80)}</p>
+          <div className="graph-live-flow">
+            <div className="graph-live-node claim">
+              <small>CLAIM</small>
+              <p>{graphItem.claim.slice(0, 120)}</p>
             </div>
-            <span style={{ fontSize: 20, color: "#64748b" }}>→</span>
-            <div style={{ background: "#1e293b", border: "2px solid #f59e0b", borderRadius: 12, padding: 16, textAlign: "center" }}>
-              <small style={{ color: "#f59e0b", fontSize: 11 }}>CHỦ THỂ</small>
-              <p style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{graphItem.subject || "Chưa xác định"}</p>
-              <small style={{ color: "#94a3b8" }}>{graphItem.platform} · {graphItem.account}</small>
+            <span className="graph-arrow">→</span>
+            <div className="graph-live-node subject">
+              <small>CHỦ THỂ</small>
+              <p>{graphItem.subject || "Chưa xác định"}</p>
+              <em>{graphItem.platform === "Web" ? "Báo chí" : graphItem.platform} · {graphItem.account}</em>
             </div>
-            <span style={{ fontSize: 20, color: "#64748b" }}>→</span>
-            <div style={{ background: "#1e293b", border: "2px solid #8b5cf6", borderRadius: 12, padding: 16, textAlign: "center" }}>
-              <small style={{ color: "#8b5cf6", fontSize: 11 }}>ĐIỀU LUẬT</small>
-              <p style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{graphItem.document}</p>
-              <small style={{ color: "#94a3b8" }}>{graphItem.provision}</small>
-              <br /><small style={{ color: "#f59e0b" }}>{graphItem.penalty}</small>
+            <span className="graph-arrow">→</span>
+            <div className="graph-live-node law">
+              <small>ĐIỀU LUẬT</small>
+              <p>{graphItem.document}</p>
+              <em>{graphItem.provision}</em>
+              <b>{graphItem.penalty}</b>
             </div>
-            <span style={{ fontSize: 20, color: "#64748b" }}>→</span>
-            <div style={{ background: "#1e293b", border: "2px solid #22c55e", borderRadius: 12, padding: 16, textAlign: "center" }}>
-              <small style={{ color: "#22c55e", fontSize: 11 }}>NGUỒN KIỂM CHỨNG</small>
-              <p style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{graphItem.sourceAgency || "Đang tìm kiếm"}</p>
-              <small style={{ color: "#94a3b8" }}>{graphItem.sourceTitle || "Chưa có nguồn"}</small>
-              {graphItem.sourceUrl && graphItem.sourceUrl !== "#" && <><br /><a href={graphItem.sourceUrl} target="_blank" rel="noreferrer" style={{ color: "#3b82f6", fontSize: 12 }}>Mở nguồn ↗</a></>}
+            <span className="graph-arrow">→</span>
+            <div className="graph-live-node source">
+              <small>NGUỒN KIỂM CHỨNG</small>
+              <p>{graphSourceName || "Đang tìm kiếm"}</p>
+              <em>{graphItem.sourceTitle || "Chưa có nguồn"}</em>
+              {graphSourceUrl && graphSourceUrl !== "#" && <a href={graphSourceUrl} target="_blank" rel="noreferrer">Mở nguồn ↗</a>}
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="queue-card graph-evidence-card" style={{ marginBottom: 24 }}>
+        <div className="graph-evidence-head">
+          <div>
+            <small>DỮ LIỆU GỐC</small>
+            <h3>Dẫn chứng phát ngôn</h3>
+          </div>
+          <span>{graphItem.platform === "Web" ? "Báo chí" : graphItem.platform}</span>
+        </div>
+        <blockquote>“{graphItem.original || graphItem.claim}”</blockquote>
+        <dl className="graph-evidence-meta">
+          <div><dt>Người / kênh đăng</dt><dd>{graphItem.account || "Chưa xác định"}</dd></div>
+          <div><dt>Thời gian ghi nhận</dt><dd>{graphItem.publishedAt || "Chưa xác định"}</dd></div>
+          <div><dt>Mức độ lan truyền</dt><dd>{graphItem.reach}</dd></div>
+        </dl>
+        <div className="graph-evidence-actions">
+          {graphItem.contentUrl && graphItem.contentUrl !== "#" ? (
+            <a href={graphItem.contentUrl} target="_blank" rel="noreferrer">Mở nội dung gốc ↗</a>
+          ) : (
+            <span>Chưa thu được liên kết nội dung gốc</span>
+          )}
+        </div>
+        {!!graphItem.citations?.length && (
+          <div className="graph-citations">
+            <strong>Căn cứ được hệ thống đối chiếu</strong>
+            <ul>{graphItem.citations.map((citation, index) => <li key={`${citation}-${index}`}>{citation}</li>)}</ul>
+          </div>
+        )}
       </section>
 
       <section className="queue-card" style={{ marginBottom: 24 }}>
         <div style={{ padding: 24 }}>
           <h3 style={{ marginBottom: 4 }}>Kết quả phân loại</h3>
           <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>AI đánh giá: <strong style={{ color: graphItem.verdict === "Đúng" ? "#22c55e" : graphItem.verdict === "Hiểu lầm" ? "#ef4444" : "#f59e0b" }}>{graphItem.verdict}</strong> · Score: {graphItem.score}/100</p>
-          <div style={{ background: "#0f172a", borderRadius: 8, padding: 16 }}>
-            <small style={{ color: "#94a3b8" }}>LÝ DO PHÂN LOẠI</small>
-            <p style={{ marginTop: 4 }}>{graphItem.reason}</p>
+          <div className="classification-reason">
+            <small>LÝ DO PHÂN LOẠI</small>
+            <p>{graphItem.reason}</p>
           </div>
         </div>
       </section>
@@ -1179,7 +1361,7 @@ function KnowledgeGraphView({ items }: { items: Case[] }) {
           <div style={{ padding: 24 }}>
             <h3 style={{ marginBottom: 4 }}>Hồ sơ liên quan (cùng văn bản)</h3>
             <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>{relatedItems.length} hồ sơ khác cùng viện dẫn {graphItem.document}</p>
-            <table className="queue-table">
+            <table className="queue-table graph-related-table">
               <thead><tr><th>CLAIM</th><th>CHỦ THỂ</th><th>ĐIỀU KHOẢN</th><th>ĐÁNH GIÁ</th></tr></thead>
               <tbody>
                 {relatedItems.map((item) => (
@@ -1194,8 +1376,8 @@ function KnowledgeGraphView({ items }: { items: Case[] }) {
   );
 }
 
-function SourcesView() {
-  const sources = [
+function SourcesView({ items }: { items: Case[] }) {
+  const whitelist = [
     { tier: 0, name: "Ngân hàng Nhà nước (SBV)", domain: "sbv.gov.vn", desc: "Cơ quan quản lý ngân hàng — thẩm quyền xác nhận/bác bỏ tin đồn tài chính" },
     { tier: 0, name: "Bộ Y tế", domain: "moh.gov.vn", desc: "Cơ quan phát ngôn về dịch bệnh, y tế công cộng" },
     { tier: 0, name: "Bộ Công an", domain: "bocongan.gov.vn", desc: "Cơ quan phát ngôn về an ninh, trật tự" },
@@ -1207,6 +1389,25 @@ function SourcesView() {
     { tier: 2, name: "Tuổi Trẻ", domain: "tuoitre.vn", desc: "Báo lớn — corroboration" },
     { tier: 2, name: "Thanh Niên", domain: "thanhnien.vn", desc: "Báo lớn — corroboration" },
   ];
+  const observed = Array.from(items.reduce((map, item) => {
+    const name = item.platform === "Web" ? item.account : item.sourceAgency;
+    if (!name) return map;
+    const current = map.get(name) || {
+      name,
+      platform: item.platform === "Web" ? "Báo chí" : item.platform,
+      count: 0,
+      latest: item.publishedAt,
+      url: item.platform === "Web" ? item.contentUrl : item.sourceUrl,
+    };
+    current.count += 1;
+    if (parseCaseDate(item.publishedAt) && (!parseCaseDate(current.latest) || parseCaseDate(item.publishedAt)! > parseCaseDate(current.latest)!)) {
+      current.latest = item.publishedAt;
+      current.url = item.platform === "Web" ? item.contentUrl : item.sourceUrl;
+    }
+    map.set(name, current);
+    return map;
+  }, new Map<string, { name: string; platform: string; count: number; latest: string; url?: string }>()).values())
+    .sort((a, b) => b.count - a.count);
 
   return (
     <div className="monitor-page">
@@ -1214,6 +1415,24 @@ function SourcesView() {
         <div><span className="eyebrow">NGUỒN TIN</span><h1>Nguồn chính thức</h1><p>Danh sách whitelist nguồn tin theo tầng thẩm quyền — hệ thống chỉ dùng các nguồn này để xác minh nội dung.</p></div>
       </div>
 
+      <section className="queue-card synced-section">
+        <div className="synced-section-head"><div><h2>Nguồn đang có dữ liệu</h2><p>Được tổng hợp trực tiếp từ snapshot hàng đợi hiện tại.</p></div><strong>{observed.length} nguồn</strong></div>
+        {!observed.length ? (
+          <div className="synced-empty"><strong>Chưa ghi nhận nguồn nào</strong><p>Quét dữ liệu để cập nhật danh sách nguồn thực tế.</p></div>
+        ) : (
+          <div className="table-wrap"><table className="queue-table sources-live-table">
+            <thead><tr><th>NGUỒN</th><th>LOẠI</th><th>SỐ HỒ SƠ</th><th>CẬP NHẬT GẦN NHẤT</th></tr></thead>
+            <tbody>{observed.map((source) => (
+              <tr key={`${source.platform}-${source.name}`}>
+                <td>{source.url ? <a href={source.url} target="_blank" rel="noreferrer"><strong>{source.name}</strong></a> : <strong>{source.name}</strong>}</td>
+                <td>{source.platform}</td><td>{source.count}</td><td>{source.latest || "Chưa xác định"}</td>
+              </tr>
+            ))}</tbody>
+          </table></div>
+        )}
+      </section>
+
+      <div className="queue-heading secondary-heading"><div><span className="eyebrow">CHÍNH SÁCH NGUỒN</span><h2>Whitelist kiểm chứng</h2></div></div>
       {[0, 1, 2].map((tier) => (
         <section key={tier} className="queue-card" style={{ marginBottom: 24 }}>
           <div style={{ padding: 24 }}>
@@ -1223,10 +1442,10 @@ function SourcesView() {
             <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>
               {tier === 0 ? "Một mình Tier 0 xác nhận/bác bỏ là đủ — không cần nguồn khác." : tier === 1 ? "Cần ≥2 nguồn Tier 1/2 độc lập xác nhận. Bác bỏ hợp lệ khi dẫn lời Tier 0." : "Chỉ dùng để bổ sung — không đơn phương quyết định."}
             </p>
-            <table className="queue-table">
+            <table className="queue-table whitelist-table">
               <thead><tr><th>TÊN</th><th>DOMAIN</th><th>MÔ TẢ</th></tr></thead>
               <tbody>
-                {sources.filter((s) => s.tier === tier).map((s) => (
+                {whitelist.filter((s) => s.tier === tier).map((s) => (
                   <tr key={s.domain}><td><strong>{s.name}</strong></td><td><code>{s.domain}</code></td><td>{s.desc}</td></tr>
                 ))}
               </tbody>

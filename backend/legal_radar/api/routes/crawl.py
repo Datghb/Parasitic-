@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 from dataclasses import asdict
 from hashlib import sha1
@@ -54,7 +55,10 @@ def trigger_crawl(request: CrawlRequest):
     items = live["items"]
     mode = "live"
 
-    if not items:
+    fallback_enabled = os.environ.get(
+        "CRAWL_SAMPLE_FALLBACK_ENABLED", "true"
+    ).lower() in {"1", "true", "yes", "on"}
+    if not items and fallback_enabled:
         items = _load_sample_items()[:request.max_posts_per_platform]
         mode = "fallback"
 
