@@ -118,6 +118,16 @@ class NguonTin:
             raise ValueError(f"tier must be 0, 1, or 2 (id={self.id}, got {self.tier})")
 
 
+@dataclass(frozen=True)
+class FactRef:
+    id: str
+    chu_de: str
+    su_that: str
+    nguon: str
+    url: str = ""
+    ngay_dang: str = ""
+
+
 # ── Frozen dataclass (edge) ──
 
 @dataclass(frozen=True)
@@ -160,6 +170,7 @@ _TYPE_MAP: dict[str, type] = {
     "MucPhat": MucPhat,
     "BienPhapKhacPhuc": BienPhapKhacPhuc,
     "NguonTin": NguonTin,
+    "FactRef": FactRef,
 }
 
 
@@ -202,6 +213,9 @@ class KnowledgeGraph:
 
     def get_thay_the(self, dk_id: str) -> list[Edge]:
         return [e for e in self.edges if e.loai == "THAY_THE" and (e.source == dk_id or e.target == dk_id)]
+
+    def get_fact_refs(self) -> list[FactRef]:
+        return [n for n in self.nodes if isinstance(n, FactRef)]
 
 
 # ── Loader ──

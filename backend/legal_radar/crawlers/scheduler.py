@@ -19,8 +19,12 @@ logger = logging.getLogger(__name__)
 
 CRAWL_INTERVAL_MINUTES = 15
 CRAWL_KEYWORDS: list[str] = [
-    "tin giả", "phạt MXH", "xử phạt mạng xã hội",
-    "nghị định 174", "fake news", "tin sai sự thật",
+    "sáp nhập tỉnh",
+    "giảm đơn vị hành chính",
+    "34 tỉnh còn 16",
+    "gộp tỉnh",
+    "sắp xếp ĐVHC",
+    "Bộ Nội vụ bác bỏ",
 ]
 YOUTUBE_MAX_RESULTS = 10
 
@@ -96,6 +100,37 @@ def crawl_now(
         len(all_items), appended, out,
     )
     return all_items
+
+
+def crawl_and_process(
+    keywords: list[str] | None = None,
+    max_posts: int = 20,
+    output_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Crawl → clean → filter. Return {crawled, relevant, items}."""
+    from .cleaner import clean_post
+    from .filter import is_relevant
+
+    raw_items = crawl_now(keywords=keywords, max_posts_per_platform=max_posts, output_path=output_path)
+
+    relevant_items: list[dict[str, Any]] = []
+    for raw in raw_items:
+        cleaned = clean_post(raw)
+        if not cleaned:
+            continue
+
+        all_text = cleaned["text"]
+        for c in cleaned.get("comments", []):
+            all_text += " " + c.get("text", "")
+
+        if is_relevant(all_text):
+            relevant_items.append(cleaned)
+
+    return {
+        "crawled": len(raw_items),
+        "relevant": len(relevant_items),
+        "items": relevant_items,
+    }
 
 
 class CrawlScheduler:

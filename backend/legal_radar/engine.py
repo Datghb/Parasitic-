@@ -84,6 +84,11 @@ _SLANG_MAP: dict[str, str] = {
     "thui": "thôi",
     "bóc": "vạch trần",
     "bị ban": "bị cấm",
+
+    # ── ĐVHC domain slang ──
+    "gop": "sáp nhập",
+    "gộp": "sáp nhập",
+    "sap nhap": "sáp nhập",
 }
 
 

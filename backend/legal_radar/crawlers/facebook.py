@@ -1,9 +1,9 @@
-﻿"""Facebook crawler — Playwright search + Bright Data API (fast, parallel).
+﻿"""Facebook crawler — Bright Data Discover API + Scraper API.
 
-Optimized:
-    - No delay
-    - Each URL scraped in parallel via threads
-    - Posts + comments for same URL sent together
+Architecture:
+    1. Discover API  → search keywords → collect Facebook post URLs
+    2. Scraper API   → scrape post content + comments per URL (parallel)
+    3. No Playwright, no browser automation needed.
 """
 from __future__ import annotations
 
@@ -14,8 +14,6 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any
-from urllib.parse import quote_plus
 
 import requests
 
@@ -23,26 +21,106 @@ logger = logging.getLogger(__name__)
 
 BRIGHTDATA_API_KEY = os.environ.get("BRIGHTDATA_API_KEY", "")
 BD_BASE_URL = "https://api.brightdata.com/datasets/v3"
+BD_DISCOVER_URL = "https://api.brightdata.com/discover"
 BD_POSTS_DATASET = "gd_lyclm1571iy3mv57zw"
 BD_COMMENTS_DATASET = "gd_lkay758p1eanlolqw8"
 
 FALLBACK_QUERIES = [
-    "ngh\u1ecb \u0111\u1ecbnh 174 tin gi\u1ea3",
-    "tin gi\u1ea3 MXH",
-    "fake news",
-    "ph\u1ea1t MXH",
-    "b\u00f3c ph\u1ed1t",
-    "tin \u0111\u0129n",
-    "x\u1eed ph\u1ea1t m\u1ea1ng x\u00e3 h\u1ed9i",
+    "sáp nhập tỉnh",
+    "giảm đơn vị hành chính",
+    "34 tỉnh còn 16",
+    "sáp nhập đơn vị hành chính cấp tỉnh",
+    "gộp tỉnh 2026",
+    "giảm số lượng tỉnh",
+    "Bộ Nội vụ sáp nhập",
+    "tin đồn sáp nhập tỉnh",
+    "sắp xếp đơn vị hành chính",
 ]
 
 
-def _bd_headers():
+def _bd_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {BRIGHTDATA_API_KEY}", "Content-Type": "application/json"}
 
 
+# ── Discover API: keyword → URLs ──
+
+
+def _discover_urls(queries: list[str], needed: int) -> list[str]:
+    """Use Bright Data Discover API to find Facebook post URLs by keyword."""
+    urls: list[str] = []
+    seen: set[str] = set()
+    for query in queries:
+        if len(urls) >= needed:
+            break
+        logger.info("Discover: %s", query)
+        try:
+            resp = requests.post(
+                BD_DISCOVER_URL,
+                headers=_bd_headers(),
+                json={
+                    "query": f"{query} site:facebook.com",
+                    "num_results": 10,
+                    "format": "json",
+                    "language": "vi",
+                    "country": "VN",
+                },
+                timeout=30,
+            )
+        except requests.RequestException:
+            continue
+        if resp.status_code != 200:
+            continue
+        task_id = resp.json().get("task_id")
+        if not task_id:
+            continue
+        results = _poll_discover(task_id)
+        for item in results:
+            link = item.get("link", "")
+            if "facebook.com" not in link:
+                continue
+            if not _is_post_url(link):
+                continue
+            dedup = re.sub(r"[?&].*", "", link)
+            if dedup in seen:
+                continue
+            seen.add(dedup)
+            urls.append(link)
+            if len(urls) >= needed:
+                break
+    logger.info("Discovered %d post URLs", len(urls))
+    return urls
+
+
+def _is_post_url(url: str) -> bool:
+    """Check if URL looks like a scrapable Facebook post."""
+    return any(pat in url for pat in ["/posts/", "/permalink/", "/story_fbid=", "set=pcb."])
+
+
+def _poll_discover(task_id: str) -> list[dict]:
+    """Poll Discover API until done. Returns list of result items."""
+    for _ in range(20):
+        time.sleep(3)
+        try:
+            r = requests.get(
+                f"{BD_DISCOVER_URL}?task_id={task_id}",
+                headers=_bd_headers(),
+                timeout=30,
+            )
+        except requests.RequestException:
+            continue
+        if r.status_code != 200:
+            continue
+        data = r.json()
+        if data.get("status") == "done":
+            return data.get("results", [])
+    return []
+
+
+# ── Scraper API: URL → structured data ──
+
+
 def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
-    """Scrape single URL via Bright Data. Returns list of results."""
+    """Scrape single URL via Bright Data dataset scraper. Returns list of results."""
     params = {"dataset_id": dataset_id, "include_errors": "true", "format": "json"}
     payload = {"input": [{"url": url}]}
     try:
@@ -64,8 +142,8 @@ def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
         sid = data.get("snapshot_id")
         if not sid:
             return []
-        for _ in range(90):
-            time.sleep(3)
+        for _ in range(40):
+            time.sleep(2)
             try:
                 r = requests.get(f"{BD_BASE_URL}/snapshot/{sid}", headers=_bd_headers(), timeout=30)
             except requests.Timeout:
@@ -83,15 +161,20 @@ def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
 
 
 def _crawl_one_post(url: str) -> dict | None:
-    """Crawl single post: content + comments via Bright Data."""
-    posts = _bd_scrape(BD_POSTS_DATASET, url)
+    """Crawl single post: content + comments scraped in parallel."""
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        post_future = pool.submit(_bd_scrape, BD_POSTS_DATASET, url)
+        comments_future = pool.submit(_bd_scrape, BD_COMMENTS_DATASET, url)
+        posts = post_future.result()
+        comments = comments_future.result()
+
     if not posts:
+        logger.debug("No post data for %s", url)
         return None
     post = posts[0]
     if not post.get("content") or len(post.get("content", "")) < 20:
+        logger.debug("Short/empty content for %s", url)
         return None
-
-    comments = _bd_scrape(BD_COMMENTS_DATASET, url)
 
     post_url = post.get("url", "")
     post_id = post.get("post_id", "")
@@ -100,8 +183,15 @@ def _crawl_one_post(url: str) -> dict | None:
         if c.get("post_id") == post_id or c.get("post_url") == post_url
     ]
     formatted_comments = [
-        {"text": c.get("comment_text", ""), "author": c.get("user_name", "Unknown"),
-         "timestamp": c.get("date_created", ""), "likes": c.get("num_likes", 0)}
+        {
+            "text": c.get("comment_text", ""),
+            "author": c.get("user_name", "Unknown"),
+            "author_id": c.get("user_id", ""),
+            "author_url": c.get("user_url", ""),
+            "timestamp": c.get("date_created", ""),
+            "likes": c.get("num_likes", 0),
+            "num_replies": c.get("num_replies", 0),
+        }
         for c in post_comments
     ]
     likes_data = post.get("num_likes_type", [])
@@ -111,6 +201,11 @@ def _crawl_one_post(url: str) -> dict | None:
         "platform": "facebook", "content_type": "post",
         "text": post.get("content", ""),
         "author": post.get("user_username_raw", "Unknown"),
+        "author_id": post.get("profile_id", ""),
+        "author_url": post.get("user_url", "") or post.get("page_url", ""),
+        "author_handle": post.get("profile_handle", ""),
+        "page_followers": post.get("page_followers"),
+        "page_verified": post.get("page_is_verified", False),
         "url": post_url,
         "timestamp": post.get("date_posted", ""),
         "engagement": {"likes": total_likes, "shares": post.get("num_shares", 0), "comments": post.get("num_comments", 0)},
@@ -118,112 +213,52 @@ def _crawl_one_post(url: str) -> dict | None:
     }
 
 
-# ── Playwright: Login + Search ──
-
-def _pw_login(page, username: str, password: str) -> bool:
-    logger.info("Login Facebook...")
-    page.goto("https://www.facebook.com/login", wait_until="domcontentloaded", timeout=30000)
-    time.sleep(3)
-    el = page.query_selector('input[name="email"]')
-    if el: el.click(); time.sleep(0.3); el.fill(username); time.sleep(0.3)
-    el = page.query_selector('input[name="pass"]')
-    if el: el.click(); time.sleep(0.3); el.fill(password); time.sleep(0.3)
-    for btn in page.query_selector_all('div[role="button"]'):
-        t = btn.inner_text().strip().lower()
-        if "log in" in t or "\u0111\u0103ng" in t:
-            btn.click(); break
-    time.sleep(8)
-    try: page.wait_for_load_state("networkidle", timeout=10000)
-    except: pass
-    body = page.inner_text("body")[:500].lower()
-    logged = any(x in body for x in ["what's on your mind", "news feed", "feed posts", "create a post", "find friends"])
-    if not logged and "login" not in page.url.lower():
-        logged = True
-    if logged: logger.info("Login OK"); return True
-    logger.error("Login failed"); return False
-
-
-def _pw_collect_urls(page, needed: int) -> list[str]:
-    urls, seen = [], set()
-    for query in FALLBACK_QUERIES:
-        if len(urls) >= needed: break
-        logger.info("Search: %s", query)
-        page.goto(f"https://www.facebook.com/search/posts/?q={quote_plus(query)}", wait_until="domcontentloaded", timeout=30000)
-        time.sleep(2)
-        for _ in range(3):
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            time.sleep(1)
-        for link in page.query_selector_all('a[href*="facebook.com"]'):
-            href = link.get_attribute("href") or ""
-            if not href or any(x in href for x in ["/login", "/help", "/policies"]): continue
-            post_url = None
-            if "/posts/" in href or "/permalink/" in href or "/story_fbid=" in href:
-                post_url = href.split("?")[0]
-            elif "set=pcb." in href:
-                m = re.search(r"set=pcb\.(\d+)", href)
-                if m: post_url = f"https://www.facebook.com/{m.group(1)}"
-            if not post_url: continue
-            dedup = re.sub(r"[?&].*", "", post_url)
-            if dedup in seen: continue
-            seen.add(dedup)
-            urls.append(post_url)
-            if len(urls) >= needed: break
-    logger.info("Found %d URLs", len(urls))
-    return urls
-
-
 # ── Main ──
 
+
 def crawl_facebook(
-    keywords=None, max_posts=20, max_comments_per_post=50,
-    delay_between_posts=0, fb_username="", fb_password="",
-    output_path="runs/crawled_raw.jsonl",
+    keywords: list[str] | None = None,
+    max_posts: int = 20,
+    output_path: str = "runs/crawled_raw.jsonl",
 ) -> list[dict]:
-    if not BRIGHTDATA_API_KEY: logger.error("BRIGHTDATA_API_KEY required"); return []
-    if not fb_username or not fb_password: logger.error("Credentials required"); return []
+    """Crawl Facebook posts via Bright Data Discover + Scraper API.
 
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError: logger.error("pip install playwright"); return []
-    try:
-        from playwright_stealth import Stealth; stealth = Stealth()
-    except: stealth = None
+    Flow: keywords → Discover API → post URLs → scrape content + comments.
+    No Playwright or browser automation required.
+    """
+    if not BRIGHTDATA_API_KEY:
+        logger.error("BRIGHTDATA_API_KEY required")
+        return []
 
-    out = Path(output_path); out.parent.mkdir(parents=True, exist_ok=True)
+    queries = keywords or FALLBACK_QUERIES
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
 
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
-        ctx = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36",
-            viewport={"width": 1366, "height": 768}, locale="vi-VN",
-        )
-        page = ctx.new_page()
-        if stealth:
-            try: stealth.apply_stealth_sync(page)
-            except: pass
-        if not _pw_login(page, fb_username, fb_password):
-            browser.close(); return []
-        urls = _pw_collect_urls(page, max_posts * 2)
-        browser.close()
+    urls = _discover_urls(queries, max_posts * 3)
+    if not urls:
+        logger.error("No URLs found")
+        return []
 
-    if not urls: logger.error("No URLs found"); return []
-
-    # Parallel: crawl each post in a thread
-    results = []
+    results: list[dict] = []
+    failed = 0
     logger.info("Crawling %d posts in parallel...", len(urls))
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        futures = {pool.submit(_crawl_one_post, u): u for u in urls[:max_posts * 2]}
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {pool.submit(_crawl_one_post, u): u for u in urls}
         for future in as_completed(futures):
-            if len(results) >= max_posts: break
+            if len(results) >= max_posts:
+                break
             try:
                 result = future.result()
                 if result:
                     results.append(result)
                     with open(out, "a", encoding="utf-8") as f:
                         f.write(json.dumps(result, ensure_ascii=False) + "\n")
-                    logger.info("[%d] %s - %d comments", len(results), result["author"], len(result["comments"]))
+                    logger.info("[%d/%d] %s - %d comments", len(results), max_posts, result["author"], len(result["comments"]))
+                else:
+                    failed += 1
             except Exception as exc:
+                failed += 1
                 logger.warning("Error: %s", exc)
 
-    logger.info("Done! %d posts -> %s", len(results), out)
+    logger.info("Done! %d/%d posts scraped, %d failed -> %s", len(results), max_posts, failed, out)
     return results

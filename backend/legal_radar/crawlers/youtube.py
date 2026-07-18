@@ -13,14 +13,13 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 DEFAULT_KEYWORDS: list[str] = [
-    "tin giả",
-    "phạt MXH",
-    "xử phạt mạng xã hội",
-    "nghị định 174",
-    "fake news",
-    "tin sai sự thật",
-    "bóc phốt",
-    "tin đồn",
+    "sáp nhập tỉnh",
+    "giảm đơn vị hành chính",
+    "34 tỉnh còn 16",
+    "gộp tỉnh 2026",
+    "sắp xếp đơn vị hành chính",
+    "tin đồn sáp nhập",
+    "Bộ Nội vụ bác bỏ",
 ]
 
 YOUTUBE_MAX_RESULTS = 10
