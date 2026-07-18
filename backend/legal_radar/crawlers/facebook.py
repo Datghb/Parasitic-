@@ -128,9 +128,10 @@ def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
     try:
         resp = requests.post(
             f"{BD_BASE_URL}/scrape", params=params,
-            headers=_bd_headers(), json=payload, timeout=120,
+            headers=_bd_headers(), json=payload, timeout=30,
         )
     except requests.Timeout:
+        logger.warning("Scrape POST timeout for %s", url)
         return []
 
     if resp.status_code == 200:
@@ -144,11 +145,12 @@ def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
         sid = data.get("snapshot_id")
         if not sid:
             return []
-        for _ in range(40):
+        for i in range(5):
             time.sleep(2)
             try:
-                r = requests.get(f"{BD_BASE_URL}/snapshot/{sid}", headers=_bd_headers(), timeout=30)
+                r = requests.get(f"{BD_BASE_URL}/snapshot/{sid}", headers=_bd_headers(), timeout=15)
             except requests.Timeout:
+                logger.warning("Snapshot poll %d timeout for %s", i, sid)
                 continue
             if r.status_code == 200:
                 try:
@@ -164,11 +166,14 @@ def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
 
 def _crawl_one_post(url: str) -> dict | None:
     """Crawl single post: content + comments scraped in parallel."""
+    t0 = time.time()
     with ThreadPoolExecutor(max_workers=2) as pool:
         post_future = pool.submit(_bd_scrape, BD_POSTS_DATASET, url)
         comments_future = pool.submit(_bd_scrape, BD_COMMENTS_DATASET, url)
         posts = post_future.result()
         comments = comments_future.result()
+    elapsed = time.time() - t0
+    logger.info("Scraped %s in %.1fs — %d posts, %d comments", url, elapsed, len(posts), len(comments))
 
     if not posts:
         logger.debug("No post data for %s", url)
@@ -228,6 +233,7 @@ def crawl_facebook(
     Flow: keywords → Discover API → post URLs → scrape content + comments.
     No Playwright or browser automation required.
     """
+    t_start = time.time()
     settings = get_settings()
     if not settings.brightdata_api_key:
         logger.error("BRIGHTDATA_API_KEY required")
@@ -237,15 +243,15 @@ def crawl_facebook(
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    urls = _discover_urls(queries, max_posts * 3)
+    urls = _discover_urls(queries, max_posts)
     if not urls:
-        logger.error("No URLs found")
+        logger.error("No URLs found after %.1fs", time.time() - t_start)
         return []
 
     results: list[dict] = []
     failed = 0
-    logger.info("Crawling %d posts in parallel...", len(urls))
-    with ThreadPoolExecutor(max_workers=10) as pool:
+    logger.info("Crawling %d posts...", len(urls))
+    with ThreadPoolExecutor(max_workers=min(len(urls), 3)) as pool:
         futures = {pool.submit(_crawl_one_post, u): u for u in urls}
         for future in as_completed(futures):
             if len(results) >= max_posts:
@@ -263,5 +269,5 @@ def crawl_facebook(
                 failed += 1
                 logger.warning("Error: %s", exc)
 
-    logger.info("Done! %d/%d posts scraped, %d failed -> %s", len(results), max_posts, failed, out)
+    logger.info("Done! %d/%d posts scraped, %d failed in %.1fs -> %s", len(results), max_posts, failed, time.time() - t_start, out)
     return results
