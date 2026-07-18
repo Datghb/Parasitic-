@@ -5,6 +5,10 @@ from pathlib import Path
 
 def repo_root() -> Path:
     """Return the directory containing the project's versioned data."""
+    # Check if /app is the repo root (common in Docker environment)
+    if Path("/app/data/kg/kg_nodes.json").is_file():
+        return Path("/app")
+
     module_path = Path(__file__).resolve()
     for candidate in module_path.parents:
         if (candidate / "data" / "kg" / "kg_nodes.json").is_file():
