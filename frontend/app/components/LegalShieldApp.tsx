@@ -386,10 +386,10 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
       </div>
 
       <section className="market-v2-kpis">
-        <article><i className="shield-icon">◇</i><div><small>Risk Index</small><strong>{riskIndex}<b>/100</b></strong><span className={trendClass(riskDelta)}>↑ {signed(riskDelta)} <em>so với kỳ trước</em></span></div></article>
-        <article><i className="warning-icon">△</i><div><small>Claim rủi ro cao</small><strong>{urgent}</strong><span className={trendClass(urgentDelta)}>↑ {signed(urgentDelta)} <em>so với kỳ trước</em></span></div></article>
-        <article><i className="search-icon">⌕</i><div><small>Chủ đề nóng</small><strong>{hotTopics}</strong><span className="up">↑ {topics.length} <em>chủ đề đang theo dõi</em></span></div></article>
-        <article><i className="trend-icon">⌁</i><div><small>Biến động {period} ngày</small><strong>{signed(riskDelta)}</strong><span className={trendClass(riskDelta)}>{riskDelta >= 0 ? "xu hướng tăng" : "xu hướng giảm"}</span></div></article>
+        <article><i className="shield-icon">{kpiIcon("shield")}</i><div><small>Risk Index</small><strong>{riskIndex}<b>/100</b></strong><span className={trendClass(riskDelta)}>↑ {signed(riskDelta)} <em>so với kỳ trước</em></span></div></article>
+        <article><i className="warning-icon">{kpiIcon("warning")}</i><div><small>Claim rủi ro cao</small><strong>{urgent}</strong><span className={trendClass(urgentDelta)}>↑ {signed(urgentDelta)} <em>so với kỳ trước</em></span></div></article>
+        <article><i className="search-icon">{kpiIcon("search")}</i><div><small>Chủ đề nóng</small><strong>{hotTopics}</strong><span className="up">↑ {topics.length} <em>chủ đề đang theo dõi</em></span></div></article>
+        <article><i className="trend-icon">{kpiIcon("trend")}</i><div><small>Biến động {period} ngày</small><strong>{signed(riskDelta)}</strong><span className={trendClass(riskDelta)}>{riskDelta >= 0 ? "xu hướng tăng" : "xu hướng giảm"}</span></div></article>
       </section>
 
       <div className="market-v2-grid">
@@ -872,6 +872,16 @@ function slug(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, "-");
 }
 
+function kpiIcon(type: "shield" | "warning" | "search" | "trend") {
+  const paths = {
+    shield: <><path d="M12 3 20 6v5.8c0 5-3.4 8.4-8 10.2-4.6-1.8-8-5.2-8-10.2V6l8-3Z" /><path d="m8.5 12 2.2 2.2 4.8-5" /></>,
+    warning: <><path d="M10.3 4.2 2.7 18a2 2 0 0 0 1.8 3h15a2 2 0 0 0 1.8-3L13.7 4.2a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4.5" /><path d="M12 17.2h.01" /></>,
+    search: <><circle cx="10.8" cy="10.8" r="7.3" /><path d="m16.2 16.2 5 5" /></>,
+    trend: <><path d="M4 20v-6M10 20V9M16 20v-4" /><path d="m3.5 10 5-5 4 4L21 1" /><path d="M16.5 1H21v4.5" /></>,
+  };
+  return <svg className="kpi-svg" viewBox="0 0 24 24" aria-hidden="true">{paths[type]}</svg>;
+}
+
 function platformIcon(platform: Case["platform"]) {
   const paths: Record<Case["platform"], string> = {
     Facebook: "M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z",
@@ -881,7 +891,7 @@ function platformIcon(platform: Case["platform"]) {
     Forum: "M12.103 0C18.666 0 24 5.485 24 11.997c0 6.51-5.33 11.99-11.9 11.99L0 24V11.79C0 5.28 5.532 0 12.103 0zm.116 4.563c-2.593-.003-4.996 1.352-6.337 3.57-1.33 2.208-1.387 4.957-.148 7.22L4.4 19.61l4.794-1.074c2.745 1.225 5.965.676 8.136-1.39 2.17-2.054 2.86-5.228 1.737-7.997-1.135-2.778-3.84-4.59-6.84-4.585h-.008z",
   };
   return (
-    <svg viewBox="0 0 24 24" role="img" aria-label={`${platform} logo`}>
+    <svg className={`platform-svg platform-${platform.toLowerCase()}`} viewBox="0 0 24 24" role="img" aria-label={`${platform} logo`}>
       <path d={paths[platform]} />
     </svg>
   );
