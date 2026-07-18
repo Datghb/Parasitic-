@@ -24,6 +24,7 @@ class QueueItemResponse(BaseModel):
     document: str = "Nghị định 174/2026/NĐ-CP"
     provision: str = ""
     penalty: str = ""
+    subject: str = "Chưa xác định"
     source_title: str = ""
     source_url: str = ""
     source_agency: str = ""

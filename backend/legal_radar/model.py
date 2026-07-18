@@ -152,12 +152,28 @@ class QueueItem:
     ly_do: str
     nhan_nguon: NhanNguon = NhanNguon.CHUA_TIM_THAY_NGUON
     priority: int = 0
+    subject: str = ""
+    provision: str = ""
+    penalty: str = ""
+    document: str = "Nghị định 174/2026/NĐ-CP"
+    citations: list[str] = None
+    source_title: str = ""
+    source_url: str = ""
+    source_agency: str = ""
+    platform: str = "Forum"
+    account: str = ""
+    published_at: str = ""
+    reach: int = 0
+    status: str = "new"
+    score: int = 30
 
     def __post_init__(self):
         if isinstance(self.nhan, str):
             self.nhan = NhanPhanLoai(self.nhan)
         if isinstance(self.nhan_nguon, str):
             self.nhan_nguon = NhanNguon(self.nhan_nguon)
+        if self.citations is None:
+            self.citations = []
 
 
 # ── KnowledgeGraph container ──

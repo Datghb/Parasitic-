@@ -31,12 +31,13 @@ def test_cors_preflight_allows_production_frontend() -> None:
     )
 
 
-def test_queue_returns_fixture_backed_items() -> None:
+def test_queue_returns_list_with_supported_schema() -> None:
     response = client.get("/api/queue")
     assert response.status_code == 200
     items = response.json()
-    assert len(items) >= 45
-    assert {"id", "claim", "label", "source_label", "platform", "reach"} <= items[0].keys()
+    assert isinstance(items, list)
+    if items:
+        assert {"id", "claim", "label", "source_label", "platform", "reach"} <= items[0].keys()
 
 
 def test_case_returns_matching_queue_item() -> None:

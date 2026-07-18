@@ -3,11 +3,23 @@ from __future__ import annotations
 import re
 import math
 from collections import Counter
+from dataclasses import dataclass, field
 
 from .model import (
     KnowledgeGraph, DieuKhoan, MucPhat, HanhVi, LoaiChuThe,
     NhanPhanLoai, NhanNguon, QueueItem,
 )
+
+
+@dataclass
+class ClassificationResult:
+    nhan: NhanPhanLoai
+    ly_do: str
+    citations: list[str] = field(default_factory=list)
+    subject: str = ""
+    provision: str = ""
+    penalty: str = ""
+    document: str = "Nghị định 174/2026/NĐ-CP"
 
 
 # ── P2.1: Tính mức phạt theo chủ thể ──
@@ -132,7 +144,7 @@ def _bm25_score(query_tokens: list[str], doc_tokens: list[str], k1: float = 1.5,
     return score
 
 
-def match_hanh_vi(text: str, kg: KnowledgeGraph, min_score: float = 0.8) -> list[DieuKhoan]:
+def match_hanh_vi(text: str, kg: KnowledgeGraph, min_score: float = 0.5) -> list[DieuKhoan]:
     if not text.strip():
         return []
 
@@ -194,6 +206,8 @@ def _detect_subject_type(text: str) -> str | None:
         r'\buser\b', r'\bkol\b', r'\btiktoker\b', r'\bhot\s*girl\b',
         r'\bhot\s*boy\b', r'\bstreamer\b', r'\byoutuber\b',
         r'\binfluencer\b', r'\bcreator\b', r'\bnick\b',
+        r'\btui\b', r'\bmình\b', r'\bem\b', r'\banh\b',
+        r'\bm.n\b', r'\bacc\b', r'\bb.n\b',
     ]
     to_chuc_patterns = [
         r'\btổ\s*chức\b', r'\bdoanh\s*nghiệp\b', r'\bcông\s*ty\b',
@@ -201,6 +215,9 @@ def _detect_subject_type(text: str) -> str | None:
         r'\btrang\b.*\bcộng\s*đồng\b',
         r'\bnhóm\b.*\bcộng\s*đồng\b', r'\bhội\s*nhóm\b',
         r'\bwebsite\b', r'\btrang\s*tin\b',
+        r'\bpage\b', r'\bfanpage\b', r'\bnick\b.*\bbán\b',
+        r'\bshop\b', r'\bcửa\s*hàng\b', r'\bc.ty\b',
+        r'\bdoanh\s*nghiệp\b', r'\bsở\s*tt\b',
     ]
     for p in ca_nhan_patterns:
         if re.search(p, normalized):
@@ -559,6 +576,68 @@ def _classify_to_chuc(
         NhanPhanLoai.CAN_KIEM_CHUNG,
         f"Mức {lo_val}-{hi_val} triệu không khớp khung nào đã nạp",
         citations,
+    )
+
+
+def _format_penalty_for_subject(dk: DieuKhoan, subject: str, kg: KnowledgeGraph) -> str:
+    penalty = _get_penalty_range_millions(dk, kg)
+    if not penalty:
+        return "Chưa có khung phạt trong KG"
+    if subject == "ca_nhan":
+        return f"{penalty[0] // 2}-{penalty[1] // 2} triệu đồng (cá nhân)"
+    return f"{penalty[0]}-{penalty[1]} triệu đồng (tổ chức)"
+
+
+def classify_claim_full(
+    claim: str,
+    loai_chu_the: str | None,
+    kg: KnowledgeGraph,
+) -> ClassificationResult:
+    nhan, ly_do, citations = phan_loai_claim(claim, loai_chu_the, kg)
+
+    auto_subject = _detect_subject_type(claim)
+    effective_subject = loai_chu_the or auto_subject or ""
+    subject_label = ""
+    if effective_subject == "ca_nhan":
+        subject_label = "Cá nhân"
+    elif effective_subject == "to_chuc":
+        subject_label = "Tổ chức"
+    elif effective_subject is None or effective_subject == "":
+        subject_label = "Chưa xác định"
+
+    matched_dks = match_hanh_vi(claim, kg)
+    provision_str = ""
+    penalty_str = ""
+    document_str = "Nghị định 174/2026/NĐ-CP"
+
+    if citations:
+        provision_str = "; ".join(citations[:2])
+
+    if matched_dks and effective_subject:
+        best_dk = matched_dks[0]
+        van_ban = kg.find_node(best_dk.van_ban_id)
+        if van_ban:
+            document_str = f"Nghị định {van_ban.so_hieu}"
+        if not provision_str:
+            provision_str = _build_citation(best_dk, kg)
+        penalty_str = _format_penalty_for_subject(best_dk, effective_subject, kg)
+    elif matched_dks:
+        best_dk = matched_dks[0]
+        van_ban = kg.find_node(best_dk.van_ban_id)
+        if van_ban:
+            document_str = f"Nghị định {van_ban.so_hieu}"
+        if not provision_str:
+            provision_str = _build_citation(best_dk, kg)
+        penalty_str = "Cần xác định chủ thể trước khi tính mức phạt"
+
+    return ClassificationResult(
+        nhan=nhan,
+        ly_do=ly_do,
+        citations=citations,
+        subject=subject_label,
+        provision=provision_str,
+        penalty=penalty_str,
+        document=document_str,
     )
 
 

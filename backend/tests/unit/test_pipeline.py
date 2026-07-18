@@ -181,7 +181,7 @@ class TestProcessOneLLMFailureFallback:
         kg = _build_kg()
         provider = _make_provider('{"claim": "test", "keywords": [], "subject": null}')
 
-        with patch("legal_radar.pipeline.phan_loai_claim", side_effect=ValueError("KG broken")):
+        with patch("legal_radar.pipeline.classify_claim_full", side_effect=ValueError("KG broken")):
             ingestor = CommentIngestor(provider, kg)
             result = ingestor.process_one(_make_comment("test"))
 

@@ -16,8 +16,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from .model import QueueItem, NhanPhanLoai, NhanNguon, load_kg
-from .engine import phan_loai_claim, match_hanh_vi, muc_phat_cho_chu_the, normalize_text, tich_hop_nguon
-from .providers import GeminiProvider, GroqProvider, OpenRouterProvider
+from .engine import classify_claim_full, tich_hop_nguon
+from .providers import TokenRouterProvider, GeminiProvider, GroqProvider, OpenRouterProvider, FallbackProvider
 from .source_classifier import xac_thuc_nguon
 from .guardrails import validate_label, sanitize_injection
 from .paths import data_dir as project_data_dir
@@ -30,14 +30,34 @@ logger = logging.getLogger(__name__)
 def analyze_comment(comment: str) -> dict:
     data_dir = project_data_dir()
     kg = load_kg(data_dir / "kg" / "kg_nodes.json", data_dir / "kg" / "kg_edges.json")
-    nhan, ly_do, citations = phan_loai_claim(comment, None, kg)
+    result = classify_claim_full(comment, None, kg)
     return {
         "id": str(uuid4()),
         "claim": comment,
-        "label": nhan,
+        "label": result.nhan,
         "source_label": NhanNguon.CHUA_TIM_THAY_NGUON,
-        "reason": ly_do,
+        "reason": result.ly_do,
+        "citations": result.citations,
+        "subject": result.subject,
+        "provision": result.provision,
+        "penalty": result.penalty,
+        "document": result.document,
+        "platform": "Manual",
+        "account": "",
+        "published_at": "",
+        "reach": 0,
+        "status": "new",
+        "score": 30,
     }
+
+
+def _compute_score(nhan: NhanPhanLoai, priority: int, reach: int) -> int:
+    base = 30
+    if nhan == NhanPhanLoai.HIEU_LAM:
+        base = 60
+    elif nhan == NhanPhanLoai.DUNG:
+        base = 45
+    return min(95, base + priority * 15 + min(25, reach // 10))
 
 
 class CommentIngestor:
@@ -107,8 +127,12 @@ class CommentIngestor:
             try:
                 raw = self.provider.generate(prompt)
                 cleaned = raw.strip()
-                if cleaned.startswith("`"):
-                    cleaned = cleaned.strip("")
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+                    if cleaned.endswith("```"):
+                        cleaned = cleaned[:-3]
+                elif cleaned.startswith("`"):
+                    cleaned = cleaned.strip("`")
                     if cleaned.startswith("json"):
                         cleaned = cleaned[4:]
                 parsed = json.loads(cleaned.strip())
@@ -121,10 +145,10 @@ class CommentIngestor:
                 last_error = str(exc)
         return {"claim": text, "keywords": [], "subject": None, "loi": last_error}
 
-    def process_one(self, comment: dict) -> QueueItem:
+    def process_one(self, comment: dict, skip_source_search: bool = False) -> QueueItem:
         """Process a single comment through the full pipeline and return a QueueItem.
 
-        Flow: ``extract_claim`` -> ``phan_loai_claim`` -> ``dynamic_search``
+        Flow: ``extract_claim`` -> ``classify_claim_full`` -> ``dynamic_search``
         -> ``xac_thuc_nguon`` -> ``tich_hop_nguon`` -> compute final priority
         -> ``QueueItem``.
 
@@ -153,35 +177,59 @@ class CommentIngestor:
                 ly_do=f"LLM extract that bai sau 2 lan thu ({extracted['loi'][:120]}) — can can bo doi chieu",
                 nhan_nguon=NhanNguon.CHUA_TIM_THAY_NGUON,
                 priority=0,
+                subject="Chưa xác định",
+                platform=str(comment.get("platform", "Forum")),
+                account=str(comment.get("account", "")),
+                published_at=str(comment.get("published_at", "")),
+                reach=int(comment.get("reach", 0) or 0),
+                status="new",
+                score=30,
             )
         try:
-            nhan, ly_do, citations = phan_loai_claim(
+            cls_result = classify_claim_full(
                 extracted["claim"],
                 extracted.get("subject"),
                 self.kg,
             )
+            nhan = cls_result.nhan
+            ly_do = cls_result.ly_do
             validate_label(nhan.value)
             search_results = []
-            try:
-                from .source_search import dynamic_search_gemini
-                search_results = dynamic_search_gemini(
-                    extracted["keywords"],
-                    comment.get("thoi_gian", ""),
-                )
-            except Exception:
-                pass
-            nhan_nguon, _, ly_do_nguon = xac_thuc_nguon(
+            if not skip_source_search:
+                try:
+                    from .source_search import dynamic_search_gemini
+                    search_results = dynamic_search_gemini(
+                        extracted["keywords"],
+                        comment.get("thoi_gian", ""),
+                    )
+                except Exception as exc:
+                    logger.warning("Source search failed: %s", exc)
+            nhan_nguon, matched_docs, ly_do_nguon = xac_thuc_nguon(
                 extracted["keywords"],
                 comment.get("thoi_gian", ""),
                 search_results,
             )
             ly_do, priority_bump = tich_hop_nguon(nhan, ly_do, nhan_nguon, ly_do_nguon, extracted["claim"])
             priority = (1 if nhan == NhanPhanLoai.HIEU_LAM else 0) + priority_bump
+
+            source_title = ""
+            source_url = ""
+            source_agency = ""
+            if matched_docs:
+                source_title = matched_docs[0].get("tieu_de", "") if isinstance(matched_docs[0], dict) else ""
+                source_url = matched_docs[0].get("url", "") if isinstance(matched_docs[0], dict) else ""
+                source_agency = matched_docs[0].get("nguon", "") if isinstance(matched_docs[0], dict) else ""
+
         except Exception as exc:
             nhan = NhanPhanLoai.CAN_KIEM_CHUNG
             ly_do = f"Engine loi ({str(exc)[:120]}) — can can bo doi chieu"
             nhan_nguon = NhanNguon.CHUA_TIM_THAY_NGUON
             priority = 0
+            cls_result = None
+            source_title = ""
+            source_url = ""
+            source_agency = ""
+
         return QueueItem(
             id=comment["id"],
             comment_id=comment["id"],
@@ -192,6 +240,20 @@ class CommentIngestor:
             ly_do=ly_do,
             nhan_nguon=nhan_nguon,
             priority=priority,
+            subject=getattr(cls_result, "subject", "Chưa xác định") if cls_result else "Chưa xác định",
+            provision=getattr(cls_result, "provision", "") if cls_result else "",
+            penalty=getattr(cls_result, "penalty", "") if cls_result else "",
+            document=getattr(cls_result, "document", "Nghị định 174/2026/NĐ-CP") if cls_result else "Nghị định 174/2026/NĐ-CP",
+            citations=getattr(cls_result, "citations", []) if cls_result else [],
+            source_title=source_title,
+            source_url=source_url,
+            source_agency=source_agency,
+            platform=str(comment.get("platform", "Forum")),
+            account=str(comment.get("account", "")),
+            published_at=str(comment.get("published_at", "")),
+            reach=int(comment.get("reach", 0) or 0),
+            status="new",
+            score=_compute_score(nhan, priority, int(comment.get("reach", 0) or 0)),
         )
 
     def run_batch(self, batch_path: str) -> int:
@@ -266,13 +328,20 @@ def _load_seen_queue_ids(path: Path) -> set[str]:
 
 
 def _default_provider():
+    providers = []
+    if os.getenv("TOKENROUTER_API_KEY"):
+        providers.append(TokenRouterProvider())
     if os.getenv("GEMINI_API_KEY"):
-        return GeminiProvider()
+        providers.append(GeminiProvider())
     if os.getenv("GROQ_API_KEY"):
-        return GroqProvider()
+        providers.append(GroqProvider())
     if os.getenv("OPENROUTER_API_KEY"):
-        return OpenRouterProvider()
-    return GeminiProvider()
+        providers.append(OpenRouterProvider())
+    if not providers:
+        providers.append(TokenRouterProvider())
+    if len(providers) == 1:
+        return providers[0]
+    return FallbackProvider(providers)
 
 
 def _build_crawled_ingestor(queue_path: Path) -> CommentIngestor:
@@ -319,8 +388,10 @@ def ingest_crawled_items(items: list[dict]) -> list[QueueItem]:
             for candidate in candidates:
                 if candidate["id"] in seen_ids:
                     continue
+                if not candidate.get("text", "").strip():
+                    continue
                 try:
-                    queue_item = ingestor.process_one(candidate)
+                    queue_item = ingestor.process_one(candidate, skip_source_search=True)
                     queue_file.write(
                         json.dumps(asdict(queue_item), ensure_ascii=False) + "\n"
                     )

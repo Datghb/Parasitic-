@@ -1,11 +1,18 @@
 """HTTP API for the Legal-KG backend."""
 
 import os
+from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
-from .routes import cases, crawl, qa, queue, verify
+_env_path = Path(__file__).resolve().parents[2] / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path, override=False)
+
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+
+from .routes import cases, crawl, qa, queue, verify  # noqa: E402
 
 _origins = [
     origin.strip()
@@ -20,7 +27,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     allow_origin_regex=r"https://.*\.chatgpt\.site",
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,
 )

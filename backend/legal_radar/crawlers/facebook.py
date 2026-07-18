@@ -19,7 +19,6 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-BRIGHTDATA_API_KEY = os.environ.get("BRIGHTDATA_API_KEY", "")
 BD_BASE_URL = "https://api.brightdata.com/datasets/v3"
 BD_DISCOVER_URL = "https://api.brightdata.com/discover"
 BD_POSTS_DATASET = "gd_lyclm1571iy3mv57zw"
@@ -39,7 +38,8 @@ FALLBACK_QUERIES = [
 
 
 def _bd_headers() -> dict[str, str]:
-    return {"Authorization": f"Bearer {BRIGHTDATA_API_KEY}", "Content-Type": "application/json"}
+    key = os.environ.get("BRIGHTDATA_API_KEY", "")
+    return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
 
 
 # ── Discover API: keyword → URLs ──
@@ -226,7 +226,7 @@ def crawl_facebook(
     Flow: keywords → Discover API → post URLs → scrape content + comments.
     No Playwright or browser automation required.
     """
-    if not BRIGHTDATA_API_KEY:
+    if not os.environ.get("BRIGHTDATA_API_KEY"):
         logger.error("BRIGHTDATA_API_KEY required")
         return []
 

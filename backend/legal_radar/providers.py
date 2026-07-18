@@ -1,6 +1,6 @@
 """LLM provider adapters.
 
-Ba lop mong goi LLM (Gemini / Groq / OpenRouter) cho P4 extract claim.
+TokenRouter (primary) / Gemini / Groq / OpenRouter cho P4 extract claim.
 Moi class tu chua, khong dung bien toan cuc; API key doc bang os.getenv
 ngay trong generate(). Interface thong nhat: generate(prompt) -> str.
 """
@@ -13,6 +13,40 @@ import requests
 
 class ClaimExtractor(Protocol):
     def extract(self, text: str) -> dict[str, object]: ...
+
+
+class TokenRouterProvider:
+    """Lop mong goi TokenRouter API (OpenAI-compatible endpoint — primary)."""
+
+    def __init__(
+        self,
+        model: str | None = None,
+        base_url: str | None = None,
+        timeout_s: int = 30,
+    ) -> None:
+        self.model = model or os.getenv("TOKENROUTER_MODEL", "google/gemini-3-flash-preview")
+        self.base_url = (base_url or os.getenv("TOKENROUTER_BASE_URL", "https://api.tokenrouter.com/v1")).rstrip("/")
+        self.timeout_s = timeout_s
+
+    def generate(self, prompt: str) -> str:
+        api_key = os.getenv("TOKENROUTER_API_KEY")
+        if not api_key:
+            raise RuntimeError("Thieu bien moi truong TOKENROUTER_API_KEY")
+        response = requests.post(
+            f"{self.base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": self.model,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=self.timeout_s,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"TokenRouter HTTP {response.status_code}: {response.text[:300]}")
+        return response.json()["choices"][0]["message"]["content"]
 
 
 class GeminiProvider:
@@ -163,3 +197,20 @@ class OpenRouterProvider:
         if response.status_code != 200:
             raise RuntimeError(f"OpenRouter HTTP {response.status_code}: {response.text[:200]}")
         return response.json()["choices"][0]["message"]["content"]
+
+
+class FallbackProvider:
+    """Try providers in order until one succeeds."""
+
+    def __init__(self, providers: list) -> None:
+        self.providers = providers
+
+    def generate(self, prompt: str) -> str:
+        last_error = ""
+        for provider in self.providers:
+            try:
+                return provider.generate(prompt)
+            except Exception as exc:
+                last_error = f"{type(provider).__name__}: {exc}"
+                continue
+        raise RuntimeError(f"All providers failed. Last: {last_error}")

@@ -35,7 +35,7 @@ type ApiQueueItem = {
   id: string; text: string; url?: string; claim: string; label: "dung" | "hieu_lam" | "can_kiem_chung";
   source_label: string; reason: string; priority: number; platform: string; account: string;
   published_at: string; reach: number; status: string;
-  document?: string; provision?: string; penalty?: string;
+  document?: string; provision?: string; penalty?: string; subject?: string;
   source_title?: string; source_url?: string; source_agency?: string;
   score?: number;
 };
@@ -49,125 +49,12 @@ type StudyCase = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-const cases: Case[] = [
-  {
-    id: "HS-2026-0717-01",
-    claim: "Ngân hàng An Việt sắp phá sản và người dân phải rút tiền trước ngày mai.",
-    original: "TIN NỘI BỘ: Ngân hàng An Việt sắp phá sản, mọi người phải rút toàn bộ tiền trước ngày mai. Tôi nghe người quen bên trong nói vậy, chia sẻ gấp cho người thân!",
-    platform: "Facebook",
-    account: "Tin Nhanh 24h",
-    publishedAt: "17/07/2026 · 08:14",
-    priority: "Khẩn cấp",
-    score: 96,
-    verdict: "Hiểu lầm",
-    status: "Mới",
-    reason: "Nội dung khẳng định một sự kiện chưa xảy ra như một sự thật chắc chắn. Thông cáo của cơ quan quản lý xác nhận ngân hàng vẫn hoạt động bình thường và bảo đảm các tỷ lệ an toàn.",
-    document: "Nghị định 174/2026/NĐ-CP",
-    provision: "Điểm c khoản 2 Điều 95",
-    subject: "Cá nhân đăng và chia sẻ thông tin",
-    penalty: "10–15 triệu đồng (mức tham khảo)",
-    sourceTitle: "Thông cáo về hoạt động của Ngân hàng An Việt",
-    sourceAgency: "Ngân hàng Nhà nước Việt Nam",
-    sourceUrl: "https://www.sbv.gov.vn/",
-    sourceResult: "Mâu thuẫn trực tiếp với claim",
-    reach: "28,4K lượt tương tác",
-  },
-  {
-    id: "HS-2026-0717-02",
-    claim: "Từ tháng 8, mọi công dân phải đổi căn cước nếu không sẽ bị phạt.",
-    original: "Từ 01/08 tất cả mọi người bắt buộc đổi căn cước. Ai chưa đổi sẽ bị phạt đến 5 triệu đồng.",
-    platform: "TikTok",
-    account: "@thongtinmoi",
-    publishedAt: "17/07/2026 · 07:32",
-    priority: "Cao",
-    score: 84,
-    verdict: "Hiểu lầm",
-    status: "Đang xử lý",
-    reason: "Quy định chỉ áp dụng cho một số trường hợp cụ thể, không áp dụng đồng loạt cho mọi công dân.",
-    document: "Luật Căn cước 2023",
-    provision: "Điều 24",
-    subject: "Cá nhân truyền tải thông tin",
-    penalty: "Đánh giá theo bối cảnh cụ thể",
-    sourceTitle: "Những trường hợp phải cấp đổi thẻ căn cước",
-    sourceAgency: "Cổng Thông tin điện tử Chính phủ",
-    sourceUrl: "https://xaydungchinhsach.chinhphu.vn/",
-    sourceResult: "Claim thiếu điều kiện áp dụng",
-    reach: "16,2K lượt tương tác",
-  },
-  {
-    id: "HS-2026-0716-08",
-    claim: "Bảo hiểm y tế sẽ ngừng chi trả thuốc ngoại trú từ quý IV.",
-    original: "Nghe nói quý IV năm nay BHYT sẽ không còn thanh toán thuốc ngoại trú nữa.",
-    platform: "YouTube",
-    account: "Sức khỏe mỗi ngày",
-    publishedAt: "16/07/2026 · 21:05",
-    priority: "Cao",
-    score: 78,
-    verdict: "Cần kiểm chứng",
-    status: "Mới",
-    reason: "Chưa tìm thấy văn bản hoặc thông báo chính thức đủ mới để khẳng định hay bác bỏ toàn bộ nội dung.",
-    document: "Luật Bảo hiểm y tế",
-    provision: "Điều 21 và văn bản hướng dẫn",
-    subject: "Chủ thể phát hành nội dung",
-    penalty: "Chưa đủ căn cứ xác định",
-    sourceTitle: "Phạm vi quyền lợi của người tham gia BHYT",
-    sourceAgency: "Bảo hiểm xã hội Việt Nam",
-    sourceUrl: "https://baohiemxahoi.gov.vn/",
-    sourceResult: "Chưa đủ bằng chứng",
-    reach: "9,7K lượt tương tác",
-  },
-  {
-    id: "HS-2026-0716-05",
-    claim: "Cổng dịch vụ công đã cho phép nộp hồ sơ cấp hộ chiếu hoàn toàn trực tuyến.",
-    original: "Giờ có thể làm hộ chiếu online toàn trình trên Cổng Dịch vụ công, không cần đến nộp hồ sơ giấy.",
-    platform: "X",
-    account: "@govtechvn",
-    publishedAt: "16/07/2026 · 16:48",
-    priority: "Trung bình",
-    score: 61,
-    verdict: "Đúng",
-    status: "Đã xử lý",
-    reason: "Thông tin phù hợp với hướng dẫn thủ tục đang được công bố trên Cổng Dịch vụ công Bộ Công an.",
-    document: "Quyết định 3191/QĐ-BCA",
-    provision: "Thủ tục cấp hộ chiếu phổ thông",
-    subject: "Không phát hiện dấu hiệu vi phạm",
-    penalty: "Không áp dụng",
-    sourceTitle: "Hướng dẫn cấp hộ chiếu phổ thông trực tuyến",
-    sourceAgency: "Cổng Dịch vụ công Bộ Công an",
-    sourceUrl: "https://dichvucong.bocongan.gov.vn/",
-    sourceResult: "Được nguồn chính thức xác nhận",
-    reach: "4,1K lượt tương tác",
-  },
-  {
-    id: "HS-2026-0715-11",
-    claim: "Người lao động được nghỉ thêm hai ngày dịp Quốc khánh năm nay.",
-    original: "Lịch nghỉ lễ mới: Quốc khánh năm nay người lao động được nghỉ thêm 2 ngày.",
-    platform: "Facebook",
-    account: "Việc làm hôm nay",
-    publishedAt: "15/07/2026 · 18:20",
-    priority: "Thấp",
-    score: 39,
-    verdict: "Cần kiểm chứng",
-    status: "Đã xử lý",
-    reason: "Bài đăng không nêu rõ nhóm người lao động và phương án nghỉ do người sử dụng lao động lựa chọn.",
-    document: "Bộ luật Lao động 2019",
-    provision: "Điều 112",
-    subject: "Cá nhân đăng tải thông tin",
-    penalty: "Chưa đủ căn cứ xác định",
-    sourceTitle: "Thông báo lịch nghỉ lễ Quốc khánh",
-    sourceAgency: "Bộ Nội vụ",
-    sourceUrl: "https://moha.gov.vn/",
-    sourceResult: "Cần bổ sung bối cảnh",
-    reach: "2,8K lượt tương tác",
-  },
-];
-
 const verdicts: Array<"Tất cả" | Verdict> = ["Tất cả", "Đúng", "Hiểu lầm", "Cần kiểm chứng"];
 const statuses: Array<"Tất cả" | Status> = ["Tất cả", "Mới", "Đang xử lý", "Đã xử lý"];
 const priorityRank: Record<Priority, number> = { "Khẩn cấp": 4, Cao: 3, "Trung bình": 2, Thấp: 1 };
 
-export function DiaChungApp() {
-  const [caseItems, setCaseItems] = useState<Case[]>(cases);
+export function LegalShieldApp() {
+  const [caseItems, setCaseItems] = useState<Case[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showInput, setShowInput] = useState(false);
   const [verdictFilter, setVerdictFilter] = useState<(typeof verdicts)[number]>("Tất cả");
@@ -204,20 +91,59 @@ export function DiaChungApp() {
     return () => { active = false; };
   }, [refreshKey]);
 
+  async function clearQueue() {
+    try {
+      const response = await fetch(`${API_URL}/api/queue`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed");
+      const result = await response.json() as { deleted: number; message: string };
+      setCrawlMessage(result.message);
+      setCrawlState("success");
+      setRefreshKey((v) => v + 1);
+    } catch {
+      setCrawlMessage("Không thể xóa hàng đợi.");
+      setCrawlState("error");
+    }
+  }
+
   async function runCrawl() {
     setCrawlState("loading");
-    setCrawlMessage("");
+    setCrawlMessage("Đang kết nối quét MXH...");
     try {
       const response = await fetch(`${API_URL}/api/crawl`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keywords: [], max_posts_per_platform: 10 }),
+        body: JSON.stringify({ keywords: [], max_posts_per_platform: 2 }),
       });
       if (!response.ok) throw new Error("Crawl API unavailable");
-      const result = await response.json() as { message: string; added: number };
-      setCrawlMessage(`${result.message} ${result.added} nội dung mới đã được thêm vào hàng đợi.`);
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No stream");
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let itemCount = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const msg = JSON.parse(line);
+            if (msg.type === "start") {
+              setCrawlMessage(`${msg.message} — đang phân tích...`);
+            } else if (msg.type === "item") {
+              itemCount = msg.count;
+              setCrawlMessage(`Đã phân tích ${itemCount} nội dung: ${msg.claim}...`);
+              setRefreshKey((v) => v + 1);
+            } else if (msg.type === "done") {
+              setCrawlMessage(`Hoàn tất! ${itemCount} nội dung đã được thêm vào hàng đợi.`);
+            }
+          } catch { /* skip non-JSON lines */ }
+        }
+      }
       setCrawlState("success");
-      setRefreshKey((value) => value + 1);
+      setRefreshKey((v) => v + 1);
     } catch {
       setCrawlMessage("Không thể quét nguồn lúc này. Kiểm tra Backend và API key crawler.");
       setCrawlState("error");
@@ -247,7 +173,7 @@ export function DiaChungApp() {
       <aside className="monitor-sidebar">
         <div className="monitor-brand">
           <span className="monitor-brand-mark">L</span>
-          <div><strong>Địa chứng</strong><small>TRUNG TÂM GIÁM SÁT</small></div>
+          <div><strong>Legal Radar</strong><small>TRUNG TÂM GIÁM SÁT</small></div>
         </div>
         <nav aria-label="Điều hướng chính">
           <button className={activeView === "market" ? "active" : ""} onClick={() => { setActiveView("market"); setSelectedId(null); }}><span>⌁</span> Tổng quan thị trường</button>
@@ -264,7 +190,7 @@ export function DiaChungApp() {
             <svg viewBox="0 0 200 48" aria-hidden="true"><path d="M2 42 L18 26 L32 31 L48 17 L64 23 L81 12 L97 28 L113 19 L130 25 L148 9 L164 27 L181 18 L198 4" /></svg>
           </div>
           <div className="sidebar-support"><span>◉</span><div><strong>Trung tâm hỗ trợ</strong><small>Hướng dẫn & chính sách</small></div></div>
-          <div className="monitor-system"><i /> Địa chứng v2.4.1<small>Hệ thống hoạt động ổn định</small></div>
+          <div className="monitor-system"><i /> Legal Radar v2.4.1<small>Hệ thống hoạt động ổn định</small></div>
         </div>
       </aside>
 
@@ -298,6 +224,7 @@ export function DiaChungApp() {
               onSort={() => setSortDesc((value) => !value)}
               onOpen={setSelectedId}
               onCreate={() => setShowInput(true)}
+              onClearQueue={clearQueue}
             />
             {selectedWithStatus && (
               <>
@@ -609,7 +536,7 @@ function platformGradient(counts: Array<{ platform: Case["platform"]; count: num
 }
 
 function Queue({
-  rows, allItems, verdictFilter, statusFilter, sortDesc, onVerdictFilter, onStatusFilter, onSort, onOpen, onCreate,
+  rows, allItems, verdictFilter, statusFilter, sortDesc, onVerdictFilter, onStatusFilter, onSort, onOpen, onCreate, onClearQueue,
 }: {
   rows: Case[];
   allItems: Case[];
@@ -621,6 +548,7 @@ function Queue({
   onSort: () => void;
   onOpen: (id: string) => void;
   onCreate: () => void;
+  onClearQueue: () => void;
 }) {
   const openCount = allItems.filter((item) => item.status !== "Đã xử lý").length;
   const urgentCount = allItems.filter((item) => item.priority === "Khẩn cấp").length;
@@ -659,7 +587,7 @@ function Queue({
             <label>Kết quả AI<select value={verdictFilter} onChange={(event) => onVerdictFilter(event.target.value as (typeof verdicts)[number])}>{verdicts.map((value) => <option key={value}>{value}</option>)}</select></label>
             <label>Trạng thái<select value={statusFilter} onChange={(event) => onStatusFilter(event.target.value as (typeof statuses)[number])}>{statuses.map((value) => <option key={value}>{value}</option>)}</select></label>
           </div>
-          <div className="queue-actions"><button className="sort-button" onClick={onSort}>↕ Mức ưu tiên: {sortDesc ? "cao trước" : "thấp trước"}</button><button className="create-button" onClick={onCreate}>＋ Nhập nội dung mới</button></div>
+          <div className="queue-actions"><button className="sort-button" onClick={onSort}>↕ Mức ưu tiên: {sortDesc ? "cao trước" : "thấp trước"}</button><button className="create-button" onClick={onCreate}>＋ Nhập nội dung mới</button><button className="clear-button" onClick={onClearQueue}>✕ Xóa hàng đợi</button></div>
         </div>
         <div className="queue-table-wrap">
           <table className="queue-table">
@@ -680,9 +608,9 @@ function Queue({
               ))}
             </tbody>
           </table>
-          {visibleRows.length === 0 && <div className="queue-empty"><strong>Không có hồ sơ phù hợp</strong><span>Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</span></div>}
+          {visibleRows.length === 0 && <div className="queue-empty"><strong>Chưa có hồ sơ trong hàng đợi</strong><span>Bấm "Quét MXH" để thu thập dữ liệu từ mạng xã hội.</span></div>}
         </div>
-        <footer className="queue-footer">Hiển thị <strong>{visibleRows.length}</strong> / {allItems.length} hồ sơ <span>Dữ liệu mock · nội dung nhập mới chỉ lưu trong phiên hiện tại</span></footer>
+        <footer className="queue-footer">Hiển thị <strong>{visibleRows.length}</strong> / {allItems.length} hồ sơ</footer>
       </section>
     </div>
   );
@@ -921,10 +849,10 @@ function mapApiCase(item: ApiQueueItem): Case {
     reason: item.reason,
     document: item.document || "Nghị định 174/2026/NĐ-CP",
     provision: item.provision || "Điều 95 — cần đối chiếu",
-    subject: "Cá nhân hoặc tổ chức đăng tải",
+    subject: item.subject || "Chưa xác định",
     penalty: item.penalty || "Cần xác định chủ thể",
     sourceTitle: item.source_title || sourceResult,
-    sourceAgency: item.source_agency || "Hệ thống xác thực nguồn động",
+    sourceAgency: item.source_agency || "",
     sourceUrl: item.source_url || item.url || "#",
     sourceResult,
     reach: `${item.reach.toLocaleString("vi-VN")} lượt tương tác`,
