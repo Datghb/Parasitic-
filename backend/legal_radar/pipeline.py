@@ -23,6 +23,7 @@ from .guardrails import validate_label, sanitize_injection
 from .paths import data_dir as project_data_dir
 from .paths import repo_root
 from .paths import runs_dir as project_runs_dir
+from .settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -371,17 +372,24 @@ def _load_seen_queue_ids(path: Path) -> set[str]:
 
 
 def _default_provider():
+    settings = get_settings()
     providers = []
-    if os.getenv("TOKENROUTER_API_KEY"):
-        providers.append(TokenRouterProvider())
-    if os.getenv("GEMINI_API_KEY"):
-        providers.append(GeminiProvider())
-    if os.getenv("GROQ_API_KEY"):
-        providers.append(GroqProvider())
-    if os.getenv("OPENROUTER_API_KEY"):
-        providers.append(OpenRouterProvider())
+    if settings.tokenrouter_api_key:
+        providers.append(
+            TokenRouterProvider(
+                api_key=settings.tokenrouter_api_key,
+                model=settings.tokenrouter_model,
+                base_url=settings.tokenrouter_base_url,
+            )
+        )
+    if settings.gemini_api_key:
+        providers.append(GeminiProvider(api_key=settings.gemini_api_key))
+    if settings.groq_api_key:
+        providers.append(GroqProvider(api_key=settings.groq_api_key))
+    if settings.openrouter_api_key:
+        providers.append(OpenRouterProvider(api_key=settings.openrouter_api_key))
     if not providers:
-        providers.append(TokenRouterProvider())
+        providers.append(TokenRouterProvider(api_key=settings.tokenrouter_api_key))
     if len(providers) == 1:
         return providers[0]
     return FallbackProvider(providers)

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 
 import requests as http_requests
 
 from .source_classifier import TIER_0_DOMAINS, TIER_1_DOMAINS, TIER_2_DOMAINS
+from .settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +14,10 @@ TRUSTED_DOMAINS = TIER_0_DOMAINS + TIER_1_DOMAINS + TIER_2_DOMAINS
 
 
 def _get_tokenrouter_config() -> tuple[str, str, str]:
-    api_key = os.environ.get("TOKENROUTER_API_KEY", "")
-    base_url = os.environ.get("TOKENROUTER_BASE_URL", "https://api.tokenrouter.com/v1").rstrip("/")
-    model = os.environ.get("TOKENROUTER_MODEL", "google/gemini-3-flash-preview")
+    settings = get_settings()
+    api_key = settings.tokenrouter_api_key or ""
+    base_url = settings.tokenrouter_base_url.rstrip("/")
+    model = settings.tokenrouter_model
     return api_key, base_url, model
 
 

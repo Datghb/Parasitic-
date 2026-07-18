@@ -1,11 +1,10 @@
 """LLM provider adapters.
 
 TokenRouter (primary) / Gemini / Groq / OpenRouter cho P4 extract claim.
-Moi class tu chua, khong dung bien toan cuc; API key doc bang os.getenv
-ngay trong generate(). Interface thong nhat: generate(prompt) -> str.
+Moi class tu chua, khong dung bien toan cuc; API key doc tu settings.
+Interface thong nhat: generate(prompt) -> str.
 """
 
-import os
 from typing import Protocol
 
 import requests
@@ -20,22 +19,23 @@ class TokenRouterProvider:
 
     def __init__(
         self,
+        api_key: str | None = None,
         model: str | None = None,
         base_url: str | None = None,
         timeout_s: int = 30,
     ) -> None:
-        self.model = model or os.getenv("TOKENROUTER_MODEL", "google/gemini-3-flash-preview")
-        self.base_url = (base_url or os.getenv("TOKENROUTER_BASE_URL", "https://api.tokenrouter.com/v1")).rstrip("/")
+        self.api_key = api_key
+        self.model = model or "google/gemini-3-flash-preview"
+        self.base_url = (base_url or "https://api.tokenrouter.com/v1").rstrip("/")
         self.timeout_s = timeout_s
 
     def generate(self, prompt: str) -> str:
-        api_key = os.getenv("TOKENROUTER_API_KEY")
-        if not api_key:
+        if not self.api_key:
             raise RuntimeError("Thieu bien moi truong TOKENROUTER_API_KEY")
         response = requests.post(
             f"{self.base_url}/chat/completions",
             headers={
-                "Authorization": f"Bearer {api_key}",
+                "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
             },
             json={
@@ -52,24 +52,26 @@ class TokenRouterProvider:
 class GeminiProvider:
     """Lop mong goi Gemini API (lua chon chinh — free quota lon nhat).
 
-    Khong giu ket noi hay key o cap class/module; key doc bang
-    os.getenv("GEMINI_API_KEY") ngay trong generate().
-
     Attributes:
+        api_key (str | None): Gemini API key.
         model (str): Ten model Gemini su dung.
         timeout_s (int): Timeout HTTP moi request, tinh bang giay.
     """
 
-    def __init__(self, model: str = "gemini-2.0-flash-lite", timeout_s: int = 30) -> None:
+    def __init__(
+        self, api_key: str | None = None, model: str = "gemini-2.0-flash-lite", timeout_s: int = 30
+    ) -> None:
         """Khoi tao provider voi model va timeout.
 
         Args:
+            api_key (str | None): Gemini API key.
             model (str): Ten model Gemini.
             timeout_s (int): Timeout HTTP (giay).
 
         Returns:
             None
         """
+        self.api_key = api_key
         self.model = model
         self.timeout_s = timeout_s
 
@@ -85,12 +87,11 @@ class GeminiProvider:
         Raises:
             RuntimeError: Khi thieu GEMINI_API_KEY hoac HTTP status != 200.
         """
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
+        if not self.api_key:
             raise RuntimeError("Thieu bien moi truong GEMINI_API_KEY")
         response = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
-            params={"key": api_key},
+            params={"key": self.api_key},
             json={"contents": [{"parts": [{"text": prompt}]}]},
             timeout=self.timeout_s,
         )
@@ -103,20 +104,28 @@ class GroqProvider:
     """Lop mong goi Groq API (fallback 1 — llama-4-scout, 30K TPM).
 
     Attributes:
+        api_key (str | None): Groq API key.
         model (str): Ten model Groq su dung.
         timeout_s (int): Timeout HTTP moi request (giay).
     """
 
-    def __init__(self, model: str = "meta-llama/llama-4-scout-17b-16e-instruct", timeout_s: int = 30) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "meta-llama/llama-4-scout-17b-16e-instruct",
+        timeout_s: int = 30,
+    ) -> None:
         """Khoi tao provider voi model va timeout.
 
         Args:
+            api_key (str | None): Groq API key.
             model (str): Ten model Groq.
             timeout_s (int): Timeout HTTP (giay).
 
         Returns:
             None
         """
+        self.api_key = api_key
         self.model = model
         self.timeout_s = timeout_s
 
@@ -132,12 +141,11 @@ class GroqProvider:
         Raises:
             RuntimeError: Khi thieu GROQ_API_KEY hoac HTTP status != 200.
         """
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
+        if not self.api_key:
             raise RuntimeError("Thieu bien moi truong GROQ_API_KEY")
         response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {self.api_key}"},
             json={
                 "model": self.model,
                 "messages": [{"role": "user", "content": prompt}],
@@ -153,20 +161,25 @@ class OpenRouterProvider:
     """Lop mong goi OpenRouter (fallback 2 — khi Gemini va Groq het quota).
 
     Attributes:
+        api_key (str | None): OpenRouter API key.
         model (str): Ten model tren OpenRouter.
         timeout_s (int): Timeout HTTP moi request (giay).
     """
 
-    def __init__(self, model: str = "google/gemma-3-27b-it:free", timeout_s: int = 30) -> None:
+    def __init__(
+        self, api_key: str | None = None, model: str = "google/gemma-3-27b-it:free", timeout_s: int = 30
+    ) -> None:
         """Khoi tao provider voi model va timeout.
 
         Args:
+            api_key (str | None): OpenRouter API key.
             model (str): Ten model OpenRouter (uu tien tag :free).
             timeout_s (int): Timeout HTTP (giay).
 
         Returns:
             None
         """
+        self.api_key = api_key
         self.model = model
         self.timeout_s = timeout_s
 
@@ -182,12 +195,11 @@ class OpenRouterProvider:
         Raises:
             RuntimeError: Khi thieu OPENROUTER_API_KEY hoac HTTP status != 200.
         """
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
+        if not self.api_key:
             raise RuntimeError("Thieu bien moi truong OPENROUTER_API_KEY")
         response = requests.post(
             "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {self.api_key}"},
             json={
                 "model": self.model,
                 "messages": [{"role": "user", "content": prompt}],

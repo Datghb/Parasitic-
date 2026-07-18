@@ -17,6 +17,8 @@ from pathlib import Path
 
 import requests
 
+from legal_radar.settings import get_settings
+
 logger = logging.getLogger(__name__)
 
 BD_BASE_URL = "https://api.brightdata.com/datasets/v3"
@@ -38,7 +40,8 @@ FALLBACK_QUERIES = [
 
 
 def _bd_headers() -> dict[str, str]:
-    key = os.environ.get("BRIGHTDATA_API_KEY", "")
+    settings = get_settings()
+    key = settings.brightdata_api_key or ""
     return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
 
 
@@ -226,7 +229,8 @@ def crawl_facebook(
     Flow: keywords → Discover API → post URLs → scrape content + comments.
     No Playwright or browser automation required.
     """
-    if not os.environ.get("BRIGHTDATA_API_KEY"):
+    settings = get_settings()
+    if not settings.brightdata_api_key:
         logger.error("BRIGHTDATA_API_KEY required")
         return []
 
