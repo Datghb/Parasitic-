@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from legal_radar.settings import get_settings
+from backend.legal_radar.settings import get_settings
 
 from .routes import cases, crawl, qa, queue, verify
 
