@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUpdateStatusMutation, API_URL } from "../../hooks/use-queries";
+import { useUpdateStatusMutation } from "../../hooks/use-queries";
+import { API_URL } from "../../utils/api";
 import { VerdictBadge } from "../common/badge";
 import { Case, Status } from "../../types";
 

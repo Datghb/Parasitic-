@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { useQueueQuery, API_URL } from "@/hooks/use-queries";
+import { useQueueQuery } from "@/hooks/use-queries";
+import { API_URL } from "@/utils/api";
 
 export function Topbar() {
   const router = useRouter();

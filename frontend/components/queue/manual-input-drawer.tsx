@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Papa from "papaparse";
 import { Case, ApiQueueItem } from "../../types";
-import { API_URL, mapApiCase } from "../../hooks/use-queries";
+import { API_URL, mapApiCase } from "../../utils/api";
 
 export function ManualInputDrawer({
   onClose,
