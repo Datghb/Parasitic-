@@ -387,9 +387,16 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
     };
   });
   const maxDiscussions = Math.max(1, ...days.map((day) => day.value));
-  const chartCeiling = Math.max(4, Math.ceil(maxDiscussions / 4) * 4);
+  const ceilingTarget = maxDiscussions * 1.2;
+  const ceilingMagnitude = 10 ** Math.floor(Math.log10(ceilingTarget));
+  const ceilingFraction = ceilingTarget / ceilingMagnitude;
+  const niceFractions = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+  const niceFraction = niceFractions.find((value) => value >= ceilingFraction) ?? 10;
+  const chartCeiling = Math.max(4, niceFraction * ceilingMagnitude);
   const averageDiscussions = days.length ? days.reduce((sum, day) => sum + day.value, 0) / days.length : 0;
   const chartX = (index: number) => days.length === 1 ? 384 : 36 + index * (696 / (days.length - 1));
+  // chartCeiling includes proportional headroom, so the scale expands
+  // automatically as future discussion volume grows.
   const chartY = (value: number) => 168 - value / chartCeiling * 145;
   const points = days.map((day, index) => `${chartX(index)},${chartY(day.value)}`);
   const linePath = points.length ? `M${points.join(" L")}` : "";
@@ -534,7 +541,7 @@ function MarketOverviewV2({ allItems }: { allItems: Case[] }) {
               <div
                 className="risk-tooltip"
                 style={{
-                  left: `${chartX(hoveredDay) / 768 * 100}%`,
+                  left: `clamp(155px, ${chartX(hoveredDay) / 768 * 100}%, calc(100% - 155px))`,
                   top: `${chartY(days[hoveredDay].value) / 190 * 202}px`,
                 }}
                 role="tooltip"
