@@ -1,0 +1,77 @@
+export type Verdict = "Đúng" | "Hiểu lầm" | "Cần kiểm chứng";
+export type Status = "Mới" | "Đang xử lý" | "Đã xử lý";
+export type Priority = "Khẩn cấp" | "Cao" | "Trung bình" | "Thấp";
+
+export type Case = {
+  id: string;
+  claim: string;
+  original: string;
+  platform: "Facebook" | "TikTok" | "YouTube" | "X" | "Forum";
+  account: string;
+  publishedAt: string;
+  priority: Priority;
+  score: number;
+  confidence: number;
+  verdict: Verdict;
+  status: Status;
+  reason: string;
+  document: string;
+  provision: string;
+  subject: string;
+  penalty: string;
+  sourceTitle: string;
+  sourceAgency: string;
+  sourceUrl: string;
+  sourceResult: string;
+  reach: string;
+  contentType?: "post" | "comment";
+  parentContent?: string;
+  keywords?: string[];
+  postComments?: Array<{ text: string; author: string; timestamp: string }>;
+};
+
+export type ApiQueueItem = {
+  id: string;
+  text: string;
+  url?: string;
+  claim: string;
+  label: "dung" | "hieu_lam" | "can_kiem_chung";
+  keywords?: string[];
+  source_label: string;
+  reason: string;
+  priority: number;
+  platform: string;
+  account: string;
+  published_at: string;
+  reach: number;
+  status: string;
+  document?: string;
+  provision?: string;
+  penalty?: string;
+  subject?: string;
+  source_title?: string;
+  source_url?: string;
+  source_agency?: string;
+  score?: number;
+  confidence?: number;
+  comments?: Array<{ text: string; author: string; timestamp: string }>;
+};
+
+export type StudyCase = {
+  id: string;
+  ten_vu: string;
+  nguon_cong_bo: string;
+  ngay_quyet_dinh: string;
+  hanh_vi: string;
+  dieu_khoan_vien_dan: string;
+  muc_phat: number;
+  chu_the: string;
+  bien_phap_khac_phuc: string;
+  nguon_url: string;
+  an_danh: string;
+  expected_he_thong: {
+    dieu_khoan_moi: string;
+    nhan: string;
+    ghi_chu: string;
+  };
+};

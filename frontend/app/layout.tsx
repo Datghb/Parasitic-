@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Providers } from "./providers";
+import { Sidebar } from "@/components/common/sidebar";
+import { Topbar } from "@/components/common/topbar";
 import "./globals.css";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin", "latin-ext"] });
@@ -28,7 +31,17 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="vi">
-      <body className={`${geist.variable} ${mono.variable}`}>{children}</body>
+      <body className={`${geist.variable} ${mono.variable}`}>
+        <Providers>
+          <div className="monitor-app">
+            <Sidebar />
+            <main className="monitor-main">
+              <Topbar />
+              {children}
+            </main>
+          </div>
+        </Providers>
+      </body>
     </html>
   );
 }
