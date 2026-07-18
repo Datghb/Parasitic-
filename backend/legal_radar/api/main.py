@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import cases, qa, queue, verify
+from .routes import cases, crawl, qa, queue, verify
 
 app = FastAPI(title="Legal-KG API", version="0.1.0")
 app.add_middleware(
@@ -17,6 +17,7 @@ app.include_router(queue.router, prefix="/api")
 app.include_router(cases.router, prefix="/api")
 app.include_router(verify.router, prefix="/api")
 app.include_router(qa.router, prefix="/api")
+app.include_router(crawl.router, prefix="/api")
 
 
 @app.get("/health")

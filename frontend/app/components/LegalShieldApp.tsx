@@ -175,6 +175,9 @@ export function LegalShieldApp() {
   const [activeView, setActiveView] = useState<"market" | "queue" | "report" | "sources" | "verify">("market");
   const [studyCases, setStudyCases] = useState<StudyCase[]>([]);
   const [dataSource, setDataSource] = useState<"api" | "fallback">("fallback");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [crawlState, setCrawlState] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [crawlMessage, setCrawlMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -196,7 +199,27 @@ export function LegalShieldApp() {
       if (active) setDataSource("fallback");
     });
     return () => { active = false; };
-  }, []);
+  }, [refreshKey]);
+
+  async function runCrawl() {
+    setCrawlState("loading");
+    setCrawlMessage("");
+    try {
+      const response = await fetch(`${API_URL}/api/crawl`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keywords: [], max_posts_per_platform: 10 }),
+      });
+      if (!response.ok) throw new Error("Crawl API unavailable");
+      const result = await response.json() as { message: string; added: number };
+      setCrawlMessage(`${result.message} ${result.added} nội dung mới đã được thêm vào hàng đợi.`);
+      setCrawlState("success");
+      setRefreshKey((value) => value + 1);
+    } catch {
+      setCrawlMessage("Không thể quét nguồn lúc này. Kiểm tra Backend và API key crawler.");
+      setCrawlState("error");
+    }
+  }
 
   const data = useMemo(
     () =>
@@ -245,6 +268,7 @@ export function LegalShieldApp() {
       <main className="monitor-main">
         <header className="monitor-topbar">
           <div className="monitor-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm claim hoặc mã hồ sơ…" aria-label="Tìm kiếm hồ sơ" /></div>
+          <button className={`crawl-button ${crawlState}`} onClick={runCrawl} disabled={crawlState === "loading"}>{crawlState === "loading" ? <><i /> Đang quét MXH…</> : "⌁ Quét MXH"}</button>
           <div className={`monitor-live ${dataSource}`}><i /> {dataSource === "api" ? "Dữ liệu API trực tiếp" : "Dữ liệu mẫu dự phòng"}</div>
           <button className="notification-button" aria-label="Thông báo">♢<b>3</b></button>
           <button className="monitor-avatar" aria-label="Tài khoản Minh Anh">MA</button><span className="avatar-chevron">⌄</span>
@@ -285,6 +309,7 @@ export function LegalShieldApp() {
           </>
         )}
       </main>
+      {crawlMessage && <div className={`crawl-toast ${crawlState}`} role="status"><span>{crawlState === "success" ? "✓" : "!"}</span><p>{crawlMessage}</p><button onClick={() => setCrawlMessage("")}>×</button></div>}
       {showInput && (
         <ManualInput
           onClose={() => setShowInput(false)}

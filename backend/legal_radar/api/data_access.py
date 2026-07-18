@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,31 @@ def _platform(source: str) -> str:
         return "YouTube"
     return "Forum"
 
+def _normalise_crawled(raw: dict[str, Any]) -> dict[str, Any]:
+    analysed = analyze_comment(str(raw.get("text", "")))
+    engagement = raw.get("engagement") or {}
+    reach = sum(int(value or 0) for value in engagement.values() if isinstance(value, (int, float)))
+    platform_name = str(raw.get("platform", "Forum")).title()
+    if platform_name == "Youtube":
+        platform_name = "YouTube"
+    source_key = str(raw.get("id") or raw.get("url") or analysed["id"])
+    return {
+        "id": str(raw.get("id") or f"CRAWL-{hashlib.sha1(source_key.encode()).hexdigest()[:12]}"),
+        "comment_id": "",
+        "text": str(raw.get("text", "")),
+        "claim": analysed["claim"],
+        "keywords": analysed.get("keywords", []),
+        "label": getattr(analysed["label"], "value", analysed["label"]),
+        "source_label": getattr(analysed["source_label"], "value", analysed["source_label"]),
+        "reason": analysed["reason"],
+        "priority": int(analysed.get("priority", 0)),
+        "platform": platform_name,
+        "account": str(raw.get("author", "Nguồn chưa xác định")),
+        "published_at": str(raw.get("timestamp", "")),
+        "reach": reach,
+        "status": "new",
+    }
+
 
 def _normalise(raw: dict[str, Any], fixture: dict[str, Any] | None = None) -> dict[str, Any]:
     fixture = fixture or {}
@@ -78,6 +104,13 @@ def list_queue_items() -> list[dict[str, Any]]:
             analysed = analyze_comment(str(fixture["text"]))
             analysed["id"] = fixture["id"]
             items.append(_normalise(analysed, fixture))
+    crawled_rows = _queue_from_jsonl(runs_dir() / "crawled_raw.jsonl")
+    if crawled_rows:
+        known_ids = {item["id"] for item in items}
+        items.extend(
+            row for row in (_normalise_crawled(raw) for raw in crawled_rows)
+            if row["id"] not in known_ids
+        )
     return sorted(items, key=lambda row: (row["priority"], row["reach"]), reverse=True)
 
 
