@@ -54,6 +54,10 @@ export function Topbar() {
             const msg = JSON.parse(line);
             if (msg.type === "start") {
               setCrawlMessage(`${msg.message} — đang phân tích...`);
+            } else if (msg.type === "error") {
+              setCrawlMessage(msg.message);
+              setCrawlState("error");
+              return;
             } else if (msg.type === "item") {
               itemCount = msg.count;
               setCrawlMessage(`Đã phân tích ${itemCount} nội dung: ${msg.claim}...`);

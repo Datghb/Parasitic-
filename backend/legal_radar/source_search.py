@@ -88,7 +88,7 @@ def _build_source_query(keywords: list[str]) -> list[str]:
 
 def _poll_discover(task_id: str) -> list[dict]:
     """Poll Bright Data Discover API until done. Returns list of result items."""
-    for _ in range(10):
+    for i in range(5):
         time.sleep(2)
         try:
             r = http_requests.get(
@@ -97,6 +97,7 @@ def _poll_discover(task_id: str) -> list[dict]:
                 timeout=15,
             )
         except http_requests.RequestException:
+            logger.warning("Source search poll %d failed for task %s", i, task_id)
             continue
         if r.status_code != 200:
             continue
@@ -161,7 +162,7 @@ def search_brightdata(
                 headers=_bd_headers(),
                 json={
                     "query": query,
-                    "num_results": 10,
+                    "num_results": 5,
                     "format": "json",
                     "language": "vi",
                     "country": "VN",

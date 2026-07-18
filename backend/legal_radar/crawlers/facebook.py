@@ -55,19 +55,22 @@ def _discover_urls(queries: list[str], needed: int) -> list[str]:
                 headers=_bd_headers(),
                 json={
                     "query": f"{query} site:facebook.com",
-                    "num_results": 10,
+                    "num_results": 5,
                     "format": "json",
                     "language": "vi",
                     "country": "VN",
                 },
                 timeout=15,
             )
-        except requests.RequestException:
+        except requests.RequestException as exc:
+            logger.warning("Discover POST failed for '%s': %s", query, exc)
             continue
         if resp.status_code != 200:
+            logger.warning("Discover HTTP %s for '%s': %s", resp.status_code, query, resp.text[:200])
             continue
         task_id = resp.json().get("task_id")
         if not task_id:
+            logger.warning("Discover returned no task_id for '%s': %s", query, resp.text[:200])
             continue
         results = _poll_discover(task_id)
         for item in results:
@@ -94,7 +97,7 @@ def _is_post_url(url: str) -> bool:
 
 def _poll_discover(task_id: str) -> list[dict]:
     """Poll Discover API until done. Returns list of result items."""
-    for _ in range(10):
+    for i in range(5):
         time.sleep(2)
         try:
             r = requests.get(
@@ -103,12 +106,15 @@ def _poll_discover(task_id: str) -> list[dict]:
                 timeout=15,
             )
         except requests.RequestException:
+            logger.warning("Discover poll %d failed for task %s", i, task_id)
             continue
         if r.status_code != 200:
             continue
         data = r.json()
         if data.get("status") == "done":
+            logger.info("Discover task %s done after %d polls, got %d results", task_id, i + 1, len(data.get("results", [])))
             return data.get("results", [])
+    logger.warning("Discover task %s timed out after 5 polls", task_id)
     return []
 
 

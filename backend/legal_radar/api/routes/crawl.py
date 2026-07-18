@@ -46,6 +46,18 @@ def _try_live_crawl(keywords, max_posts, output_path):
 
 @router.post("/crawl")
 def trigger_crawl(request: CrawlRequest):
+    from backend.legal_radar.settings import get_settings
+    settings = get_settings()
+    if not settings.brightdata_api_key:
+        def stream_no_key():
+            yield json.dumps({
+                "type": "error",
+                "message": "BRIGHTDATA_API_KEY chưa được cấu hình. Không thể quét MXH.",
+                "crawled": 0,
+                "relevant": 0,
+            }, ensure_ascii=False) + "\n"
+        return StreamingResponse(stream_no_key(), media_type="text/event-stream")
+
     output_path = runs_dir() / "crawled_raw.jsonl"
 
     live, error = _try_live_crawl(request.keywords, request.max_posts_per_platform, output_path)
@@ -108,7 +120,7 @@ def trigger_crawl(request: CrawlRequest):
                 if not candidate.get("text", "").strip():
                     continue
                 try:
-                    queue_item = ingestor.process_one(candidate, skip_source_search=False)
+                    queue_item = ingestor.process_one(candidate, skip_source_search=True)
                     queue_file.write(json.dumps(asdict(queue_item), ensure_ascii=False) + "\n")
                     queue_file.flush()
                     count += 1
