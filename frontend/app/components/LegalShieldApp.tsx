@@ -32,9 +32,12 @@ type Case = {
 };
 
 type ApiQueueItem = {
-  id: string; text: string; claim: string; label: "dung" | "hieu_lam" | "can_kiem_chung";
+  id: string; text: string; url?: string; claim: string; label: "dung" | "hieu_lam" | "can_kiem_chung";
   source_label: string; reason: string; priority: number; platform: string; account: string;
   published_at: string; reach: number; status: string;
+  document?: string; provision?: string; penalty?: string;
+  source_title?: string; source_url?: string; source_agency?: string;
+  score?: number;
 };
 
 type StudyCase = {
@@ -665,7 +668,7 @@ function Queue({
               {visibleRows.map((item) => (
                 <tr key={item.id} onClick={() => onOpen(item.id)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(item.id); }}>
                   <td><span className="fake-checkbox" /></td>
-                  <td><strong>{item.claim}</strong><small>{item.id} · {item.publishedAt}</small></td>
+                  <td><strong>{item.claim}</strong><small>{item.id} · {item.publishedAt}{item.sourceUrl && item.sourceUrl !== "#" ? <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="source-link" onClick={(e) => e.stopPropagation()}> ↗</a> : null}</small></td>
                   <td><span className={`platform-logo ${item.platform.toLowerCase()}`}>{platformIcon(item.platform)}</span>{item.platform}</td>
                   <td><span className={`priority-badge ${slug(item.priority)}`}><i />{item.priority}</span></td>
                   <td><VerdictBadge value={item.verdict} /><small className="score-copy">AI score {item.score}/100</small></td>
@@ -912,17 +915,17 @@ function mapApiCase(item: ApiQueueItem): Case {
     account: item.account,
     publishedAt: item.published_at || "Chưa xác định",
     priority,
-    score: Math.min(98, 55 + item.priority * 18 + Math.min(20, Math.round(item.reach / 20))),
+    score: item.score ?? Math.min(95, 30 + item.priority * 20 + Math.min(25, Math.round(item.reach / 10))),
     verdict: verdictMap[item.label],
     status: item.status === "resolved" ? "Đã xử lý" : item.status === "reviewing" ? "Đang xử lý" : "Mới",
     reason: item.reason,
-    document: "Nghị định 174/2026/NĐ-CP",
-    provision: "Điều 95 — cần đối chiếu claim cụ thể",
+    document: item.document || "Nghị định 174/2026/NĐ-CP",
+    provision: item.provision || "Điều 95 — cần đối chiếu",
     subject: "Cá nhân hoặc tổ chức đăng tải",
-    penalty: "Cần xác định chủ thể trước khi tính mức phạt",
-    sourceTitle: sourceResult,
-    sourceAgency: "Hệ thống xác thực nguồn động",
-    sourceUrl: "#",
+    penalty: item.penalty || "Cần xác định chủ thể",
+    sourceTitle: item.source_title || sourceResult,
+    sourceAgency: item.source_agency || "Hệ thống xác thực nguồn động",
+    sourceUrl: item.source_url || item.url || "#",
     sourceResult,
     reach: `${item.reach.toLocaleString("vi-VN")} lượt tương tác`,
     contentType: "comment",

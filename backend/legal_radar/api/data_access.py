@@ -62,16 +62,41 @@ def _normalise_crawled(raw: dict[str, Any]) -> dict[str, Any]:
         author = f"{author} ({page_followers:,} followers)"
     if page_verified:
         author = f"{author} [verified]"
+
+    label_val = getattr(analysed["label"], "value", analysed["label"])
+    priority = int(analysed.get("priority", 0))
+    citations = analysed.get("citations") or []
+
+    penalty_str = "Cần xác định chủ thể trước khi tính mức phạt"
+    provision_str = "Điều 95 — cần đối chiếu claim cụ thể"
+    document_str = "Nghị định 174/2026/NĐ-CP"
+    if citations:
+        provision_str = "; ".join(citations[:2])
+
+    source_label_val = getattr(analysed["source_label"], "value", analysed["source_label"])
+    source_title = "Chưa tìm thấy nguồn phù hợp"
+    source_url = ""
+    source_agency = ""
+    if source_label_val == "co_nguon_xac_nhan":
+        source_title = "Có nguồn chính thức xác nhận"
+    elif source_label_val == "co_bac_bo_chinh_thuc":
+        source_title = "Có nguồn chính thức bác bỏ"
+
+    score = min(95, 30 + priority * 20 + min(25, reach // 10))
+    if label_val == "hieu_lam":
+        score = max(score, 60)
+
     return {
         "id": str(raw.get("id") or f"CRAWL-{hashlib.sha1(source_key.encode()).hexdigest()[:12]}"),
         "comment_id": "",
         "text": str(raw.get("text", "")),
+        "url": str(raw.get("url", "")),
         "claim": analysed["claim"],
         "keywords": analysed.get("keywords", []),
-        "label": getattr(analysed["label"], "value", analysed["label"]),
-        "source_label": getattr(analysed["source_label"], "value", analysed["source_label"]),
+        "label": label_val,
+        "source_label": source_label_val,
         "reason": analysed["reason"],
-        "priority": int(analysed.get("priority", 0)),
+        "priority": priority,
         "platform": platform_name,
         "account": author,
         "author_id": author_id,
@@ -80,6 +105,13 @@ def _normalise_crawled(raw: dict[str, Any]) -> dict[str, Any]:
         "published_at": str(raw.get("timestamp", "")),
         "reach": reach,
         "status": "new",
+        "document": document_str,
+        "provision": provision_str,
+        "penalty": penalty_str,
+        "source_title": source_title,
+        "source_url": source_url,
+        "source_agency": source_agency,
+        "score": score,
     }
 
 
@@ -87,21 +119,46 @@ def _normalise(raw: dict[str, Any], fixture: dict[str, Any] | None = None) -> di
     fixture = fixture or {}
     label = raw.get("nhan") or raw.get("label") or "can_kiem_chung"
     source_label = raw.get("nhan_nguon") or raw.get("source_label") or "chua_tim_thay_nguon"
+    label_val = getattr(label, "value", label)
+    source_val = getattr(source_label, "value", source_label)
+    priority = int(raw.get("priority", 0))
+    reach = int(fixture.get("do_lan_truyen", raw.get("reach", 0)) or 0)
+
+    source_title = "Chưa tìm thấy nguồn phù hợp"
+    source_url = str(fixture.get("url", ""))
+    source_agency = ""
+    if source_val == "co_nguon_xac_nhan":
+        source_title = "Có nguồn chính thức xác nhận"
+    elif source_val == "co_bac_bo_chinh_thuc":
+        source_title = "Có nguồn chính thức bác bỏ"
+
+    score = min(95, 30 + priority * 20 + min(25, reach // 10))
+    if label_val == "hieu_lam":
+        score = max(score, 60)
+
     return {
         "id": str(raw.get("id") or fixture.get("id")),
         "comment_id": str(raw.get("comment_id") or fixture.get("id", "")),
         "text": str(raw.get("text") or fixture.get("text", "")),
+        "url": str(raw.get("url") or fixture.get("url", "")),
         "claim": str(raw.get("claim") or raw.get("text") or fixture.get("text", "")),
         "keywords": list(raw.get("keywords") or []),
-        "label": getattr(label, "value", label),
-        "source_label": getattr(source_label, "value", source_label),
+        "label": label_val,
+        "source_label": source_val,
         "reason": str(raw.get("ly_do") or raw.get("reason") or "Cần cán bộ đối chiếu."),
-        "priority": int(raw.get("priority", 0)),
+        "priority": priority,
         "platform": _platform(str(fixture.get("nguon_mo_ta", "forum"))),
         "account": str(fixture.get("nguon_mo_ta", "Nguồn chưa xác định")),
         "published_at": str(fixture.get("thoi_gian", "")),
-        "reach": int(fixture.get("do_lan_truyen", raw.get("reach", 0)) or 0),
+        "reach": reach,
         "status": "new",
+        "document": str(raw.get("document", "Nghị định 174/2026/NĐ-CP")),
+        "provision": str(raw.get("provision", "Điều 95 — cần đối chiếu")),
+        "penalty": str(raw.get("penalty", "Cần xác định chủ thể")),
+        "source_title": source_title,
+        "source_url": source_url,
+        "source_agency": source_agency,
+        "score": score,
     }
 
 
