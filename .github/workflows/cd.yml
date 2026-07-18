@@ -27,7 +27,11 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
-            export NEXT_PUBLIC_API_URL=$(grep NEXT_PUBLIC_API_URL frontend/.env | cut -d= -f2)
+            if [ -f frontend/.env ]; then
+              export NEXT_PUBLIC_API_URL=$(grep -m1 '^NEXT_PUBLIC_API_URL=' frontend/.env | cut -d= -f2-)
+            else
+              export NEXT_PUBLIC_API_URL=https://api.theoria-lab.io.vn
+            fi
 
             docker compose -f deploy/compose.yaml down
             docker compose -f deploy/compose.yaml up -d --build
