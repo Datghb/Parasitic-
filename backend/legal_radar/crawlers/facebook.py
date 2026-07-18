@@ -126,7 +126,7 @@ def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
     try:
         resp = requests.post(
             f"{BD_BASE_URL}/scrape", params=params,
-            headers=_bd_headers(), json=payload, timeout=30,
+            headers=_bd_headers(), json=payload, timeout=60,
         )
     except requests.Timeout:
         logger.warning("Scrape POST timeout for %s", url)
@@ -190,7 +190,9 @@ def _crawl_one_post(url: str) -> dict | None:
     post_id = post.get("post_id", "")
     post_comments = [
         c for c in comments
-        if c.get("post_id") == post_id or c.get("post_url") == post_url
+        if c.get("post_id") == post_id
+        or c.get("post_url", "").split("?")[0] == post_url.split("?")[0]
+        or post_url in c.get("post_url", "")
     ]
     formatted_comments = [
         {
