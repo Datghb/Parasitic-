@@ -59,7 +59,7 @@ Không đọc số cố định trên slide. Trước khi pitch, mở dashboard 
 - CD triển khai tự động lên VPS khi cập nhật `main`.
 - Docker Compose + Caddy + HTTPS.
 - Health check: `https://api.theoria-lab.io.vn/health`.
-- Dashboard: `https://theoria-lab.io.vn`.
+- Dashboard: `https://diachung.dpdns.org`.
 
 ## Slide 8 — Kết
 

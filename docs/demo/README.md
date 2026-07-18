@@ -5,7 +5,7 @@ Thời lượng mục tiêu: 4–5 phút.
 ## Chuẩn bị
 
 1. Kiểm tra `https://api.theoria-lab.io.vn/health` trả `{"status":"ok"}`.
-2. Mở `https://theoria-lab.io.vn`.
+2. Mở `https://diachung.dpdns.org`.
 3. Xác nhận góc trên hiển thị `Dữ liệu API trực tiếp`.
 4. Chuẩn bị nội dung:
 

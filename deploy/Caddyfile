@@ -1,4 +1,4 @@
-theoria-lab.io.vn {
+diachung.dpdns.org {
     reverse_proxy frontend:3000
 }
 

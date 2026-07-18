@@ -19,7 +19,7 @@ Hai file `.env` chứa cấu hình riêng và secret, không được commit lê
 Trước khi chạy Compose, cả hai domain phải có DNS `A record` trỏ về địa chỉ
 IPv4 của VPS:
 
-- `theoria-lab.io.vn`
+- `diachung.dpdns.org`
 - `api.theoria-lab.io.vn`
 
 Nếu DNS chưa trỏ đúng, Caddy sẽ không thể lấy chứng chỉ HTTPS từ Let's Encrypt.

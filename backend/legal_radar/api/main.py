@@ -17,7 +17,7 @@ from .routes import cases, crawl, qa, queue, verify  # noqa: E402
 _origins = [
     origin.strip()
     for origin in os.getenv(
-        "FRONTEND_ORIGIN", "https://theoria-lab.io.vn,http://localhost:3000,http://localhost:3001"
+        "FRONTEND_ORIGIN", "https://diachung.dpdns.org,http://localhost:3000,http://localhost:3001"
     ).split(",")
     if origin.strip()
 ]
