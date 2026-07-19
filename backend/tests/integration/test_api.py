@@ -15,6 +15,11 @@ def test_health() -> None:
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
+def test_readiness_checks_required_data_and_runtime_storage() -> None:
+    response = client.get("/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
 def test_api_responses_include_security_headers() -> None:
     response = client.get("/health")
     assert response.headers["x-content-type-options"] == "nosniff"

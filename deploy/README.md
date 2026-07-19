@@ -12,6 +12,11 @@ cp frontend/.env.example frontend/.env
 - `backend/.env`
 - `frontend/.env`
 
+Ở production, `ADMIN_API_KEY` là bắt buộc. Tạo một giá trị ngẫu nhiên dài tối
+thiểu 32 byte, không dùng lại khóa của nhà cung cấp. Compose ép
+`APP_ENV=production`, vì vậy backend sẽ từ chối toàn bộ thao tác quản trị nếu
+khóa này bị bỏ trống.
+
 Hai file `.env` chứa cấu hình riêng và secret, không được commit lên Git.
 
 ## DNS và HTTPS
@@ -41,6 +46,18 @@ Chạy các service từ thư mục root của repo:
 ```bash
 docker compose -f deploy/compose.yaml up --build -d
 ```
+
+Xác minh sau triển khai:
+
+```bash
+curl --fail https://api.theoria-lab.io.vn/health
+curl --fail https://api.theoria-lab.io.vn/ready
+docker compose -f deploy/compose.yaml ps
+```
+
+Backend chạy bằng user không đặc quyền, root filesystem chỉ đọc và chỉ volume
+`runs_data` được phép ghi. Khi rollback, checkout commit đã kiểm thử trước đó và
+chạy lại lệnh `docker compose ... up --build -d`; không xóa volume audit.
 
 Caddy tự động lấy và gia hạn chứng chỉ HTTPS. Chứng chỉ được lưu trong named
 volume `caddy_data`; không xóa volume này khi deploy lại.

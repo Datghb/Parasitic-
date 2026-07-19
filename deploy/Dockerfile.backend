@@ -8,10 +8,15 @@ COPY data ./data
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir .
 
-RUN mkdir -p /app/runs
+RUN addgroup --system legal-radar \
+    && adduser --system --ingroup legal-radar legal-radar \
+    && mkdir -p /app/runs \
+    && chown -R legal-radar:legal-radar /app/runs
+
+USER legal-radar
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)" || exit 1
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=5)" || exit 1
 
 CMD ["uvicorn", "backend.legal_radar.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

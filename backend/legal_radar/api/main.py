@@ -1,10 +1,13 @@
 """HTTP API for the Legal-KG backend."""
 
+import os
+
 from fastapi import FastAPI
-from fastapi import Request
+from fastapi import HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.legal_radar.settings import get_settings
+from backend.legal_radar.paths import data_dir, runs_dir
 
 from backend.legal_radar.api.routes import cases, crawl, qa, queue, verify
 
@@ -43,3 +46,14 @@ app.include_router(crawl.router, prefix="/api")
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+@app.get("/ready")
+def readiness() -> dict[str, str]:
+    required_kg = data_dir() / "kg" / "kg_nodes.json"
+    runtime_dir = runs_dir()
+    if not required_kg.is_file() or not runtime_dir.is_dir() or not os.access(runtime_dir, os.W_OK):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Required data or runtime storage is unavailable",
+        )
+    return {"status": "ready"}
