@@ -613,7 +613,10 @@ def classify_claim_full(
     if citations:
         provision_str = "; ".join(citations[:2])
 
-    if matched_dks and effective_subject:
+    if nhan == NhanPhanLoai.DUNG:
+        penalty_str = "Không vi phạm"
+        subject_label = subject_label or "Chưa xác định"
+    elif matched_dks and effective_subject:
         best_dk = matched_dks[0]
         van_ban = kg.find_node(best_dk.van_ban_id)
         if van_ban:
