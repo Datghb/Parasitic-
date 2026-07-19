@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useUpdateStatusMutation } from "../../hooks/use-queries";
-import { API_URL } from "../../utils/api";
+import { API_URL, reviewCase } from "../../utils/api";
 import { VerdictBadge } from "../common/badge";
 import { Case, Status } from "../../types";
 import {
-  ExternalLink, Check, HelpCircle, Scale, ArrowRight, ArrowLeft, X, AlertTriangle
+  ExternalLink, Check, HelpCircle, Scale, ArrowRight, ArrowLeft, X, AlertTriangle, ThumbsUp, ThumbsDown, Flag
 } from "lucide-react";
 
 const statuses: Status[] = ["Mới", "Đang xử lý", "Đã xử lý"];
@@ -134,6 +134,26 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
       setVerifyLoading(false);
     }
   }
+
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const handleReview = useCallback(async (action: "approve" | "reject" | "escalate") => {
+    if (item.id.startsWith("HS-MVP-")) return;
+    setReviewLoading(true);
+    try {
+      await reviewCase(item.id, { action });
+      if (action === "approve") {
+        setCurrentStatus("Đã xử lý");
+        void handleStatusChange("Đã xử lý");
+      } else if (action === "escalate") {
+        setCurrentStatus("Đang xử lý");
+        void handleStatusChange("Đang xử lý");
+      }
+    } catch {
+      // ignore
+    } finally {
+      setReviewLoading(false);
+    }
+  }, [item.id, handleStatusChange]);
 
   return (
     <>
@@ -476,24 +496,43 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
           </section>
         </aside>
       </div>
-      <div className="fixed right-0 bottom-0 z-[82] grid w-[min(590px,100vw)] grid-cols-[1fr_1.25fr] gap-2.5 border-t border-[#e8eaf1] bg-white px-[26px] py-[14px] max-[700px]:px-4 max-[700px]:py-3">
+      <div className="fixed right-0 bottom-0 z-[82] grid w-[min(590px,100vw)] grid-cols-3 gap-2.5 border-t border-[#e8eaf1] bg-white px-[26px] py-[14px] max-[700px]:px-4 max-[700px]:py-3">
         <button
           className="rounded-[9px] border border-[#dfe2e9] bg-white p-[11px] text-[11px] font-[750] text-[#5c687c]"
           onClick={handleBack}
         >
-          <ArrowLeft size={14} className="mr-1 inline align-[-2px]" /> Quay lại hàng đợi
+          <ArrowLeft size={14} className="mr-1 inline align-[-2px]" /> Quay lại
         </button>
-        <button
-          className="rounded-[9px] border-0 bg-linear-90 from-[#e213aa] to-[#a20ac1] p-[11px] text-[11px] font-[750] text-white"
-          onClick={handleStartVerification}
-          disabled={verifyLoading || currentStatus === "Đang xử lý"}
-        >
-          {verifyLoading
-            ? "Đang xử lý…"
-            : currentStatus === "Đang xử lý"
-            ? <><Check size={14} className="mr-1 inline align-[-2px]" /> Đang kiểm chứng</>
-            : <>Bắt đầu kiểm chứng <ArrowRight size={14} className="ml-1 inline align-[-2px]" /></>}
-        </button>
+        {currentStatus === "Đang xử lý" ? (
+          <>
+            <button
+              className="rounded-[9px] border-0 bg-[#10b981] p-[11px] text-[11px] font-[750] text-white disabled:opacity-50"
+              onClick={() => handleReview("approve")}
+              disabled={reviewLoading}
+            >
+              <ThumbsUp size={14} className="mr-1 inline align-[-2px]" /> Xác nhận
+            </button>
+            <button
+              className="rounded-[9px] border-0 bg-[#f59e0b] p-[11px] text-[11px] font-[750] text-white disabled:opacity-50"
+              onClick={() => handleReview("escalate")}
+              disabled={reviewLoading}
+            >
+              <Flag size={14} className="mr-1 inline align-[-2px]" /> ESC
+            </button>
+          </>
+        ) : (
+          <button
+            className="col-span-2 rounded-[9px] border-0 bg-linear-90 from-[#e213aa] to-[#a20ac1] p-[11px] text-[11px] font-[750] text-white"
+            onClick={handleStartVerification}
+            disabled={verifyLoading || currentStatus === "Đang xử lý"}
+          >
+            {verifyLoading
+              ? "Đang xử lý…"
+              : currentStatus === "Đang xử lý"
+              ? <><Check size={14} className="mr-1 inline align-[-2px]" /> Đang kiểm chứng</>
+              : <>Bắt đầu kiểm chứng <ArrowRight size={14} className="ml-1 inline align-[-2px]" /></>}
+          </button>
+        )}
       </div>
       {verifyError && (
         <div style={{ padding: "8px 24px", color: "#f59e0b", fontSize: 13 }}>{verifyError}</div>

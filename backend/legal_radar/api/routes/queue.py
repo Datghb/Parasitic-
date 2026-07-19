@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
-from backend.legal_radar.api.data_access import list_queue_items, update_queue_item_status
-from backend.legal_radar.api.schemas import QueueItemResponse
+from backend.legal_radar.api.data_access import list_queue_items, update_queue_item_status, update_queue_item_review
+from backend.legal_radar.api.schemas import QueueItemResponse, ReviewRequest
 
 router = APIRouter(tags=["queue"])
 
@@ -23,6 +23,29 @@ def update_case_status(case_id: str, body: StatusUpdate) -> QueueItemResponse:
     if body.status not in allowed:
         raise HTTPException(status_code=400, detail=f"Status phải là một trong: {allowed}")
     item = update_queue_item_status(case_id, body.status)
+    if item is None:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} không tồn tại")
+    return QueueItemResponse.model_validate(item)
+
+
+@router.patch("/cases/{case_id}/review", response_model=QueueItemResponse)
+def review_case(case_id: str, body: ReviewRequest) -> QueueItemResponse:
+    allowed_actions = {"approve", "reject", "escalate"}
+    if body.action and body.action not in allowed_actions:
+        raise HTTPException(status_code=400, detail=f"Action phải là một trong: {allowed_actions}")
+    allowed_labels = {"dung", "hieu_lam", "can_kiem_chung"}
+    if body.human_label and body.human_label not in allowed_labels:
+        raise HTTPException(status_code=400, detail=f"Label phải là một trong: {allowed_labels}")
+    allowed_sources = {"co_nguon_xac_nhan", "co_bac_bo_chinh_thuc", "chua_tim_thay_nguon"}
+    if body.human_source_label and body.human_source_label not in allowed_sources:
+        raise HTTPException(status_code=400, detail=f"Source label phải là một trong: {allowed_sources}")
+    item = update_queue_item_review(
+        case_id,
+        human_label=body.human_label,
+        human_source_label=body.human_source_label,
+        reviewer_notes=body.reviewer_notes,
+        action=body.action,
+    )
     if item is None:
         raise HTTPException(status_code=404, detail=f"Case {case_id} không tồn tại")
     return QueueItemResponse.model_validate(item)
