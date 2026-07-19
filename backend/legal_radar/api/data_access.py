@@ -5,10 +5,32 @@ from __future__ import annotations
 import json
 import math
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from backend.legal_radar.api.dependencies import data_dir, runs_dir
+from backend.legal_radar.settings import get_settings
+from backend.legal_radar.storage import SqlStore
+
+
+@lru_cache(maxsize=4)
+def _store_for_url(database_url: str) -> SqlStore:
+    store = SqlStore(database_url)
+    store.initialize()
+    return store
+
+
+def _sql_store() -> SqlStore | None:
+    database_url = (get_settings().database_url or "").strip()
+    return _store_for_url(database_url) if database_url else None
+
+
+def check_persistence() -> None:
+    """Raise when the configured transactional store is unavailable."""
+    store = _sql_store()
+    if store:
+        store.ping()
 
 
 def _read_json(path: Path) -> Any:
@@ -32,9 +54,7 @@ def _queue_from_jsonl(path: Path) -> list[dict[str, Any]]:
 def _compute_spread_risk_fallback(label: str, reach: int, source_label: str, reason: str) -> int:
     severity = 40 if label == "hieu_lam" else 20 if label == "can_kiem_chung" else 5
     reach_sc = min(30, round(math.log2(reach + 1) * 5)) if reach > 0 else 0
-    has_cta = any(
-        w in reason.lower() for w in ["tẩy chay", "cảnh giác", "cảnh báo", "đừng tin", "báo cáo", "chia sẻ ngay"]
-    )
+    has_cta = any(w in reason.lower() for w in ["tẩy chay", "cảnh giác", "cảnh báo", "đừng tin", "báo cáo", "chia sẻ ngay"])
     cta = 15 if has_cta and source_label == "chua_tim_thay_nguon" else 5 if has_cta else 0
     source_gap = 10 if source_label == "chua_tim_thay_nguon" else 5 if source_label == "co_bac_bo_chinh_thuc" else 0
     return min(100, severity + reach_sc + cta + source_gap)
@@ -93,10 +113,7 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any]:
         spread_risk = _compute_spread_risk_fallback(label_val, reach, source_val, reason)
     if not ai_accuracy:
         ai_accuracy = _compute_ai_accuracy_fallback(
-            int(raw.get("score", score)),
-            int(raw.get("confidence", 50)),
-            label_val,
-            citations,
+            int(raw.get("score", score)), int(raw.get("confidence", 50)), label_val, citations,
         )
     if not source_reliability:
         source_reliability = _compute_source_reliability_fallback(source_val, citations)
@@ -119,6 +136,7 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any]:
         "created_at": str(raw.get("created_at") or raw.get("published_at", "")),
         "reach": reach,
         "status": str(raw.get("status", "new")),
+        "version": int(raw.get("version", 1)),
         "document": str(raw.get("document", "Nghị định 174/2026/NĐ-CP")),
         "provision": str(raw.get("provision", "")),
         "penalty": str(raw.get("penalty", "")),
@@ -143,8 +161,8 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def list_queue_items() -> list[dict[str, Any]]:
-    """Return all unique queue items sorted by priority and reach."""
-    raw_rows = _queue_from_jsonl(runs_dir() / "queue.jsonl")
+    store = _sql_store()
+    raw_rows = store.list_cases() if store else _queue_from_jsonl(runs_dir() / "queue.jsonl")
     seen: set[str] = set()
     unique: list[dict[str, Any]] = []
     for row in raw_rows:
@@ -156,7 +174,6 @@ def list_queue_items() -> list[dict[str, Any]]:
 
 
 def get_queue_item(case_id: str) -> dict[str, Any] | None:
-    """Return a single queue item by case ID, or None if not found."""
     return next((item for item in list_queue_items() if item["id"] == case_id), None)
 
 
@@ -166,9 +183,27 @@ def update_queue_item_status(
     reviewer_label: str = "",
     reviewer_reason: str = "",
     reviewer_note: str = "",
+    expected_version: int | None = None,
+    actor: str = "operator",
 ) -> dict[str, Any] | None:
-    """Update the status and optional reviewer fields of a queue item."""
-    from datetime import datetime
+    store = _sql_store()
+    if store:
+        try:
+            return _normalise(
+                store.update_case_status(
+                    case_id,
+                    status=new_status,
+                    expected_version=expected_version,
+                    actor=actor,
+                    reviewer_label=reviewer_label,
+                    reviewer_reason=reviewer_reason,
+                    reviewer_note=reviewer_note,
+                )
+            )
+        except KeyError:
+            return None
+
+    from datetime import datetime, timezone
 
     queue_path = runs_dir() / "queue.jsonl"
     if not queue_path.exists():
@@ -179,7 +214,7 @@ def update_queue_item_status(
         if str(row.get("id", "")) == case_id:
             old_status = row.get("status", "new")
             row["status"] = new_status
-            now_iso = datetime.now(UTC).isoformat()
+            now_iso = datetime.now(timezone.utc).isoformat()
             if reviewer_label:
                 row["reviewer_label"] = reviewer_label
                 row["reviewed_at"] = now_iso
@@ -200,14 +235,31 @@ def update_queue_item_status(
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
     return updated
 
-
 def review_queue_item(
     case_id: str,
     decision: str,
     note: str,
     corrected_label: str | None,
+    expected_version: int = 1,
+    actor: str = "operator",
 ) -> dict[str, Any] | None:
     """Persist a human decision while keeping reviewed social content out of audit logs."""
+    store = _sql_store()
+    if store:
+        try:
+            return _normalise(
+                store.review_case(
+                    case_id,
+                    expected_version=expected_version,
+                    decision=decision,
+                    note=note,
+                    corrected_label=corrected_label,
+                    actor=actor,
+                )
+            )
+        except KeyError:
+            return None
+
     queue_path = runs_dir() / "queue.jsonl"
     if not queue_path.exists():
         return None
@@ -218,6 +270,7 @@ def review_queue_item(
         if str(row.get("id", "")) != case_id:
             continue
         row["status"] = "resolved"
+        row["version"] = int(row.get("version", 1)) + 1
         row["review"] = {
             "decision": decision,
             "note": note,
@@ -247,7 +300,7 @@ def review_queue_item(
 
 
 def _append_audit(case_id: str, action: str, old_value: str, new_value: str, note: str) -> None:
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     audit_path = runs_dir() / "audit.jsonl"
     entry = {
@@ -257,14 +310,16 @@ def _append_audit(case_id: str, action: str, old_value: str, new_value: str, not
         "old_value": old_value,
         "new_value": new_value,
         "note": note,
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     with audit_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 def get_audit_log(case_id: str) -> list[dict[str, Any]]:
-    """Return all audit log entries for a given case ID."""
+    store = _sql_store()
+    if store:
+        return store.list_audit(case_id)
     audit_path = runs_dir() / "audit.jsonl"
     if not audit_path.exists():
         return []
@@ -281,8 +336,19 @@ def get_audit_log(case_id: str) -> list[dict[str, Any]]:
     return entries
 
 
+def clear_queue_items() -> int:
+    store = _sql_store()
+    if store:
+        return store.clear_cases()
+    queue_path = runs_dir() / "queue.jsonl"
+    if not queue_path.exists():
+        return 0
+    deleted = len(_queue_from_jsonl(queue_path))
+    queue_path.unlink()
+    return deleted
+
+
 def list_study_cases() -> list[dict[str, Any]]:
-    """Return the list of curated study cases used for verification."""
     path = data_dir() / "study_cases" / "study_cases.json"
     return _read_json(path) if path.exists() else []
 
@@ -294,7 +360,6 @@ def update_queue_item_review(
     reviewer_notes: str | None = None,
     action: str | None = None,
 ) -> dict[str, Any] | None:
-    """Apply a legacy human review update to a queue item."""
     queue_path = runs_dir() / "queue.jsonl"
     if not queue_path.exists():
         return None

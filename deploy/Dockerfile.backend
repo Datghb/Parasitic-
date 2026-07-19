@@ -3,6 +3,8 @@ WORKDIR /app
 
 COPY backend/pyproject.toml .
 COPY backend/legal_radar ./legal_radar
+COPY backend/scripts ./scripts
+COPY backend/migrations ./migrations
 COPY data ./data
 
 RUN --mount=type=cache,target=/root/.cache/pip \

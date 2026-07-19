@@ -18,6 +18,7 @@ export type Case = {
   sourceReliability: number;
   verdict: Verdict;
   status: Status;
+  version?: number;
   reason: string;
   document: string;
   provision: string;
@@ -59,6 +60,7 @@ export type ApiQueueItem = {
   created_at?: string;
   reach: number;
   status: string;
+  version?: number;
   document?: string;
   provision?: string;
   penalty?: string;

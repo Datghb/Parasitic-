@@ -5,6 +5,21 @@ import { API_URL, mapApiCase } from "../utils/api";
 export type ReviewDecision = "accepted" | "corrected" | "rejected";
 export type ReviewLabel = "dung" | "hieu_lam" | "can_kiem_chung";
 
+export async function createReviewerSession(adminKey: string): Promise<string> {
+  const response = await fetch(`${API_URL}/api/auth/session`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-Key": adminKey,
+    },
+    body: JSON.stringify({ actor: "web-reviewer", role: "reviewer" }),
+  });
+  if (!response.ok) throw new Error("Khóa quản trị không hợp lệ");
+  const session = (await response.json()) as { csrf_token: string };
+  return session.csrf_token;
+}
+
 export function useQueueQuery() {
   return useQuery<Case[]>({
     queryKey: ["queue"],
@@ -39,14 +54,16 @@ export function useUpdateStatusMutation() {
     mutationFn: async ({
       id,
       status,
-      adminKey,
+      csrfToken,
+      expectedVersion,
       reviewerLabel,
       reviewerReason,
       reviewerNote,
     }: {
       id: string;
       status: Status;
-      adminKey: string;
+      csrfToken: string;
+      expectedVersion?: number;
       reviewerLabel?: string;
       reviewerReason?: string;
       reviewerNote?: string;
@@ -56,15 +73,19 @@ export function useUpdateStatusMutation() {
         "Đang xử lý": "reviewing",
         "Đã xử lý": "resolved",
       };
-      const body: Record<string, string> = { status: statusMap[status] };
+      const body: Record<string, string | number> = {
+        status: statusMap[status],
+      };
+      if (expectedVersion) body.expected_version = expectedVersion;
       if (reviewerLabel) body.reviewer_label = reviewerLabel;
       if (reviewerReason) body.reviewer_reason = reviewerReason;
       if (reviewerNote) body.reviewer_note = reviewerNote;
       const response = await fetch(`${API_URL}/api/cases/${id}/status`, {
         method: "PATCH",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "X-Admin-Key": adminKey,
+          "X-CSRF-Token": csrfToken,
         },
         body: JSON.stringify(body),
       });
@@ -85,24 +106,28 @@ export function useReviewCaseMutation() {
       decision,
       note,
       correctedLabel,
-      adminKey,
+      csrfToken,
+      expectedVersion,
     }: {
       id: string;
       decision: ReviewDecision;
       note: string;
       correctedLabel?: ReviewLabel;
-      adminKey: string;
+      csrfToken: string;
+      expectedVersion: number;
     }) => {
       const response = await fetch(`${API_URL}/api/cases/${id}/review`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "X-Admin-Key": adminKey,
+          "X-CSRF-Token": csrfToken,
         },
         body: JSON.stringify({
           decision,
           note,
           corrected_label: correctedLabel,
+          expected_version: expectedVersion,
         }),
       });
       if (!response.ok) {
@@ -117,17 +142,17 @@ export function useReviewCaseMutation() {
   });
 }
 
-export function useAuditQuery(caseId: string, adminKey: string) {
+export function useAuditQuery(caseId: string, sessionReady: boolean) {
   return useQuery<AuditEntry[]>({
-    queryKey: ["audit", caseId, adminKey],
+    queryKey: ["audit", caseId],
     queryFn: async () => {
       const response = await fetch(`${API_URL}/api/cases/${caseId}/audit`, {
-        headers: { "X-Admin-Key": adminKey },
+        credentials: "include",
       });
       if (!response.ok) throw new Error("Audit API unavailable");
       return response.json();
     },
-    enabled: Boolean(caseId && adminKey),
+    enabled: Boolean(caseId && sessionReady),
   });
 }
 

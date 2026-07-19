@@ -27,6 +27,8 @@ def test_api_responses_include_security_headers() -> None:
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["referrer-policy"] == "no-referrer"
+    assert response.headers["content-security-policy"].startswith("default-src")
+    assert response.headers["x-request-id"]
 
 
 def test_cors_preflight_allows_production_frontend() -> None:
@@ -163,6 +165,48 @@ def test_production_write_route_fails_closed_without_config(monkeypatch) -> None
     assert response.status_code == 503
 
 
+def test_reviewer_session_requires_csrf_and_cannot_clear_queue(monkeypatch) -> None:
+    from backend.legal_radar.api import dependencies
+    from backend.legal_radar.api.routes import auth
+    import backend.legal_radar.settings as settings_mod
+
+    fake = settings_mod.Settings(
+        APP_ENV="production",
+        ADMIN_API_KEY="test-admin-key",
+    )
+    monkeypatch.setattr(dependencies, "get_settings", lambda: fake)
+    monkeypatch.setattr(auth, "get_settings", lambda: fake)
+
+    with TestClient(app, base_url="https://testserver") as session_client:
+        login = session_client.post(
+            "/api/auth/session",
+            headers={"X-Admin-Key": "test-admin-key"},
+            json={"actor": "reviewer-1", "role": "reviewer"},
+        )
+        assert login.status_code == 200
+        assert "httponly" in login.headers["set-cookie"].lower()
+        assert "secure" in login.headers["set-cookie"].lower()
+        csrf_token = login.json()["csrf_token"]
+
+        missing_csrf = session_client.patch(
+            "/api/cases/not-found/status",
+            json={"status": "reviewing"},
+        )
+        accepted_csrf = session_client.patch(
+            "/api/cases/not-found/status",
+            headers={"X-CSRF-Token": csrf_token},
+            json={"status": "reviewing"},
+        )
+        forbidden_admin_action = session_client.delete(
+            "/api/queue",
+            headers={"X-CSRF-Token": csrf_token},
+        )
+
+    assert missing_csrf.status_code == 403
+    assert accepted_csrf.status_code == 404
+    assert forbidden_admin_action.status_code == 403
+
+
 def test_reviewer_can_reject_result_and_create_audit_event(
     monkeypatch,
     tmp_path,
@@ -227,6 +271,53 @@ def test_reviewer_must_explain_correction_or_rejection(monkeypatch, tmp_path) ->
 
     assert response.status_code == 400
     assert not (tmp_path / "audit.jsonl").exists()
+
+def test_sql_review_is_transactional_and_rejects_stale_version(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    from backend.legal_radar.api import data_access
+    import backend.legal_radar.settings as settings_mod
+
+    fake = settings_mod.Settings(
+        APP_ENV="development",
+        DATABASE_URL=f"sqlite:///{tmp_path / 'api.db'}",
+    )
+    monkeypatch.setattr(data_access, "get_settings", lambda: fake)
+    data_access._store_for_url.cache_clear()
+    store = data_access._sql_store()
+    assert store is not None
+    store.upsert_case(
+        {
+            "id": "sql-review",
+            "claim": "Claim SQL",
+            "nhan": "can_kiem_chung",
+            "nhan_nguon": "chua_tim_thay_nguon",
+            "status": "new",
+        }
+    )
+
+    accepted = client.post(
+        "/api/cases/sql-review/review",
+        json={
+            "decision": "accepted",
+            "note": "",
+            "expected_version": 1,
+        },
+    )
+    stale = client.post(
+        "/api/cases/sql-review/review",
+        json={
+            "decision": "rejected",
+            "note": "Dữ liệu cũ",
+            "expected_version": 1,
+        },
+    )
+
+    assert accepted.status_code == 200
+    assert accepted.json()["version"] == 2
+    assert stale.status_code == 409
+    assert len(store.list_audit("sql-review")) == 1
 
 
 def test_crawl_returns_supported_schema(monkeypatch, tmp_path) -> None:

@@ -50,6 +50,7 @@ export function mapApiCase(item: ApiQueueItem): Case {
         : item.status === "reviewing"
           ? "Đang xử lý"
           : "Mới",
+    version: item.version ?? 1,
     reason: item.reason,
     document: item.document || "Nghị định 174/2026/NĐ-CP",
     provision: item.provision || "Điều 95 — cần đối chiếu",

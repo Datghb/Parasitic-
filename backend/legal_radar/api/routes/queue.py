@@ -5,26 +5,28 @@ from pydantic import BaseModel, Field
 
 from backend.legal_radar.api.data_access import (
     get_audit_log,
+    clear_queue_items,
     list_queue_items,
     review_queue_item,
     update_queue_item_review,
     update_queue_item_status,
 )
-from backend.legal_radar.api.dependencies import require_admin
+from backend.legal_radar.api.dependencies import require_admin, require_reviewer
+from backend.legal_radar.auth import Principal
 from backend.legal_radar.api.schemas import (
     AuditEntryResponse,
     QueueItemResponse,
-)
-from backend.legal_radar.api.schemas import (
     ReviewRequest as LegacyReviewRequest,
 )
 from backend.legal_radar.guardrails import validate_reviewer_label
+from backend.legal_radar.storage import CaseVersionConflict
 
 router = APIRouter(tags=["queue"])
 
 
 class StatusUpdate(BaseModel):
     status: str
+    expected_version: int | None = Field(default=None, ge=1)
     reviewer_label: str = Field(default="")
     reviewer_reason: str = Field(default="")
     reviewer_note: str = Field(default="")
@@ -34,11 +36,11 @@ class DecisionReviewRequest(BaseModel):
     decision: Literal["accepted", "corrected", "rejected"]
     note: str = Field(default="", max_length=1000)
     corrected_label: Literal["dung", "hieu_lam", "can_kiem_chung"] | None = None
+    expected_version: int = Field(default=1, ge=1)
 
 
 @router.get("/queue", response_model=list[QueueItemResponse])
 def list_queue(response: Response) -> list[QueueItemResponse]:
-    """List all queue items, disabling caching on the response."""
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return [QueueItemResponse.model_validate(item) for item in list_queue_items()]
 
@@ -46,10 +48,12 @@ def list_queue(response: Response) -> list[QueueItemResponse]:
 @router.patch(
     "/cases/{case_id}/status",
     response_model=QueueItemResponse,
-    dependencies=[Depends(require_admin)],
 )
-def update_case_status(case_id: str, body: StatusUpdate) -> QueueItemResponse:
-    """Update the status of a case, optionally setting a reviewer label."""
+def update_case_status(
+    case_id: str,
+    body: StatusUpdate,
+    principal: Principal = Depends(require_reviewer),
+) -> QueueItemResponse:
     allowed = {"new", "reviewing", "resolved"}
     if body.status not in allowed:
         raise HTTPException(status_code=400, detail=f"Status phải là một trong: {allowed}")
@@ -58,14 +62,24 @@ def update_case_status(case_id: str, body: StatusUpdate) -> QueueItemResponse:
             validate_reviewer_label(body.reviewer_label)
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
-    effective_status = "resolved" if body.reviewer_label and body.status != "resolved" else body.status
-    item = update_queue_item_status(
-        case_id,
-        effective_status,
-        reviewer_label=body.reviewer_label,
-        reviewer_reason=body.reviewer_reason,
-        reviewer_note=body.reviewer_note,
+    effective_status = (
+        "resolved" if body.reviewer_label and body.status != "resolved" else body.status
     )
+    try:
+        item = update_queue_item_status(
+            case_id,
+            effective_status,
+            reviewer_label=body.reviewer_label,
+            reviewer_reason=body.reviewer_reason,
+            reviewer_note=body.reviewer_note,
+            expected_version=body.expected_version,
+            actor=principal.subject,
+        )
+    except CaseVersionConflict as error:
+        raise HTTPException(
+            status_code=409,
+            detail="Hồ sơ đã được cập nhật bởi người khác. Vui lòng tải lại.",
+        ) from error
     if item is None:
         raise HTTPException(status_code=404, detail=f"Case {case_id} không tồn tại")
     return QueueItemResponse.model_validate(item)
@@ -74,13 +88,12 @@ def update_case_status(case_id: str, body: StatusUpdate) -> QueueItemResponse:
 @router.post(
     "/cases/{case_id}/review",
     response_model=QueueItemResponse,
-    dependencies=[Depends(require_admin)],
 )
 def record_review_decision(
     case_id: str,
     body: DecisionReviewRequest,
+    principal: Principal = Depends(require_reviewer),
 ) -> QueueItemResponse:
-    """Record a human review decision and persist it for the given case."""
     if body.decision == "corrected" and body.corrected_label is None:
         raise HTTPException(
             status_code=400,
@@ -91,12 +104,20 @@ def record_review_decision(
             status_code=400,
             detail="note là bắt buộc khi sửa hoặc bác bỏ kết quả AI",
         )
-    item = review_queue_item(
-        case_id,
-        body.decision,
-        body.note,
-        body.corrected_label,
-    )
+    try:
+        item = review_queue_item(
+            case_id,
+            body.decision,
+            body.note,
+            body.corrected_label,
+            expected_version=body.expected_version,
+            actor=principal.subject,
+        )
+    except CaseVersionConflict as error:
+        raise HTTPException(
+            status_code=409,
+            detail="Hồ sơ đã được cập nhật bởi người khác. Vui lòng tải lại.",
+        ) from error
     if item is None:
         raise HTTPException(status_code=404, detail=f"Case {case_id} không tồn tại")
     return QueueItemResponse.model_validate(item)
@@ -105,13 +126,12 @@ def record_review_decision(
 @router.patch(
     "/cases/{case_id}/review",
     response_model=QueueItemResponse,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_reviewer)],
 )
 def update_legacy_review(
     case_id: str,
     body: LegacyReviewRequest,
 ) -> QueueItemResponse:
-    """Apply a legacy PATCH review update with human label and action fields."""
     allowed_actions = {"approve", "reject", "escalate"}
     if body.action and body.action not in allowed_actions:
         raise HTTPException(
@@ -149,23 +169,13 @@ def update_legacy_review(
 @router.get(
     "/cases/{case_id}/audit",
     response_model=list[AuditEntryResponse],
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_reviewer)],
 )
 def get_case_audit(case_id: str) -> list[AuditEntryResponse]:
-    """Return the full audit trail for a given case."""
     return [AuditEntryResponse.model_validate(entry) for entry in get_audit_log(case_id)]
 
 
 @router.delete("/queue", dependencies=[Depends(require_admin)])
 def clear_queue() -> dict[str, object]:
-    """Delete all items from the queue file and return a deletion summary."""
-    from backend.legal_radar.api.dependencies import runs_dir
-
-    queue_path = runs_dir() / "queue.jsonl"
-    deleted = 0
-    if queue_path.exists():
-        from backend.legal_radar.api.data_access import _queue_from_jsonl
-
-        deleted = len(_queue_from_jsonl(queue_path))
-        queue_path.unlink()
+    deleted = clear_queue_items()
     return {"deleted": deleted, "message": f"Đã xóa {deleted} hồ sơ khỏi hàng đợi."}

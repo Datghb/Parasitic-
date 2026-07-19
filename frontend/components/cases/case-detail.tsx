@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ReviewDecision,
   ReviewLabel,
+  createReviewerSession,
   useAuditQuery,
   useReviewCaseMutation,
   useUpdateStatusMutation,
@@ -79,6 +80,7 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
   const updateStatusMutation = useUpdateStatusMutation();
   const reviewMutation = useReviewCaseMutation();
   const [currentStatus, setCurrentStatus] = useState<Status>(item.status);
+  const [currentVersion, setCurrentVersion] = useState(item.version ?? 1);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(true);
@@ -86,6 +88,7 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
   const [correctedLabel, setCorrectedLabel] = useState<ReviewLabel>("can_kiem_chung");
   const [reviewNote, setReviewNote] = useState("");
   const [adminKey, setAdminKey] = useState("");
+  const [csrfToken, setCsrfToken] = useState("");
   const [reviewMessage, setReviewMessage] = useState("");
   const [reviewerLabel, setReviewerLabel] = useState(item.reviewerLabel || "");
   const [reviewerReason, setReviewerReason] = useState(item.reviewerReason || "");
@@ -93,7 +96,18 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewSaved, setReviewSaved] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
-  const auditQuery = useAuditQuery(item.id, adminKey.trim());
+  const auditQuery = useAuditQuery(item.id, Boolean(csrfToken));
+
+  async function ensureSession(): Promise<string> {
+    if (csrfToken) return csrfToken;
+    if (!adminKey.trim()) {
+      throw new Error("Nhập khóa quản trị để mở phiên chuyên viên.");
+    }
+    const token = await createReviewerSession(adminKey.trim());
+    setCsrfToken(token);
+    setAdminKey("");
+    return token;
+  }
 
   const handleBack = () => {
     if (onClose) onClose();
@@ -102,16 +116,15 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
 
   const handleStatusChange = async (status: Status) => {
     setVerifyError("");
-    if (!adminKey.trim()) {
-      setVerifyError("Nhập khóa quản trị trong phần Human Review trước khi đổi trạng thái.");
-      return;
-    }
     try {
-      await updateStatusMutation.mutateAsync({
+      const token = await ensureSession();
+      const updated = await updateStatusMutation.mutateAsync({
         id: item.id,
         status,
-        adminKey: adminKey.trim(),
+        csrfToken: token,
+        expectedVersion: currentVersion,
       });
+      setCurrentVersion(updated.version ?? currentVersion + 1);
       setCurrentStatus(status);
     } catch {
       setVerifyError("Không thể cập nhật trạng thái. Kiểm tra khóa quản trị và kết nối API.");
@@ -133,24 +146,22 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
   async function handleReviewSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setReviewMessage("");
-    if (!adminKey.trim()) {
-      setReviewMessage("Nhập khóa quản trị để ký quyết định thẩm định.");
-      return;
-    }
     if (reviewDecision !== "accepted" && !reviewNote.trim()) {
       setReviewMessage("Cần ghi lý do khi sửa hoặc bác bỏ kết quả AI.");
       return;
     }
     try {
-      await reviewMutation.mutateAsync({
+      const token = await ensureSession();
+      const updated = await reviewMutation.mutateAsync({
         id: item.id,
         decision: reviewDecision,
         note: reviewNote.trim(),
         correctedLabel: reviewDecision === "corrected" ? correctedLabel : undefined,
-        adminKey: adminKey.trim(),
+        csrfToken: token,
+        expectedVersion: currentVersion,
       });
+      setCurrentVersion(updated.version ?? currentVersion + 1);
       setCurrentStatus("Đã xử lý");
-      setAdminKey("");
       setReviewMessage("Đã lưu quyết định và ghi nhật ký kiểm toán.");
     } catch (error) {
       setReviewMessage(
@@ -160,19 +171,18 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
   }
 
   async function handleReview(action: "approve" | "escalate") {
-    if (!adminKey.trim()) {
-      setVerifyError("Nhập khóa quản trị trong phần Human Review trước.");
-      return;
-    }
     setReviewLoading(true);
     try {
+      const token = await ensureSession();
       if (action === "approve") {
-        await reviewMutation.mutateAsync({
+        const updated = await reviewMutation.mutateAsync({
           id: item.id,
           decision: "accepted",
           note: "",
-          adminKey: adminKey.trim(),
+          csrfToken: token,
+          expectedVersion: currentVersion,
         });
+        setCurrentVersion(updated.version ?? currentVersion + 1);
         setCurrentStatus("Đã xử lý");
       } else if (action === "escalate") {
         await handleStatusChange("Đang xử lý");
@@ -185,21 +195,20 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
   }
 
   async function handleSaveReview(andResolve: boolean) {
-    if (!adminKey.trim()) {
-      setVerifyError("Nhập khóa quản trị trong phần Human Review trước.");
-      return;
-    }
     setReviewSaving(true);
     try {
+      const token = await ensureSession();
       const targetStatus: Status = andResolve ? "Đã xử lý" : currentStatus;
-      await updateStatusMutation.mutateAsync({
+      const updated = await updateStatusMutation.mutateAsync({
         id: item.id,
         status: targetStatus,
-        adminKey: adminKey.trim(),
+        csrfToken: token,
+        expectedVersion: currentVersion,
         reviewerLabel,
         reviewerReason,
         reviewerNote,
       });
+      setCurrentVersion(updated.version ?? currentVersion + 1);
       if (andResolve) setCurrentStatus("Đã xử lý");
       setReviewSaved(true);
       setTimeout(() => setReviewSaved(false), 2000);
@@ -561,14 +570,15 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
                 />
               </label>
               <label className="grid gap-1.5 text-[10px] font-bold text-[#667389]">
-                Khóa quản trị
+                Khóa quản trị (chỉ dùng để mở phiên)
                 <input
                   className="rounded-[9px] border border-[#e0e4eb] px-3 py-2.5 text-[12px]"
                   type="password"
                   autoComplete="off"
                   value={adminKey}
                   onChange={(event) => setAdminKey(event.target.value)}
-                  placeholder="Chỉ giữ trong bộ nhớ của form này"
+                  placeholder={csrfToken ? "Phiên chuyên viên đang hoạt động" : "Không lưu trong trình duyệt"}
+                  disabled={Boolean(csrfToken)}
                 />
               </label>
               <button
