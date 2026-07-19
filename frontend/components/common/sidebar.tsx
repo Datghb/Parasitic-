@@ -8,7 +8,7 @@ import { parseCaseDate } from "@/utils/date";
 import { Zap, Layers, FileBarChart, Shield, CheckCircle, GitBranch, TrendingUp, TrendingDown, LifeBuoy } from "lucide-react";
 
 const navLinkBase =
-  "flex items-center gap-3 rounded-[11px] p-3 text-[12px] no-underline transition-[transform,background,box-shadow] duration-[180ms] ease-in-out hover:translate-x-[2px] hover:bg-[#fbf0ff] hover:text-[#a219c2]";
+  "relative flex items-center gap-3 rounded-[11px] p-3 text-[12px] no-underline transition-[transform,background,box-shadow] duration-[180ms] ease-in-out hover:translate-x-[2px] hover:bg-[#fbf0ff] hover:text-[#a219c2] max-[980px]:justify-center max-[980px]:gap-0 max-[980px]:px-2 max-[700px]:h-[52px] max-[700px]:flex-1 max-[700px]:rounded-lg";
 
 function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
@@ -76,22 +76,23 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r border-[#eef0f5] bg-white px-[13px] pt-[23px] pb-[18px] text-[#526075]">
-      <div className="flex items-center gap-[13px] px-[7px] pb-[27px]">
-        <span className="grid h-[47px] w-[47px] place-items-center rounded-[11px] bg-linear-145 from-[#ff3aac] to-[#ad19d5] font-[Georgia] text-[26px] font-bold text-white shadow-[0_8px_18px_#d926a744]">
+    <aside className="fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r border-[#eef0f5] bg-white px-[13px] pt-[23px] pb-[18px] text-[#526075] transition-[width] max-[980px]:w-[78px] max-[980px]:px-2 max-[700px]:inset-x-0 max-[700px]:top-auto max-[700px]:bottom-0 max-[700px]:h-[64px] max-[700px]:w-full max-[700px]:border-t max-[700px]:border-r-0 max-[700px]:px-1.5 max-[700px]:py-1.5">
+      <div className="flex items-center gap-[13px] px-[7px] pb-[27px] max-[980px]:justify-center max-[980px]:px-0 max-[700px]:hidden">
+        <span className="grid h-[47px] w-[47px] place-items-center rounded-[11px] bg-linear-145 from-[#ff3aac] to-[#ad19d5] font-[Georgia] text-[26px] font-bold text-white shadow-[0_8px_18px_#d926a744] max-[980px]:h-[43px] max-[980px]:w-[43px]">
           L
         </span>
-        <div>
+        <div className="max-[980px]:hidden">
           <strong className="block text-[19px] font-[750] text-[#131c31]">Legal Radar</strong>
           <small className="mt-[4px] block text-[10px] text-[#9a9fb0]">TRUNG TÂM GIÁM SÁT</small>
         </div>
       </div>
-      <nav aria-label="Điều hướng chính" className="grid gap-2 pt-1">
+      <nav aria-label="Điều hướng chính" className="grid gap-2 pt-1 max-[700px]:flex max-[700px]:h-full max-[700px]:w-full max-[700px]:items-center max-[700px]:gap-0 max-[700px]:pt-0">
         {items.map((item) => (
           <NavLink key={item.href} href={item.href} active={item.active}>
-            <NavIcon active={item.active}>{item.icon}</NavIcon> {item.label}
+            <NavIcon active={item.active}>{item.icon}</NavIcon>
+            <span className="max-[980px]:hidden">{item.label}</span>
             {item.count !== undefined && (
-              <b className="ml-auto rounded-[10px] bg-linear-145 from-[#ff3aac] to-[#ad19d5] px-[7px] py-[2px] text-[9px] text-white shadow-[0_4px_10px_#c728a733]">
+              <b className="ml-auto rounded-[10px] bg-linear-145 from-[#ff3aac] to-[#ad19d5] px-[7px] py-[2px] text-[9px] text-white shadow-[0_4px_10px_#c728a733] max-[980px]:absolute max-[980px]:top-1 max-[980px]:right-1 max-[980px]:min-w-[14px] max-[980px]:px-1 max-[700px]:top-0 max-[700px]:right-[18%]">
                 {item.count}
               </b>
             )}

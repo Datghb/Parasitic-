@@ -306,7 +306,7 @@ export function QueueView() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1120px] border-collapse">
+          <table className="queue-monitor-table w-full min-w-[1120px] border-collapse">
             <thead>
               <tr>
                 <th className={`${thCell} w-[44px] max-w-[44px] min-w-[44px] pr-[6px] pl-2.5 text-center`}>
@@ -319,7 +319,7 @@ export function QueueView() {
                 <th className={thCell}>ĐỘ TIN CẬY</th>
                 <th className={thCell}>CHỦ ĐỀ PHÁP LÝ</th>
                 <th className={thCell}>TRẠNG THÁI</th>
-                <th className={thCell} />
+                <th className={`${thCell} w-[52px] min-w-[52px] text-center`} />
               </tr>
             </thead>
             <tbody>
@@ -421,12 +421,17 @@ export function QueueView() {
                   <td className={tdCell}>
                     <StatusBadge value={item.status} />
                   </td>
-                  <td className={tdCell}>
+                  <td className={`${tdCell} w-[52px] min-w-[52px] text-center`}>
                     <button
-                      className="h-8 w-8 rounded-full border-0 bg-[#f5eff9] text-[14px] text-[#b51aa8] transition-all duration-[180ms] group-hover:translate-x-[2px] group-hover:bg-[#c71bb0] group-hover:text-white"
+                      type="button"
+                      className="inline-grid h-8 w-8 place-items-center rounded-full border-0 bg-[#f5eff9] p-0 align-middle text-[#b51aa8] transition-[transform,background,color] duration-[180ms] group-hover:translate-x-[2px] group-hover:bg-[#c71bb0] group-hover:text-white"
                       aria-label={`Mở hồ sơ ${item.id}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleOpenCase(item.id);
+                      }}
                     >
-                      <ArrowRight size={14} />
+                      <ArrowRight size={15} strokeWidth={2} aria-hidden="true" />
                     </button>
                   </td>
                 </tr>

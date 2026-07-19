@@ -339,8 +339,8 @@ export function MarketOverview({ allItems }: { allItems: Case[] }) {
     value >= 0 ? "text-[11px] font-[750] text-[#08a658]" : "text-[11px] font-[750] text-[#ef3540]";
   const headerTrendClass = (value: number) =>
     value >= 0
-      ? "ml-auto mr-4 text-[11px] font-extrabold text-[#07a75b]"
-      : "ml-auto mr-4 text-[11px] font-extrabold text-[#ef3540]";
+      ? "ml-auto mr-4 text-[11px] font-extrabold text-[#07a75b] max-[600px]:hidden"
+      : "ml-auto mr-4 text-[11px] font-extrabold text-[#ef3540] max-[600px]:hidden";
 
   return (
     <div className="mx-auto min-h-[calc(100vh-66px)] max-w-[1640px] bg-[#fbfbfd] px-[26px] pt-[18px] pb-[28px] max-[720px]:p-4">
@@ -390,7 +390,7 @@ export function MarketOverview({ allItems }: { allItems: Case[] }) {
           <i className={`${kpiIconBox} bg-linear-145 from-[#ffe5f0] to-[#fff1f7] text-[#ef197b]`}>
             {kpiIcon("search")}
           </i>
-          <div>
+          <div className="min-w-0">
             <small className={kpiLabel}>Chủ đề được bàn luận nhiều nhất</small>
             <strong
               className="my-2.5 mb-3 line-clamp-2 block text-[19px] leading-[1.2] tracking-[-.8px] text-[#101a34]"

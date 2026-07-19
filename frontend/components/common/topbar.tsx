@@ -161,8 +161,8 @@ export function Topbar() {
 
   return (
     <>
-      <header className="flex h-[66px] items-center gap-3 border-b border-[#eceef4] bg-[#ffffffcc] px-[28px] backdrop-blur-[12px] max-[980px]:h-[69px] max-[860px]:gap-[7px] max-[700px]:h-[58px] max-[700px]:px-[15px]">
-        <div className="flex max-w-[525px] flex-1 items-center gap-[9px] rounded-xl border border-[#e9ebf2] bg-white px-[15px] py-[11px] text-[#7d8da0] shadow-[0_5px_16px_#23294b08]">
+      <header className="sticky top-0 z-30 flex h-[66px] min-w-0 items-center gap-3 border-b border-[#eceef4] bg-[#ffffffdd] px-[28px] backdrop-blur-[12px] max-[980px]:h-[69px] max-[860px]:gap-[7px] max-[700px]:h-[58px] max-[700px]:px-[15px]">
+        <div className="flex min-w-0 max-w-[525px] flex-1 items-center gap-[9px] rounded-xl border border-[#e9ebf2] bg-white px-[15px] py-[11px] text-[#7d8da0] shadow-[0_5px_16px_#23294b08] max-[520px]:px-2.5">
           <Search size={18} className="text-[#7d8da0]" />
           <input
             className="w-full border-0 text-[14px] outline-0"
@@ -301,7 +301,7 @@ export function Topbar() {
           )}
         </div>
         <button
-          className="ml-1 h-[35px] w-[35px] rounded-full bg-linear-145 from-[#ff3aac] to-[#ad19d5] text-[10px] font-extrabold text-white shadow-[0_6px_14px_#d12aa13b]"
+          className="ml-1 h-[35px] w-[35px] flex-none rounded-full bg-linear-145 from-[#ff3aac] to-[#ad19d5] text-[10px] font-extrabold text-white shadow-[0_6px_14px_#d12aa13b] max-[520px]:hidden"
           aria-label="Tài khoản Minh Anh"
         >
           MA
