@@ -79,6 +79,7 @@ def analyze_comment(comment: str) -> dict:
     source_title = ""
     source_url = ""
     source_agency = ""
+    matched_docs = []
 
     try:
         from backend.legal_radar.source_search import search_brightdata
@@ -121,6 +122,14 @@ def analyze_comment(comment: str) -> dict:
         "status": "new",
         "score": _compute_score(result.nhan, 0, 0),
         "confidence": _compute_confidence(result.nhan, nhan_nguon, bool(result.citations)),
+        "spread_risk": _compute_risk(result.nhan, 0, result.cta_detected, nhan_nguon),
+        "ai_accuracy": _compute_accuracy(
+            result.bm25_score, result.amount_match, result.subject,
+            result.citations, result.study_case_matched,
+        ),
+        "source_reliability": _compute_reliability(
+            matched_docs, "", nhan_nguon, bool(result.citations),
+        ),
     }
 
 
@@ -147,6 +156,66 @@ def _compute_confidence(nhan: NhanPhanLoai, nhan_nguon: NhanNguon, has_citations
     if has_citations:
         base += 5
     return min(95, base)
+
+
+def _compute_risk(
+    nhan: NhanPhanLoai,
+    reach: int,
+    cta_detected: bool,
+    nhan_nguon: NhanNguon,
+) -> int:
+    severity = 40 if nhan == NhanPhanLoai.HIEU_LAM else 20 if nhan == NhanPhanLoai.CAN_KIEM_CHUNG else 5
+    import math
+    reach_sc = min(30, round(math.log2(reach + 1) * 5)) if reach > 0 else 0
+    if cta_detected:
+        cta = 15 if nhan_nguon == NhanNguon.CHUA_TIM_THAY_NGUON else 5
+    else:
+        cta = 0
+    source_gap = 10 if nhan_nguon == NhanNguon.CHUA_TIM_THAY_NGUON else 5 if nhan_nguon == NhanNguon.CO_BAC_BO_CHINH_THUC else 0
+    return min(100, severity + reach_sc + cta + source_gap)
+
+
+def _compute_accuracy(
+    bm25_score: float,
+    amount_match: str,
+    subject: str,
+    citations: list[str],
+    study_case_matched: bool,
+) -> int:
+    base = 10
+    bm25_sc = min(25, max(0, round((bm25_score - 0.5) * 6)))
+    amount_sc = {"exact": 25, "in_range": 15, "single": 10}.get(amount_match, 0)
+    subject_sc = 15 if subject and subject != "Chưa xác định" else 0
+    cite_sc = min(15, len(citations) * 5)
+    study_sc = 10 if study_case_matched else 0
+    return min(100, base + bm25_sc + amount_sc + subject_sc + cite_sc + study_sc)
+
+
+def _compute_reliability(
+    matched_docs: list[dict],
+    thoi_gian_claim: str,
+    nhan_nguon: NhanNguon,
+    has_citations: bool,
+) -> int:
+    if not matched_docs:
+        denial_sc = 20 if nhan_nguon == NhanNguon.CO_BAC_BO_CHINH_THUC else 10 if nhan_nguon == NhanNguon.CO_NGUON_XAC_NHAN else 0
+        cite_sc = 5 if has_citations else 0
+        return min(100, denial_sc + cite_sc)
+    best_tier = min(d.get("tier", 2) for d in matched_docs)
+    tier_sc = 35 if best_tier == 0 else 25 if best_tier == 1 else 15
+    count_sc = min(25, len(matched_docs) * 5)
+    from backend.legal_radar.source_classifier import _parse_date
+    claim_date = _parse_date(thoi_gian_claim)
+    recency_sc = 0
+    if claim_date:
+        for d in matched_docs:
+            src_date = _parse_date(d.get("ngay_dang", ""))
+            if src_date and abs((src_date - claim_date).days) <= 30:
+                recency_sc = 20
+                break
+    denial_sc = 20 if nhan_nguon == NhanNguon.CO_BAC_BO_CHINH_THUC else 10 if nhan_nguon == NhanNguon.CO_NGUON_XAC_NHAN else 0
+    cite_sc = 5 if has_citations else 0
+    return min(100, tier_sc + count_sc + recency_sc + denial_sc + cite_sc)
 
 
 class CommentIngestor:
@@ -284,6 +353,9 @@ class CommentIngestor:
                 confidence=30,
                 url=str(comment.get("url", "")),
                 comments=list(comment.get("comments") or []),
+                spread_risk=_compute_risk(NhanPhanLoai.CAN_KIEM_CHUNG, int(comment.get("reach", 0) or 0), False, NhanNguon.CHUA_TIM_THAY_NGUON),
+                ai_accuracy=30,
+                source_reliability=0,
             )
         try:
             cls_result = classify_claim_full(
@@ -309,7 +381,7 @@ class CommentIngestor:
                 comment.get("thoi_gian", ""),
                 search_results,
             )
-            ly_do, priority_bump = tich_hop_nguon(nhan, ly_do, nhan_nguon, ly_do_nguon, extracted["claim"])
+            ly_do, priority_bump, cta_detected = tich_hop_nguon(nhan, ly_do, nhan_nguon, ly_do_nguon, extracted["claim"])
             priority = (1 if nhan == NhanPhanLoai.HIEU_LAM else 0) + priority_bump
 
             source_title = ""
@@ -333,6 +405,11 @@ class CommentIngestor:
             source_title = ""
             source_url = ""
             source_agency = ""
+            cta_detected = False
+            matched_docs = []
+
+        reach_val = int(comment.get("reach", 0) or 0)
+        has_cites = bool(getattr(cls_result, "citations", []) if cls_result else [])
 
         return QueueItem(
             id=comment["id"],
@@ -356,11 +433,25 @@ class CommentIngestor:
             platform=str(comment.get("platform", "Forum")),
             account=str(comment.get("account", "")),
             published_at=str(comment.get("published_at", "")),
-            reach=int(comment.get("reach", 0) or 0),
+            reach=reach_val,
             status="new",
-            score=_compute_score(nhan, priority, int(comment.get("reach", 0) or 0)),
-            confidence=_compute_confidence(nhan, nhan_nguon, bool(getattr(cls_result, "citations", []) if cls_result else [])),
+            score=_compute_score(nhan, priority, reach_val),
+            confidence=_compute_confidence(nhan, nhan_nguon, has_cites),
             comments=list(comment.get("comments") or []),
+            spread_risk=_compute_risk(nhan, reach_val, cta_detected, nhan_nguon),
+            ai_accuracy=_compute_accuracy(
+                getattr(cls_result, "bm25_score", 0.0) if cls_result else 0.0,
+                getattr(cls_result, "amount_match", "none") if cls_result else "none",
+                getattr(cls_result, "subject", "") if cls_result else "",
+                getattr(cls_result, "citations", []) if cls_result else [],
+                getattr(cls_result, "study_case_matched", False) if cls_result else False,
+            ),
+            source_reliability=_compute_reliability(
+                matched_docs,
+                comment.get("thoi_gian", ""),
+                nhan_nguon,
+                has_cites,
+            ),
         )
 
     def run_batch(self, batch_path: str) -> int:

@@ -39,6 +39,9 @@ export function mapApiCase(item: ApiQueueItem): Case {
       item.score ??
       Math.min(95, 30 + item.priority * 20 + Math.min(25, Math.round(item.reach / 10))),
     confidence: item.confidence ?? 50,
+    spreadRisk: item.spread_risk ?? 0,
+    aiAccuracy: item.ai_accuracy ?? 0,
+    sourceReliability: item.source_reliability ?? 0,
     verdict: verdictMap[item.label],
     status:
       item.status === "resolved"

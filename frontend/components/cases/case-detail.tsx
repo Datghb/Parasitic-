@@ -346,23 +346,33 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
             <small className="block text-[10px] tracking-[.9px] text-[#788499]">KẾT QUẢ THẨM ĐỊNH AI</small>
             <VerdictBadge value={item.verdict} large />
             <div className={confidenceRow}>
-              <span>Mức rủi ro</span>
-              <strong className="ml-auto text-[#1d2940]">{item.score}/100</strong>
+              <span>Mức rủi ro lan truyền</span>
+              <strong className="ml-auto text-[#1d2940]">{item.spreadRisk}/100</strong>
             </div>
             <div className={confidenceTrack}>
               <i
                 className="block h-full rounded-[5px] bg-linear-90 from-[#ff4cb7] to-[#b731e3]"
-                style={{ width: `${item.score}%` }}
+                style={{ width: `${item.spreadRisk}%` }}
               />
             </div>
             <div className={confidenceRow}>
-              <span>Độ tin cậy</span>
-              <strong className="ml-auto text-[#1d2940]">{item.confidence}/100</strong>
+              <span>Độ chính xác AI</span>
+              <strong className="ml-auto text-[#1d2940]">{item.aiAccuracy}/100</strong>
             </div>
             <div className={confidenceTrack}>
               <i
-                className="block h-full rounded-[5px] bg-linear-90 from-[#ff4cb7] to-[#b731e3]"
-                style={{ width: `${item.confidence}%` }}
+                className="block h-full rounded-[5px] bg-linear-90 from-[#4cb7ff] to-[#31b7e3]"
+                style={{ width: `${item.aiAccuracy}%` }}
+              />
+            </div>
+            <div className={confidenceRow}>
+              <span>Độ tin cậy nguồn</span>
+              <strong className="ml-auto text-[#1d2940]">{item.sourceReliability}/100</strong>
+            </div>
+            <div className={confidenceTrack}>
+              <i
+                className="block h-full rounded-[5px] bg-linear-90 from-[#32be7a] to-[#11975c]"
+                style={{ width: `${item.sourceReliability}%` }}
               />
             </div>
             <p className="m-0 text-[11px] leading-[1.5] text-[#788499]">

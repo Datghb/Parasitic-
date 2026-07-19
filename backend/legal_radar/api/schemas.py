@@ -30,6 +30,9 @@ class QueueItemResponse(BaseModel):
     source_agency: str = ""
     score: int = 50
     confidence: int = 50
+    spread_risk: int = 0
+    ai_accuracy: int = 0
+    source_reliability: int = 0
     comments: list[dict] = Field(default_factory=list)
 
 
