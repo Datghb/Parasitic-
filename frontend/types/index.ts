@@ -34,6 +34,9 @@ export type Case = {
   keywords?: string[];
   postComments?: Array<{ text: string; author: string; timestamp: string; label?: string | null; label_reason?: string }>;
   comments?: Array<{ text: string; author: string; timestamp: string; label?: string | null; label_reason?: string }>;
+  humanLabel?: string;
+  humanSourceLabel?: string;
+  reviewerNotes?: string;
 };
 
 export type ApiQueueItem = {
@@ -64,6 +67,9 @@ export type ApiQueueItem = {
   spread_risk?: number;
   ai_accuracy?: number;
   source_reliability?: number;
+  human_label?: string;
+  human_source_label?: string;
+  reviewer_notes?: string;
   comments?: Array<{ text: string; author: string; timestamp: string; label?: string | null; label_reason?: string }>;
   post_comments?: Array<{ text: string; author: string; timestamp: string; label?: string | null; label_reason?: string }>;
 };

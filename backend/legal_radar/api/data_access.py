@@ -38,13 +38,13 @@ def _compute_spread_risk_fallback(label: str, reach: int, source_label: str, rea
 
 
 def _compute_ai_accuracy_fallback(score: int, confidence: int, label: str, citations: list) -> int:
-    cite_sc = min(15, len(citations) * 5)
+    cite_sc = min(10, len(citations) * 5)
     if label == "dung":
-        return min(100, 60 + cite_sc)
+        return min(100, 70 + cite_sc)
     elif label == "hieu_lam":
-        return min(100, 55 + cite_sc)
+        return min(100, 60 + cite_sc)
     else:
-        return min(100, 30 + cite_sc)
+        return min(100, 40 + cite_sc)
 
 
 def _compute_source_reliability_fallback(source_label: str, citations: list) -> int:
@@ -125,6 +125,9 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any]:
         "spread_risk": spread_risk,
         "ai_accuracy": ai_accuracy,
         "source_reliability": source_reliability,
+        "human_label": str(raw.get("human_label", "")),
+        "human_source_label": str(raw.get("human_source_label", "")),
+        "reviewer_notes": str(raw.get("reviewer_notes", "")),
         "comments": list(raw.get("comments") or []),
     }
 
@@ -167,3 +170,40 @@ def update_queue_item_status(case_id: str, new_status: str) -> dict[str, Any] | 
 def list_study_cases() -> list[dict[str, Any]]:
     path = data_dir() / "study_cases" / "study_cases.json"
     return _read_json(path) if path.exists() else []
+
+
+def update_queue_item_review(
+    case_id: str,
+    human_label: str | None = None,
+    human_source_label: str | None = None,
+    reviewer_notes: str | None = None,
+    action: str | None = None,
+) -> dict[str, Any] | None:
+    queue_path = runs_dir() / "queue.jsonl"
+    if not queue_path.exists():
+        return None
+    rows = _queue_from_jsonl(queue_path)
+    updated = None
+    for row in rows:
+        if str(row.get("id", "")) == case_id:
+            if human_label is not None:
+                row["human_label"] = human_label
+            if human_source_label is not None:
+                row["human_source_label"] = human_source_label
+            if reviewer_notes is not None:
+                row["reviewer_notes"] = reviewer_notes
+            if action == "approve":
+                row["status"] = "resolved"
+            elif action == "reject":
+                row["status"] = "resolved"
+                row["human_label"] = human_label or "dung"
+            elif action == "escalate":
+                row["status"] = "reviewing"
+            updated = _normalise(row)
+            break
+    if updated is None:
+        return None
+    with queue_path.open("w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    return updated
