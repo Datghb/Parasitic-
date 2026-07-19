@@ -10,8 +10,6 @@ _DVHC_KEYWORDS: list[str] = [
     "hợp nhất",
     "đơn vị hành chính",
     "dvhc",
-    "cấp tỉnh",
-    "cấp xã",
     "tỉnh mới",
     "thành phố mới",
     "nối tỉnh",
@@ -20,20 +18,42 @@ _DVHC_KEYWORDS: list[str] = [
     "34 tỉnh",
     "166 xã",
     "58 xã",
-    "bộ nội vụ",
     "nghị quyết quốc hội",
     "sắp xếp",
     "quy hoạch tỉnh",
     "giảm số lượng",
     "tách tỉnh",
+    "nhập tỉnh",
+    "chia tỉnh",
+]
+
+_MERGER_REQUIRED: list[str] = [
+    "sáp nhập",
+    "gộp tỉnh",
+    "giảm tỉnh",
+    "hợp nhất",
+    "đơn vị hành chính",
+    "dvhc",
+    "tỉnh mới",
+    "nối tỉnh",
+    "nhập tỉnh",
+    "chia tỉnh",
+    "sắp xếp đơn vị",
 ]
 
 _MIN_KEYWORD_MATCH = 2
 
 
 def is_relevant(text: str) -> bool:
-    """Check if text is related to the ĐVHC domain."""
+    """Check if text is related to the ĐVHC domain.
+
+    Requires at least one merger-specific keyword (not just generic
+    government terms like 'bộ nội vụ' or 'cấp xã').
+    """
     normalized = text.lower()
+    has_merger_kw = any(kw in normalized for kw in _MERGER_REQUIRED)
+    if not has_merger_kw:
+        return False
     matches = sum(1 for kw in _DVHC_KEYWORDS if kw in normalized)
     return matches >= _MIN_KEYWORD_MATCH
 

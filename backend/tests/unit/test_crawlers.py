@@ -228,55 +228,34 @@ class TestNewsCrawler:
 class TestScheduler:
     """Tests for scheduler.py"""
 
-    def test_crawl_now_collects_facebook_and_youtube(self):
+    def test_crawl_now_collects_facebook(self):
         from legal_radar.crawlers.scheduler import crawl_now
         facebook = [{"url": "https://facebook.com/posts/1", "platform": "facebook"}]
-        youtube = [{"url": "https://youtube.com/watch?v=1", "platform": "youtube"}]
         with tempfile.TemporaryDirectory() as tmpdir:
             output = Path(tmpdir) / "crawled.jsonl"
             with patch("legal_radar.crawlers.scheduler.crawl_facebook", return_value=facebook):
-                with patch("legal_radar.crawlers.scheduler.crawl_youtube", return_value=youtube):
-                    with patch("legal_radar.crawlers.scheduler.crawl_news", return_value=[]):
-                        result = crawl_now(["test"], 5, output)
-        assert {item["platform"] for item in result} == {"facebook", "youtube"}
+                result = crawl_now(["test"], 5, output)
+        assert {item["platform"] for item in result} == {"facebook"}
 
     def test_crawl_now_can_disable_facebook(self):
         from legal_radar.crawlers.scheduler import crawl_now
-        youtube = [{"url": "https://youtube.com/watch?v=1", "platform": "youtube"}]
         with tempfile.TemporaryDirectory() as tmpdir:
             output = Path(tmpdir) / "crawled.jsonl"
             with patch.dict(os.environ, {"CRAWL_FACEBOOK_ENABLED": "false"}):
                 with patch("legal_radar.crawlers.scheduler.crawl_facebook") as facebook:
-                    with patch(
-                        "legal_radar.crawlers.scheduler.crawl_youtube", return_value=youtube
-                    ) as youtube_crawler:
-                        with patch("legal_radar.crawlers.scheduler.crawl_news", return_value=[]):
-                            result = crawl_now(["test"], 5, output)
+                    result = crawl_now(["test"], 5, output)
         facebook.assert_not_called()
-        youtube_crawler.assert_called_once_with(keywords=["test"], max_posts=15)
-        assert [item["platform"] for item in result] == ["youtube"]
+        assert result == []
 
     def test_crawl_now_can_run_news_only(self):
         from legal_radar.crawlers.scheduler import crawl_now
-        news = [{"url": "https://example.vn/article", "platform": "web"}]
-        env = {
-            "CRAWL_FACEBOOK_ENABLED": "false",
-            "CRAWL_YOUTUBE_ENABLED": "false",
-            "CRAWL_NEWS_ENABLED": "true",
-        }
         with tempfile.TemporaryDirectory() as tmpdir:
             output = Path(tmpdir) / "crawled.jsonl"
-            with patch.dict(os.environ, env):
+            with patch.dict(os.environ, {"CRAWL_FACEBOOK_ENABLED": "false"}):
                 with patch("legal_radar.crawlers.scheduler.crawl_facebook") as facebook:
-                    with patch("legal_radar.crawlers.scheduler.crawl_youtube") as youtube:
-                        with patch(
-                            "legal_radar.crawlers.scheduler.crawl_news", return_value=news
-                        ) as news_crawler:
-                            result = crawl_now(["test"], 5, output)
+                    result = crawl_now(["test"], 5, output)
         facebook.assert_not_called()
-        youtube.assert_not_called()
-        news_crawler.assert_called_once_with(keywords=["test"], max_posts=50)
-        assert result == news
+        assert result == []
 
     def test_crawl_and_process_caps_relevant_items(self):
         from legal_radar.crawlers.scheduler import crawl_and_process

@@ -15,8 +15,6 @@ from typing import Any
 
 from backend.legal_radar.paths import runs_dir
 from backend.legal_radar.crawlers.facebook import crawl_facebook
-from backend.legal_radar.crawlers.news import crawl_news
-from backend.legal_radar.crawlers.youtube import crawl_youtube
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +85,6 @@ def crawl_now(
     all_items: list[dict[str, Any]] = []
 
     crawlers: dict[str, tuple[Any, int]] = {}
-    if os.environ.get("CRAWL_NEWS_ENABLED", "true").lower() in {"1", "true", "yes", "on"}:
-        crawlers["web"] = (crawl_news, 50)
-    if os.environ.get("CRAWL_YOUTUBE_ENABLED", "true").lower() in {"1", "true", "yes", "on"}:
-        crawlers["youtube"] = (crawl_youtube, min(50, max_posts_per_platform * 3))
     if os.environ.get("CRAWL_FACEBOOK_ENABLED", "true").lower() in {"1", "true", "yes", "on"}:
         crawlers["facebook"] = (crawl_facebook, max_posts_per_platform)
 
