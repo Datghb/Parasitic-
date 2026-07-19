@@ -1,45 +1,26 @@
 export default function SourcesPage() {
   const sources = [
-    {
-      tier: 0,
-      name: "Ngân hàng Nhà nước (SBV)",
-      domain: "sbv.gov.vn",
-      desc: "Cơ quan quản lý ngân hàng — thẩm quyền xác nhận/bác bỏ tin đồn tài chính",
-    },
-    {
-      tier: 0,
-      name: "Bộ Y tế",
-      domain: "moh.gov.vn",
-      desc: "Cơ quan phát ngôn về dịch bệnh, y tế công cộng",
-    },
-    {
-      tier: 0,
-      name: "Bộ Công an",
-      domain: "bocongan.gov.vn",
-      desc: "Cơ quan phát ngôn về an ninh, trật tự",
-    },
-    {
-      tier: 0,
-      name: "Cổng TTĐT Chính phủ",
-      domain: "chinhphu.vn",
-      desc: "Công bộ chính sách, quyết định chính thức",
-    },
-    {
-      tier: 1,
-      name: "TTXVN",
-      domain: "baotintuc.vn",
-      desc: "Thông tấn xã — nguồn tin chính thống quốc gia",
-    },
+    { tier: 0, name: "Cổng TTĐT Chính phủ", domain: "chinhphu.vn", desc: "Công bố chính sách, quyết định chính thức" },
+    { tier: 0, name: "Ngân hàng Nhà nước", domain: "sbv.gov.vn", desc: "Cơ quan quản lý ngân hàng — thẩm quyền xác nhận/bác bỏ tin đồn tài chính" },
+    { tier: 0, name: "Bộ Y tế", domain: "moh.gov.vn", desc: "Cơ quan phát ngôn về dịch bệnh, y tế công cộng" },
+    { tier: 0, name: "Bộ Công an", domain: "bocongan.gov.vn", desc: "Cơ quan phát ngôn về an ninh, trật tự" },
+    { tier: 0, name: "Bộ TT&TT", domain: "mic.gov.vn", desc: "Cơ quan quản lý truyền thông, công nghệ thông tin" },
+    { tier: 0, name: "Bộ Tư pháp", domain: "moj.gov.vn", desc: "Cơ quan quản lý tư pháp, pháp luật" },
+    { tier: 0, name: "Cổng TTĐT Chính phủ (vietnamgovernment.vn)", domain: "vietnamgovernment.vn", desc: "Cổng thông tin điện tử Chính phủ" },
+    { tier: 1, name: "Thông tấn xã Việt Nam", domain: "ttxvn.vn", desc: "Thông tấn xã — nguồn tin chính thống quốc gia" },
+    { tier: 1, name: "Báo Tin tức (TTXVN)", domain: "baotintuc.vn", desc: "Thông tấn xã — nguồn tin chính thống quốc gia" },
     { tier: 1, name: "VTV", domain: "vtv.vn", desc: "Đài Truyền hình Việt Nam" },
+    { tier: 1, name: "VNews", domain: "vnews.vn", desc: "Trang tin điện tử Đài Truyền hình Việt Nam" },
     { tier: 1, name: "Nhân Dân", domain: "nhandan.vn", desc: "Cơ quan ngôn luận của Đảng" },
-    {
-      tier: 2,
-      name: "VnExpress",
-      domain: "vnexpress.net",
-      desc: "Báo lớn — corroboration, không đơn phương quyết định",
-    },
+    { tier: 1, name: "Cổng TTĐT Quốc hội", domain: "quochoi.vn", desc: "Cổng thông tin điện tử Quốc hội" },
+    { tier: 1, name: "Sức khỏe & Đời sống", domain: "suckhoedoisong.vn", desc: "Báo điện tử Bộ Y tế" },
+    { tier: 2, name: "VnExpress", domain: "vnexpress.net", desc: "Báo lớn — corroboration, không đơn phương quyết định" },
     { tier: 2, name: "Tuổi Trẻ", domain: "tuoitre.vn", desc: "Báo lớn — corroboration" },
     { tier: 2, name: "Thanh Niên", domain: "thanhnien.vn", desc: "Báo lớn — corroboration" },
+    { tier: 2, name: "Dân Trí", domain: "dantri.com.vn", desc: "Báo lớn — corroboration" },
+    { tier: 2, name: "VietNamNet", domain: "vietnamnet.vn", desc: "Báo lớn — corroboration" },
+    { tier: 2, name: "Pháp Luật TP.HCM", domain: "plo.vn", desc: "Báo lớn — corroboration" },
+    { tier: 2, name: "Người Lao Động", domain: "nld.com.vn", desc: "Báo lớn — corroboration" },
   ];
 
   return (

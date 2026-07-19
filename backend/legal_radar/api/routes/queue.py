@@ -8,16 +8,12 @@ from backend.legal_radar.api.data_access import (
     get_audit_log,
     list_queue_items,
     review_queue_item,
-    update_queue_item_review,
     update_queue_item_status,
 )
 from backend.legal_radar.api.dependencies import require_admin, require_reviewer
 from backend.legal_radar.api.schemas import (
     AuditEntryResponse,
     QueueItemResponse,
-)
-from backend.legal_radar.api.schemas import (
-    ReviewRequest as LegacyReviewRequest,
 )
 from backend.legal_radar.auth import Principal
 from backend.legal_radar.guardrails import validate_reviewer_label
@@ -121,50 +117,6 @@ def record_review_decision(
             status_code=409,
             detail="Hồ sơ đã được cập nhật bởi người khác. Vui lòng tải lại.",
         ) from error
-    if item is None:
-        raise HTTPException(status_code=404, detail=f"Case {case_id} không tồn tại")
-    return QueueItemResponse.model_validate(item)
-
-
-@router.patch(
-    "/cases/{case_id}/review",
-    response_model=QueueItemResponse,
-    dependencies=[Depends(require_reviewer)],
-)
-def update_legacy_review(
-    case_id: str,
-    body: LegacyReviewRequest,
-) -> QueueItemResponse:
-    """Update review actions and labels using the legacy endpoint."""
-    allowed_actions = {"approve", "reject", "escalate"}
-    if body.action and body.action not in allowed_actions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Action phải là một trong: {allowed_actions}",
-        )
-    allowed_labels = {"dung", "hieu_lam", "can_kiem_chung"}
-    if body.human_label and body.human_label not in allowed_labels:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Label phải là một trong: {allowed_labels}",
-        )
-    allowed_sources = {
-        "co_nguon_xac_nhan",
-        "co_bac_bo_chinh_thuc",
-        "chua_tim_thay_nguon",
-    }
-    if body.human_source_label and body.human_source_label not in allowed_sources:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Source label phải là một trong: {allowed_sources}",
-        )
-    item = update_queue_item_review(
-        case_id,
-        human_label=body.human_label,
-        human_source_label=body.human_source_label,
-        reviewer_notes=body.reviewer_notes,
-        action=body.action,
-    )
     if item is None:
         raise HTTPException(status_code=404, detail=f"Case {case_id} không tồn tại")
     return QueueItemResponse.model_validate(item)

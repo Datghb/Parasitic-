@@ -304,12 +304,6 @@ def load_kg(nodes_path: Path, edges_path: Path | None = None) -> KnowledgeGraph:
     return KnowledgeGraph(nodes=nodes, edges=edges)
 
 
-def load_queue(path: Path) -> list[QueueItem]:
-    """Load a list of QueueItem objects from a JSON file."""
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return [QueueItem(**item) for item in data]
-
-
 # ── Validation ──
 
 

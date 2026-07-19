@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import os
 import time
@@ -9,7 +8,6 @@ from urllib.parse import urlparse
 import requests as http_requests
 
 from backend.legal_radar.resilience import CircuitBreaker, CircuitOpenError, call_with_retry
-from backend.legal_radar.settings import get_settings
 from backend.legal_radar.source_classifier import TIER_0_DOMAINS, TIER_1_DOMAINS, TIER_2_DOMAINS
 
 logger = logging.getLogger(__name__)
@@ -210,130 +208,3 @@ def search_brightdata(
 
     logger.info("BrightData source search returned %d results", len(results))
     return results
-
-
-# ── Fallback LLM search (kept for future use when GEMINI_API_KEY is set) ──
-
-
-def _get_tokenrouter_config() -> tuple[str, str, str]:
-    settings = get_settings()
-    api_key = settings.tokenrouter_api_key or ""
-    base_url = settings.tokenrouter_base_url.rstrip("/")
-    model = settings.tokenrouter_model
-    return api_key, base_url, model
-
-
-def _fallback_llm_search(
-    claim_keywords: list[str],
-    thoi_gian_claim: str,
-    api_key: str | None = None,
-) -> list[dict]:
-    """Fallback: ask LLM to generate source URLs. Only use when Bright Data returns nothing AND GEMINI_API_KEY is set."""
-    tr_key, base_url, model = _get_tokenrouter_config()
-    tokenrouter_key = api_key or tr_key
-    gemini_key = (
-        os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GOOGLE_API_KEY_1", "")
-    )
-    if not tokenrouter_key and not gemini_key:
-        logger.warning("No TOKENROUTER_API_KEY or GEMINI_API_KEY set — skipping fallback LLM search")
-        return []
-
-    query = " ".join(claim_keywords)
-    prompt = (
-        f'Tìm kiếm thông tin chính thức liên quan đến: "{query}"\n\n'
-        "Chỉ trả về các nguồn tin chính thức từ cơ quan nhà nước, báo chí chính thống Việt Nam.\n"
-        "Với mỗi nguồn tìm thấy, trả về JSON array với format:\n"
-        '[{"tieu_de": "...", "nguon": "...", "url": "...", "ngay_dang": "YYYY-MM-DD", '
-        '"noi_dung_tom_tat": "1-2 câu", "la_bac_bo": true/false, "la_xac_nhan": true/false}]\n\n'
-        "Nếu không tìm thấy nguồn chính thức, trả về [].\n"
-        "KHÔNG tự tạo URL giả. Chỉ trả về URL thật."
-    )
-
-    try:
-        if gemini_key and api_key is None:
-            gemini_model = os.environ.get("GEMINI_SEARCH_MODEL", "gemini-2.5-flash")
-            response = http_requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent",
-                params={"key": gemini_key},
-                headers={"Content-Type": "application/json"},
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "tools": [{"google_search": {}}],
-                },
-                timeout=60,
-            )
-            provider = "Gemini"
-        else:
-            response = http_requests.post(
-                f"{base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {tokenrouter_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-                timeout=60,
-            )
-            provider = "TokenRouter"
-    except Exception as exc:
-        logger.warning("Fallback LLM source search error: %s", exc)
-        return []
-
-    if response.status_code != 200:
-        logger.warning("%s fallback source search HTTP %s: %s", provider, response.status_code, response.text[:200])
-        return []
-
-    try:
-        data = response.json()
-        if provider == "TokenRouter":
-            text = data["choices"][0]["message"]["content"].strip()
-        else:
-            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except (KeyError, IndexError, TypeError) as exc:
-        logger.warning("%s fallback source search parse error: %s", provider, exc)
-        return []
-
-    if not text:
-        return []
-
-    if "```" in text:
-        parts = text.split("```")
-        for part in parts:
-            part = part.strip()
-            if part.startswith("json"):
-                part = part[4:]
-            if part.startswith("["):
-                text = part
-                break
-
-    bracket_start = text.find("[")
-    bracket_end = text.rfind("]")
-    if bracket_start != -1 and bracket_end != -1 and bracket_end > bracket_start:
-        text = text[bracket_start : bracket_end + 1]
-
-    try:
-        results = json.loads(text)
-    except json.JSONDecodeError:
-        logger.warning("%s fallback source search returned non-JSON: %s", provider, text[:200])
-        return []
-
-    if not isinstance(results, list):
-        return []
-
-    verified = []
-    for r in results:
-        url = r.get("url", "")
-        if not url:
-            continue
-        if not _is_trusted_domain(url):
-            logger.warning("Bỏ qua URL không thuộc whitelist: %s", url)
-            continue
-        verified.append(r)
-
-    return verified
-
-
-# Keep old name as alias for backward compatibility
-dynamic_search_gemini = _fallback_llm_search

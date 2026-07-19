@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
@@ -19,7 +18,6 @@ from backend.legal_radar.paths import runs_dir
 
 logger = logging.getLogger(__name__)
 
-CRAWL_INTERVAL_MINUTES = 15
 CRAWL_KEYWORDS: list[str] = [
     "sáp nhập tỉnh",
     "giảm đơn vị hành chính",
@@ -159,91 +157,3 @@ def crawl_and_process(
         "relevant": len(relevant_items),
         "items": relevant_items,
     }
-
-
-class CrawlScheduler:
-    """Background scheduler that runs crawlers every *interval_minutes* minutes.
-
-    Thread-safe — uses a threading.Timer internally.
-    """
-
-    def __init__(
-        self,
-        interval_minutes: int = CRAWL_INTERVAL_MINUTES,
-        keywords: list[str] | None = None,
-        max_posts_per_platform: int = 20,
-        output_path: str | Path | None = None,
-    ) -> None:
-        self.interval_minutes = interval_minutes
-        self.keywords = keywords or CRAWL_KEYWORDS
-        self.max_posts = max_posts_per_platform
-        self.output_path = Path(output_path) if output_path else _DEFAULT_OUTPUT_DIR / _DEFAULT_OUTPUT_FILE
-
-        self._lock = threading.Lock()
-        self._timer: threading.Timer | None = None
-        self._running = False
-        self._stop_event = threading.Event()
-
-    @property
-    def is_running(self) -> bool:
-        """Return True if the scheduler is currently active."""
-        with self._lock:
-            return self._running
-
-    def start(self) -> None:
-        """Start the background scheduler."""
-        with self._lock:
-            if self._running:
-                logger.warning("CrawlScheduler already running")
-                return
-            self._running = True
-            self._stop_event.clear()
-            logger.info("CrawlScheduler started (interval=%d min)", self.interval_minutes)
-        self._schedule_next()
-
-    def stop(self) -> None:
-        """Stop the background scheduler."""
-        with self._lock:
-            if not self._running:
-                return
-            self._running = False
-            self._stop_event.set()
-            if self._timer is not None:
-                self._timer.cancel()
-                self._timer = None
-            logger.info("CrawlScheduler stopped")
-
-    def _schedule_next(self) -> None:
-        with self._lock:
-            if not self._running:
-                return
-            self._timer = threading.Timer(
-                self.interval_minutes * 60,
-                self._run_cycle,
-            )
-            self._timer.daemon = True
-            self._timer.start()
-
-    def _run_cycle(self) -> None:
-        if self._stop_event.is_set():
-            return
-        try:
-            logger.info("CrawlScheduler: starting crawl cycle")
-            items = crawl_now(
-                keywords=self.keywords,
-                max_posts_per_platform=self.max_posts,
-                output_path=self.output_path,
-            )
-            logger.info("CrawlScheduler: cycle complete — %d items", len(items))
-        except Exception as exc:
-            logger.error("CrawlScheduler: cycle failed — %s", exc)
-        finally:
-            self._schedule_next()
-
-    def run_once(self) -> list[dict[str, Any]]:
-        """Trigger a single crawl cycle immediately (blocking)."""
-        return crawl_now(
-            keywords=self.keywords,
-            max_posts_per_platform=self.max_posts,
-            output_path=self.output_path,
-        )

@@ -379,38 +379,6 @@ class TestScheduler:
             assert len(result) == 2
         os.unlink(f.name)
 
-    def test_scheduler_start_stop(self):
-        from backend.legal_radar.crawlers.scheduler import CrawlScheduler
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            out = os.path.join(tmpdir, "sched_test.jsonl")
-            sched = CrawlScheduler(interval_minutes=60, output_path=out)
-            assert not sched.is_running
-            sched.start()
-            assert sched.is_running
-            sched.stop()
-            assert not sched.is_running
-
-    def test_scheduler_double_start(self):
-        from backend.legal_radar.crawlers.scheduler import CrawlScheduler
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            sched = CrawlScheduler(interval_minutes=60, output_path=os.path.join(tmpdir, "t.jsonl"))
-            sched.start()
-            sched.start()
-            assert sched.is_running
-            sched.stop()
-
-    def test_scheduler_double_stop(self):
-        from backend.legal_radar.crawlers.scheduler import CrawlScheduler
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            sched = CrawlScheduler(interval_minutes=60, output_path=os.path.join(tmpdir, "t.jsonl"))
-            sched.start()
-            sched.stop()
-            sched.stop()
-            assert not sched.is_running
-
     def test_crawl_now_creates_output_dir(self):
         from backend.legal_radar.crawlers.scheduler import crawl_now
 

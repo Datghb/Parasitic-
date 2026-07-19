@@ -1,0 +1,591 @@
+{
+  "metadata": {
+    "project_name": "Địa chứng - Giám sát tin đồn sáp nhập ĐVHC",
+    "period_start": "2026-07-17T12:00:00+07:00",
+    "period_end": "2026-07-19T10:00:00+07:00",
+    "total_entries": 45,
+    "team_size": 2
+  },
+  "journal": [
+    {
+      "id": 1,
+      "timestamp": "2026-07-17T12:00:00+07:00",
+      "actor": "Kilo",
+      "module": "infra",
+      "action": "Khởi tạo dự án và cấu trúc thư mục",
+      "detail": "Tạo cấu trúc thư mục backend/legal_radar với các module: crawlers, pipeline, engine, api, guardrails. Scaffold frontend Next.js với Tailwind CSS.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/__init__.py",
+        "frontend/package.json",
+        "frontend/next.config.js"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 2,
+      "timestamp": "2026-07-17T12:45:00+07:00",
+      "actor": "Kilo",
+      "module": "crawler",
+      "action": "Implement Facebook crawler với Bright Data Discover API",
+      "detail": "Viết module crawl_facebook() sử dụng Bright Data Discover API để tìm bài viết Facebook liên quan sáp nhập ĐVHC. Hardcode 3 query ban đầu: sáp nhập đơn vị hành chính, gộp tỉnh 2025, sắp xếp đơn vị hành chính.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/crawlers/facebook.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 3,
+      "timestamp": "2026-07-17T13:30:00+07:00",
+      "actor": "Human",
+      "module": "crawler",
+      "action": "Review crawler keywords và yêu cầu thêm filter",
+      "detail": "Human review thấy crawler trả về nhiều kết quả không liên quan (bài về giá điện, vaccine). Yêu cầu thêm bộ lọc keyword bắt buộc phải match merger keyword trước khi pass qua pipeline.",
+      "result": "success",
+      "files_changed": [],
+      "impact": "high"
+    },
+    {
+      "id": 4,
+      "timestamp": "2026-07-17T14:15:00+07:00",
+      "actor": "Kilo",
+      "module": "crawler",
+      "action": "Implement filter.py với merger keyword matching",
+      "detail": "Tạo module filter.py với hàm passes_filter() kiểm tra title+content phải chạa ít nhất 1 merger keyword (sáp nhập, đơn vị hành chính, gộp tỉnh, sắp xếp, giáp ranh...) trước khi đếm generic keywords.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/crawlers/filter.py"
+      ],
+      "impact": "critical"
+    },
+    {
+      "id": 5,
+      "timestamp": "2026-07-17T15:00:00+07:00",
+      "actor": "Kilo",
+      "module": "pipeline",
+      "action": "Implement LLM extract stage trong pipeline",
+      "detail": "Viết hàm extract_claims() sử dụng Gemini API để trích xuất các tuyên bố có thể kiểm chứng từ bài viết crawled. Output gồm claim text, subject, location, date_mentioned.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/pipeline.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 6,
+      "timestamp": "2026-07-17T15:45:00+07:00",
+      "actor": "Kilo",
+      "module": "engine",
+      "action": "Implement classify_claim_full() trong engine",
+      "detail": "Viết hàm phân loại tuyên bố thành 3 nhãn: DUNG, HIEU_LAM, CAN_KIEM_CHUNG. Sử dụng Gemini với few-shot prompting và facts_corpus.json làm knowledge base.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/engine.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 7,
+      "timestamp": "2026-07-17T16:30:00+07:00",
+      "actor": "Human",
+      "module": "engine",
+      "action": "Cung cấp domain knowledge về sáp nhập ĐVHC",
+      "detail": "Human giải thích hệ thống KHÔNG BAO GIỞ được gán nhãn vi phạm — chỉ hỗ trợ sàng lọc, con người ra quyết định cuối cùng. Ba nhãn: Đúng, Hiểu lầm, Cần kiểm chứng.",
+      "result": "success",
+      "files_changed": [],
+      "impact": "critical"
+    },
+    {
+      "id": 8,
+      "timestamp": "2026-07-17T17:15:00+07:00",
+      "actor": "Kilo",
+      "module": "guardrails",
+      "action": "Implement guardrails module",
+      "detail": "Tạo guardrails.py với label validation (chỉ cho phép 3 nhãn hợp lệ), PII detection (số CMND, SĐT, địa chỉ cụ thể), và content safety check trước khi hiển thị kết quả.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/guardrails.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 9,
+      "timestamp": "2026-07-17T18:00:00+07:00",
+      "actor": "Kilo",
+      "module": "api",
+      "action": "Tạo API routes cho queue và case detail",
+      "detail": "Implement FastAPI routes: GET /api/queue (danh sách bài crawled), GET /api/case/{id} (chi tiết case), POST /api/review (human feedback). Sử dụng data_access.py để truy xuất SQLite.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/api/routes/queue.py",
+        "backend/legal_radar/api/data_access.py"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 10,
+      "timestamp": "2026-07-17T19:30:00+07:00",
+      "actor": "Kilo",
+      "module": "frontend",
+      "action": "Implement queue view component",
+      "detail": "Tạo queue-view.tsx hiển thị danh sách bài viết crawled với status badges (mới, đang xử lý, đã phân loại). Sử dụng React Query để fetch data từ API.",
+      "result": "success",
+      "files_changed": [
+        "frontend/components/queue/queue-view.tsx",
+        "frontend/hooks/use-queries.ts"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 11,
+      "timestamp": "2026-07-17T20:15:00+07:00",
+      "actor": "Kilo",
+      "module": "frontend",
+      "action": "Implement case detail component",
+      "detail": "Tạo case-detail.tsx hiển thị chi tiết một case: nội dung gốc, các tuyên bố trích xuất, kết quả phân loại, và nút cho phép human review/override kết quả AI.",
+      "result": "success",
+      "files_changed": [
+        "frontend/components/cases/case-detail.tsx",
+        "frontend/types/index.ts"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 12,
+      "timestamp": "2026-07-17T21:00:00+07:00",
+      "actor": "Human",
+      "module": "frontend",
+      "action": "Review UI và yêu cầu thêm market overview",
+      "detail": "Human review frontend thấy cần thêm trang tổng quan thị trường (market overview) để thấy xu hướng tin đồn theo thời gian, phân bố theo khu vực địa lý.",
+      "result": "success",
+      "files_changed": [],
+      "impact": "medium"
+    },
+    {
+      "id": 13,
+      "timestamp": "2026-07-17T22:00:00+07:00",
+      "actor": "Kilo",
+      "module": "frontend",
+      "action": "Implement market overview charts",
+      "detail": "Tạo market-overview.tsx với Chart.js: biểu đồ đường xu hướng tin đồn theo ngày, biểu đồ tròn phân bố nhãn (Đúng/Hiểu lầm/Cần kiểm chứng), bảng top provinces bị ảnh hưởng.",
+      "result": "partial",
+      "files_changed": [
+        "frontend/components/dashboard/market-overview.tsx"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 14,
+      "timestamp": "2026-07-17T22:45:00+07:00",
+      "actor": "Kilo",
+      "module": "data",
+      "action": "Tạo facts_corpus.json ban đầu",
+      "detail": "Khởi tạo facts_corpus.json với các sự thật cơ bản về sáp nhập ĐVHC: Quyết định 123/QĐ-TTg, danh sách 16 tỉnh đề xuất, lộ trình thực hiện 2025-2026.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/data/facts_corpus.json"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 15,
+      "timestamp": "2026-07-17T23:45:00+07:00",
+      "actor": "Human",
+      "module": "review",
+      "action": "Tổng kết ngày 1 và lên kế hoạch ngày 2",
+      "detail": "Human review toàn bộ code ngày 1. Ghi nhận: crawler cơ bản hoạt động, filter keywords cần mở rộng, frontend cần fix encoding Unicode tiếng Việt. Lên kế hoạch: fix encoding, thêm source verification, implement human-in-the-loop review.",
+      "result": "success",
+      "files_changed": [],
+      "impact": "low"
+    },
+    {
+      "id": 16,
+      "timestamp": "2026-07-18T07:00:00+07:00",
+      "actor": "Kilo",
+      "module": "crawler",
+      "action": "Fix encoding issues trong crawler output",
+      "detail": "Sửa lỗi Unicode escape trong JSON output khi crawl bài viết tiếng Việt có dấu. Thêm ensure_ascii=False và normalize Unicode NFC trong hàm _serialize_result().",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/crawlers/facebook.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 17,
+      "timestamp": "2026-07-18T07:45:00+07:00",
+      "actor": "Kilo",
+      "module": "crawler",
+      "action": "Thêm metadata pre-filter cho Discover results",
+      "detail": "Implement _DISCOVER_META_KEYWORDS để kiểm tra title+description của Discover results chạa merger keywords trước khi gọi Scraper API. Tiết kiệm Bright Data credits bằng cách bỏ qua kết quả không liên quan.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/crawlers/facebook.py"
+      ],
+      "impact": "critical"
+    },
+    {
+      "id": 18,
+      "timestamp": "2026-07-18T08:30:00+07:00",
+      "actor": "Human",
+      "module": "crawler",
+      "action": "Cung cấp thêm merger keywords mới",
+      "detail": "Human cung cấp thêm 4 query mới cho Discover API: sáp nhập ĐVHC, gộp tỉnh 2025, sắp xếp đơn vị hành chính, 34 tỉnh sáp nhập. Tổng cộng 7 fallback queries.",
+      "result": "success",
+      "files_changed": [],
+      "impact": "high"
+    },
+    {
+      "id": 19,
+      "timestamp": "2026-07-18T09:15:00+07:00",
+      "actor": "Kilo",
+      "module": "crawler",
+      "action": "Mở rộng FALLBACK_QUERIES lên 7 queries",
+      "detail": "Cập nhật FALLBACK_QUERIES trong facebook.py: 3 queries gốc + 4 queries mới từ human. Tối đa 70 Discover results trước khi metadata pre-filter. Test với mock data.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/crawlers/facebook.py"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 20,
+      "timestamp": "2026-07-18T10:00:00+07:00",
+      "actor": "Kilo",
+      "module": "pipeline",
+      "action": "Implement source verification với Bright Data",
+      "detail": "Tạo source_search.py sử dụng Bright Data Discover API (cùng API crawl Facebook) để search URL thật từ web. Query pattern: keywords + site:gov.vn OR site:baotintuc.vn. Filter domain whitelist.",
+      "result": "partial",
+      "files_changed": [
+        "backend/legal_radar/source_search.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 21,
+      "timestamp": "2026-07-18T10:45:00+07:00",
+      "actor": "Human",
+      "module": "pipeline",
+      "action": "Review source verification và yêu cầu URL thật",
+      "detail": "Human yêu cầu: nguồn báo PHẢI search được URL thật từ web. Corpus-only lookup và LLM-generated URL đều bị từ chối. Phải dùng Bright Data Discover API để search thật.",
+      "result": "success",
+      "files_changed": [],
+      "impact": "critical"
+    },
+    {
+      "id": 22,
+      "timestamp": "2026-07-18T11:30:00+07:00",
+      "actor": "Kilo",
+      "module": "pipeline",
+      "action": "Fix source search query phải target sáp nhập",
+      "detail": "Mọi source search query PHẢI prepend sáp nhập đơn vị hành chính tỉnh để kết quả luôn on-topic. Không search keyword chung chung. Fix trong source_search.py.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/source_search.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 23,
+      "timestamp": "2026-07-18T12:15:00+07:00",
+      "actor": "Kilo",
+      "module": "pipeline",
+      "action": "Implement fallback fact source lookup",
+      "detail": "Tạo hàm _fallback_fact_source() trong pipeline.py để search facts_corpus.json khi source verification thất bại. Fix: phải strip diacritics (unidecode) trước khi so sánh vì fact_references.json lưu không dấu.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/pipeline.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 24,
+      "timestamp": "2026-07-18T13:00:00+07:00",
+      "actor": "Kilo",
+      "module": "engine",
+      "action": "Fix penalty display theo verdict",
+      "detail": "classify_claim_full() chỉ hiển thị mức phạt khi nhan=HIEU_LAM. Khi nhan=DUNG thì penalty=Không vi phạm. Khi nhan=CAN_KIEM_CHUNG thì penalty=Cần xác định chủ thể...",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/engine.py"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 25,
+      "timestamp": "2026-07-18T14:30:00+07:00",
+      "actor": "Kilo+Human",
+      "module": "frontend",
+      "action": "Implement human-in-the-loop review panel",
+      "detail": "AI và Human cùng thiết kế review panel: AI suggestion hiển thị bên trái, human decision bên phải với dropdown chọn nhãn mới. Thêm ô ghi chú lý do override. Human approve design trước khi AI implement.",
+      "result": "success",
+      "files_changed": [
+        "frontend/components/cases/case-detail.tsx",
+        "frontend/components/review/review-panel.tsx"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 26,
+      "timestamp": "2026-07-18T15:15:00+07:00",
+      "actor": "Kilo",
+      "module": "api",
+      "action": "Implement review API endpoint",
+      "detail": "POST /api/review lưu human feedback vào SQLite: case_id, original_label, human_label, reason, reviewer_id. Thêm GET /api/review/history để xem lịch sử review.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/api/routes/queue.py",
+        "backend/legal_radar/api/data_access.py"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 27,
+      "timestamp": "2026-07-18T16:00:00+07:00",
+      "actor": "Kilo",
+      "module": "frontend",
+      "action": "Fix date parsing trong queue view",
+      "detail": "Sửa lỗi parse ngày tháng từ API response. ISO 8601 strings với timezone +07:00 cần được parse đúng bằng date-fns. Fix display format thành HH:mm DD/MM/YYYY cho user Việt Nam.",
+      "result": "success",
+      "files_changed": [
+        "frontend/components/queue/queue-view.tsx",
+        "frontend/utils/api.ts"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 28,
+      "timestamp": "2026-07-18T17:30:00+07:00",
+      "actor": "Kilo",
+      "module": "infra",
+      "action": "Config Docker và API keys",
+      "detail": "Tạo Dockerfile cho backend FastAPI và docker-compose.yml. Lưu ý: server chỉ có TOKENROUTER_API_KEY và BRIGHTDATA_API_KEY. KHÔNG có GEMINI_API_KEY riêng — phải dùng qua TokenRouter.",
+      "result": "success",
+      "files_changed": [
+        "Dockerfile",
+        "docker-compose.yml",
+        "backend/.env.example"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 29,
+      "timestamp": "2026-07-18T18:45:00+07:00",
+      "actor": "Human",
+      "module": "data",
+      "action": "Review facts_corpus và yêu cầu xóa entries ngoài topic",
+      "detail": "Human review facts_corpus.json và phát hiện nhiều entries không liên quan sáp nhập ĐVHC (SCB, vaccine, giá điện, bắt cóc). Yêu cầu xóa hết — corpus chỉ chạa merger-related facts.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/data/facts_corpus.json"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 30,
+      "timestamp": "2026-07-18T19:30:00+07:00",
+      "actor": "Kilo",
+      "module": "crawler",
+      "action": "Fix scraper timeout config",
+      "detail": "Dieu chinh timeout: Scraper POST=60s, snapshot poll=15x3s=45s. Discover POST=15s, poll=5x2s=10s. _crawl_one_post future.result() timeout=70s. Dam bao tong thoi gian < crawl thread timeout 600s.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/crawlers/facebook.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 31,
+      "timestamp": "2026-07-18T20:15:00+07:00",
+      "actor": "Kilo",
+      "module": "data",
+      "action": "Xây dỡng knowledge graph từ facts_corpus",
+      "detail": "Tạo hàm build_knowledge_graph() phân tích facts_corpus.json, trích xuất entities (tỉnh, huyện, quyết định) và relationships (sáp nhập vào, giáp ranh với). Output dạng adjacency list cho graph queries.",
+      "result": "partial",
+      "files_changed": [
+        "backend/legal_radar/data/knowledge_graph.py"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 32,
+      "timestamp": "2026-07-18T21:00:00+07:00",
+      "actor": "Kilo+Human",
+      "module": "guardrails",
+      "action": "Review guardrails và test edge cases",
+      "detail": "AI và Human cùng test guardrails với các edge cases: bài viết có số CMND, SĐT, địa chỉ cụ thể. PII detection hoạt động tốt nhưng cần thêm pattern cho số tài khoản ngân hàng.",
+      "result": "partial",
+      "files_changed": [
+        "backend/legal_radar/guardrails.py"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 33,
+      "timestamp": "2026-07-18T21:45:00+07:00",
+      "actor": "Kilo",
+      "module": "frontend",
+      "action": "Fix market overview charts không hiển thị data",
+      "detail": "Sửa lỗi charts không render: API trả về dates dạng string nhưng Chart.js cần Date objects. Fix transform data trong use-queries.ts hook. Thêm loading skeleton cho charts.",
+      "result": "partial",
+      "files_changed": [
+        "frontend/components/dashboard/market-overview.tsx",
+        "frontend/hooks/use-queries.ts"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 34,
+      "timestamp": "2026-07-18T22:30:00+07:00",
+      "actor": "Human",
+      "module": "review",
+      "action": "Tổng kết ngày 2 và xác định blockers",
+      "detail": "Human review tiến độ: crawler hoạt động tốt với 7 queries, filter giảm 80% noise. Source verification cần fix URL matching. Market overview charts chưa hoàn thiện. Blockers: Gemini API key riêng, chart data format.",
+      "result": "success",
+      "files_changed": [],
+      "impact": "low"
+    },
+    {
+      "id": 35,
+      "timestamp": "2026-07-19T07:00:00+07:00",
+      "actor": "Kilo",
+      "module": "crawler",
+      "action": "Disable news và youtube crawkers tạm thời",
+      "detail": "Tắt crawl_news và crawl_youtube vì quét nội dung không phải Facebook (forum, video) khiến keyword filter match sai topic sáp nhập ĐVHC. Chỉ giữ crawl_facebook hoạt động.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/crawlers/__init__.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 36,
+      "timestamp": "2026-07-19T07:30:00+07:00",
+      "actor": "Kilo",
+      "module": "pipeline",
+      "action": "Fix diacritics matching trong source verification",
+      "detail": "fact_references.json lưu tu_khoa không dấu (vd: 16 tinh) trong khi claim có dấu (16 tỉnh). Fix: dùng unidecode.normalize() trước khi so sánh trong _fallback_fact_source().",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/pipeline.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 37,
+      "timestamp": "2026-07-19T08:00:00+07:00",
+      "actor": "Kilo",
+      "module": "crawler",
+      "action": "Xóa _load_sample_items và fallback fake data",
+      "detail": "Xóa hoàn toàn _load_sample_items() và mọi fallback fake data khỏi crawl.py. Crawl fail thì SSE gửi error message thay vì fake data. Đảm bảo tính minh bạch của hệ thống.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/crawlers/crawl.py"
+      ],
+      "impact": "critical"
+    },
+    {
+      "id": 38,
+      "timestamp": "2026-07-19T08:20:00+07:00",
+      "actor": "Human",
+      "module": "guardrails",
+      "action": "Yêu cầu thêm PII pattern cho số tài khoản",
+      "detail": "Human yêu cầu thêm regex pattern phát hiện số tài khoản ngân hàng (12-14 chữ số) và mã số thuế (10-13 chữ số) vào PII detection trong guardrails.py.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/guardrails.py"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 39,
+      "timestamp": "2026-07-19T08:35:00+07:00",
+      "actor": "Kilo",
+      "module": "guardrails",
+      "action": "Thêm PII patterns mới",
+      "detail": "Thêm regex patterns: số tài khoản ngân hàng (\\d{12,14}), mã số thuế (\\d{10,13}), số hộ chiếu (\\w{1,2}\\d{7}). Test với sample data để đảm bảo không false positive.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/guardrails.py"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 40,
+      "timestamp": "2026-07-19T08:50:00+07:00",
+      "actor": "Kilo",
+      "module": "api",
+      "action": "Fix skip_source_search phải luôn là False",
+      "detail": "Đảm bản skip_source_search=False ở tất cả entry points: crawl.py, ingest_crawled_items(), analyze_comment(). Dynamic search Gemini phải luôn được gọi để verify sources.",
+      "result": "success",
+      "files_changed": [
+        "backend/legal_radar/crawlers/crawl.py",
+        "backend/legal_radar/pipeline.py"
+      ],
+      "impact": "high"
+    },
+    {
+      "id": 41,
+      "timestamp": "2026-07-19T09:05:00+07:00",
+      "actor": "Kilo",
+      "module": "frontend",
+      "action": "Fix verify page hiển thị nguồn báo",
+      "detail": "Sửa frontend/app/verify/page.tsx để hiển thị nguồn báo đúng format: tên báo, URL thật, ngày đăng. Thêm link mở trong tab mới cho mỗi nguồn.",
+      "result": "success",
+      "files_changed": [
+        "frontend/app/verify/page.tsx"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 42,
+      "timestamp": "2026-07-19T09:15:00+07:00",
+      "actor": "Kilo",
+      "module": "frontend",
+      "action": "Tiếp tục fix market overview charts",
+      "detail": "Fix data flow từ monitoring queue API vào frontend charts. Dates từ queue API cần transform thành format Chart.js expects. Thêm error boundary cho charts component.",
+      "result": "partial",
+      "files_changed": [
+        "frontend/components/dashboard/market-overview.tsx",
+        "frontend/hooks/use-queries.ts"
+      ],
+      "impact": "medium"
+    },
+    {
+      "id": 43,
+      "timestamp": "2026-07-19T09:30:00+07:00",
+      "actor": "Human",
+      "module": "review",
+      "action": "Review toàn bộ hệ thống trước demo",
+      "detail": "Human test end-to-end: crawl Facebook → extract claims → classify → verify sources → hiển thị trên frontend. Ghi nhận: crawler OK, classification chính xác 85%, source verification cần cải thiện thêm.",
+      "result": "success",
+      "files_changed": [],
+      "impact": "medium"
+    },
+    {
+      "id": 44,
+      "timestamp": "2026-07-19T09:45:00+07:00",
+      "actor": "Kilo",
+      "module": "data",
+      "action": "Cập nhật README với architecture hiện tại",
+      "detail": "Cập nhật README.md với sơ đồ kiến trúc hệ thống, data flow từ crawler → pipeline → engine → frontend. Thêm hướng dẫn setup, environment variables, và API documentation.",
+      "result": "partial",
+      "files_changed": [
+        "README.md"
+      ],
+      "impact": "low"
+    },
+    {
+      "id": 45,
+      "timestamp": "2026-07-19T10:00:00+07:00",
+      "actor": "Kilo+Human",
+      "module": "review",
+      "action": "Lập kế hoạch phát triển tiếp theo",
+      "detail": "AI và Human cùng đánh giá: hệ thống cơ bản hoạt động, cần cải thiện source verification accuracy, thêm nhiều tỉnh vào facts_corpus, fix market overview charts hoàn thiện, và deploy lên production.",
+      "result": "success",
+      "files_changed": [],
+      "impact": "medium"
+    }
+  ]
+}
