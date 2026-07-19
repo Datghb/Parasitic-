@@ -153,7 +153,7 @@ def _try_live_crawl(keywords, max_posts, output_path):
     return result, error
 
 
-@router.post("/crawl", dependencies=[Depends(require_admin)])
+@router.post("/crawl")
 def trigger_crawl(request: CrawlRequest):
     """Start a crawl job and stream progress events back to the caller."""
     from backend.legal_radar.settings import get_settings
