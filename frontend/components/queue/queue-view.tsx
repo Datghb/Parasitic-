@@ -388,28 +388,42 @@ export function QueueView() {
                   <td className={tdCell}>
                     <span
                       className={`inline-flex items-center gap-1.5 rounded-[9px] px-2 py-[5px] text-[8px] font-[750] whitespace-nowrap ${
-                        priorityColors[slug(item.priority)] ?? ""
+                        item.spreadRisk >= 70
+                          ? "bg-[#fff0f4] text-[#bd315b]"
+                          : item.spreadRisk >= 40
+                            ? "bg-[#fff7e5] text-[#a16b15]"
+                            : item.spreadRisk >= 15
+                              ? "bg-[#eaf2f8] text-[#3b668b]"
+                              : "bg-[#edf1f4] text-[#687789]"
                       }`}
                     >
                       <i className="h-[5px] w-[5px] rounded-full bg-current" />
-                      {item.priority}
+                      {item.spreadRisk >= 70
+                        ? "Khẩn cấp"
+                        : item.spreadRisk >= 40
+                          ? "Cao"
+                          : item.spreadRisk >= 15
+                            ? "Trung bình"
+                            : "Thấp"}
                     </span>
                   </td>
                   <td className={tdCell}>
                     <VerdictBadge value={item.verdict} />
-                    <small className={`${tdSmall} ml-1`}>AI score {item.score}/100</small>
+                    <small className={`${tdSmall} ml-1`}>AI {item.aiAccuracy}/100</small>
                   </td>
                   <td className={tdCell}>
                     <span
                       className={`grid h-9 w-9 place-items-center rounded-full border-2 text-[9px] font-extrabold ${
-                        item.confidence >= 85
+                        item.sourceReliability >= 80
                           ? "border-[#32be7a] text-[#11975c]"
-                          : item.confidence >= 65
+                          : item.sourceReliability >= 50
                             ? "border-[#e0a52d] text-[#b87b08]"
-                            : "border-[#aab8c8] text-[#69778d]"
+                            : item.sourceReliability >= 20
+                              ? "border-[#e07b2d] text-[#b85f08]"
+                              : "border-[#aab8c8] text-[#69778d]"
                       }`}
                     >
-                      {item.confidence}%
+                      {item.sourceReliability}%
                     </span>
                   </td>
                   <td className={tdCell}>

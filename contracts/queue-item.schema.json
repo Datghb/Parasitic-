@@ -16,8 +16,11 @@
         "chua_tim_thay_nguon"
       ]
     },
-    "reason": { "type": "string" }
+    "reason": { "type": "string" },
+    "spread_risk": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "ai_accuracy": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "source_reliability": { "type": "integer", "minimum": 0, "maximum": 100 }
   },
-  "additionalProperties": false
+  "additionalProperties": true
 }
 

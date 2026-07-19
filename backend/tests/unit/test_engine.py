@@ -307,111 +307,111 @@ class TestExtractAmounts:
 class TestPhanLoaiClaimDUNG:
     def test_to_chuc_k1_correct(self, kg):
         claim = "tổ chức đăng tin giả mạo bị phạt 20-30 triệu"
-        nhan, _, _ = phan_loai_claim(claim, "to_chuc", kg)
-        assert nhan == NhanPhanLoai.DUNG
+        result = phan_loai_claim(claim, "to_chuc", kg)
+        assert result.nhan == NhanPhanLoai.DUNG
 
     def test_ca_nhan_k1_correct(self, kg):
         claim = "cá nhân đăng tin giả mạo bị phạt 10-15 triệu"
-        nhan, _, _ = phan_loai_claim(claim, "ca_nhan", kg)
-        assert nhan == NhanPhanLoai.DUNG
+        result = phan_loai_claim(claim, "ca_nhan", kg)
+        assert result.nhan == NhanPhanLoai.DUNG
 
     def test_to_chuc_k2_correct(self, kg):
         claim = "tổ chức đăng tin sai sự thật gây hoang mang trong nhân dân bị phạt 30-50 triệu"
-        nhan, _, _ = phan_loai_claim(claim, "to_chuc", kg)
-        assert nhan == NhanPhanLoai.DUNG
+        result = phan_loai_claim(claim, "to_chuc", kg)
+        assert result.nhan == NhanPhanLoai.DUNG
 
     def test_ca_nhan_k2_correct(self, kg):
         claim = "cá nhân đăng tin sai sự thật gây hoang mang bị phạt 15-25 triệu"
-        nhan, _, _ = phan_loai_claim(claim, "ca_nhan", kg)
-        assert nhan == NhanPhanLoai.DUNG
+        result = phan_loai_claim(claim, "ca_nhan", kg)
+        assert result.nhan == NhanPhanLoai.DUNG
 
     def test_auto_detect_to_chuc(self, kg):
         claim = "tổ chức đăng tin giả mạo bị phạt 20-30 triệu"
-        nhan, _, _ = phan_loai_claim(claim, None, kg)
-        assert nhan == NhanPhanLoai.DUNG
+        result = phan_loai_claim(claim, None, kg)
+        assert result.nhan == NhanPhanLoai.DUNG
 
     def test_auto_detect_ca_nhan(self, kg):
         claim = "người dùng đăng tin giả mạo bị phạt 10-15 triệu"
-        nhan, _, _ = phan_loai_claim(claim, None, kg)
-        assert nhan == NhanPhanLoai.DUNG
+        result = phan_loai_claim(claim, None, kg)
+        assert result.nhan == NhanPhanLoai.DUNG
 
     def test_auto_detect_fanpage(self, kg):
         claim = "fanpage đăng tin giả mạo bị phạt 20-30 triệu"
-        nhan, _, _ = phan_loai_claim(claim, None, kg)
-        assert nhan == NhanPhanLoai.DUNG
+        result = phan_loai_claim(claim, None, kg)
+        assert result.nhan == NhanPhanLoai.DUNG
 
     def test_slang_cu_correct(self, kg):
         claim = "tổ chức đăng tin giả mạo bị phạt 20-30 củ"
-        nhan, _, _ = phan_loai_claim(claim, "to_chuc", kg)
-        assert nhan == NhanPhanLoai.DUNG
+        result = phan_loai_claim(claim, "to_chuc", kg)
+        assert result.nhan == NhanPhanLoai.DUNG
 
 
 class TestPhanLoaiClaimHIEU_LAM:
     def test_wrong_subject_org_for_personal(self, kg):
         claim = "cá nhân đăng tin giả mạo bị phạt 20-30 triệu"
-        nhan, _, _ = phan_loai_claim(claim, "ca_nhan", kg)
-        assert nhan == NhanPhanLoai.HIEU_LAM
+        result = phan_loai_claim(claim, "ca_nhan", kg)
+        assert result.nhan == NhanPhanLoai.HIEU_LAM
 
     def test_old_regulation_explicit(self, kg):
         claim = "theo NĐ15, phạt 10-20 triệu"
-        nhan, _, _ = phan_loai_claim(claim, "to_chuc", kg)
-        assert nhan == NhanPhanLoai.HIEU_LAM
+        result = phan_loai_claim(claim, "to_chuc", kg)
+        assert result.nhan == NhanPhanLoai.HIEU_LAM
 
     def test_old_regulation_implicit_amount(self, kg):
         claim = "phạt có 10-20 triệu thôi"
-        nhan, _, _ = phan_loai_claim(claim, "to_chuc", kg)
-        assert nhan == NhanPhanLoai.HIEU_LAM
+        result = phan_loai_claim(claim, "to_chuc", kg)
+        assert result.nhan == NhanPhanLoai.HIEU_LAM
 
     def test_old_regulation_5_10_for_to_chuc(self, kg):
         claim = "phạt 5-10 triệu"
-        nhan, _, _ = phan_loai_claim(claim, "to_chuc", kg)
-        assert nhan == NhanPhanLoai.HIEU_LAM
+        result = phan_loai_claim(claim, "to_chuc", kg)
+        assert result.nhan == NhanPhanLoai.HIEU_LAM
 
     def test_k2_amount_for_k1_behavior(self, kg):
         claim = "tổ chức đăng tin giả bị phạt 50 triệu"
-        nhan, _, _ = phan_loai_claim(claim, "to_chuc", kg)
-        assert nhan == NhanPhanLoai.HIEU_LAM
+        result = phan_loai_claim(claim, "to_chuc", kg)
+        assert result.nhan == NhanPhanLoai.HIEU_LAM
 
     def test_slang_cu_old_regulation(self, kg):
         claim = "phạt có 10-20 củ thôi"
-        nhan, _, _ = phan_loai_claim(claim, "to_chuc", kg)
-        assert nhan == NhanPhanLoai.HIEU_LAM
+        result = phan_loai_claim(claim, "to_chuc", kg)
+        assert result.nhan == NhanPhanLoai.HIEU_LAM
 
     def test_to_chuc_amount_too_low(self, kg):
         claim = "tổ chức đăng tin giả bị phạt 5 triệu"
-        nhan, _, _ = phan_loai_claim(claim, "to_chuc", kg)
-        assert nhan == NhanPhanLoai.HIEU_LAM
+        result = phan_loai_claim(claim, "to_chuc", kg)
+        assert result.nhan == NhanPhanLoai.HIEU_LAM
 
 
 class TestPhanLoaiClaimCAN_KIEM_CHUNG:
     def test_empty_claim(self, kg):
-        nhan, _, _ = phan_loai_claim("", None, kg)
-        assert nhan == NhanPhanLoai.CAN_KIEM_CHUNG
+        result = phan_loai_claim("", None, kg)
+        assert result.nhan == NhanPhanLoai.CAN_KIEM_CHUNG
 
     def test_no_behavior_match(self, kg):
         claim = "hôm nay trời đẹp thật đấy"
-        nhan, _, _ = phan_loai_claim(claim, None, kg)
-        assert nhan == NhanPhanLoai.CAN_KIEM_CHUNG
+        result = phan_loai_claim(claim, None, kg)
+        assert result.nhan == NhanPhanLoai.CAN_KIEM_CHUNG
 
     def test_conditional_claim_no_subject(self, kg):
         claim = "nghe nói ngân hàng X phá sản"
-        nhan, _, _ = phan_loai_claim(claim, None, kg)
-        assert nhan == NhanPhanLoai.CAN_KIEM_CHUNG
+        result = phan_loai_claim(claim, None, kg)
+        assert result.nhan == NhanPhanLoai.CAN_KIEM_CHUNG
 
     def test_conditional_with_tin_don(self, kg):
         claim = "tin đồn về việc ngân hàng phá sản"
-        nhan, _, _ = phan_loai_claim(claim, None, kg)
-        assert nhan == NhanPhanLoai.CAN_KIEM_CHUNG
+        result = phan_loai_claim(claim, None, kg)
+        assert result.nhan == NhanPhanLoai.CAN_KIEM_CHUNG
 
     def test_no_subject_no_amount(self, kg):
         claim = "đăng tin giả mạo"
-        nhan, _, _ = phan_loai_claim(claim, None, kg)
-        assert nhan == NhanPhanLoai.CAN_KIEM_CHUNG
+        result = phan_loai_claim(claim, None, kg)
+        assert result.nhan == NhanPhanLoai.CAN_KIEM_CHUNG
 
     def test_share_lai_bai_cua_nguoi_khac(self, kg):
         claim = "chia sẻ lại bài của người khác cũng bị phạt?"
-        nhan, _, _ = phan_loai_claim(claim, None, kg)
-        assert nhan == NhanPhanLoai.CAN_KIEM_CHUNG
+        result = phan_loai_claim(claim, None, kg)
+        assert result.nhan == NhanPhanLoai.CAN_KIEM_CHUNG
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -514,7 +514,7 @@ class TestDetectCallToAction:
 
 class TestTichHopNguon:
     def test_co_bac_bo_gan_ly_do_va_tang_priority(self):
-        ly_do_moi, bump = tich_hop_nguon(
+        ly_do_moi, bump, cta = tich_hop_nguon(
             NhanPhanLoai.HIEU_LAM, "Gán mức tổ chức cho cá nhân",
             NhanNguon.CO_BAC_BO_CHINH_THUC, "SBV (Tier 0) bác bỏ ngày 2026-07-10",
             "cá nhân bị phạt 20-30 triệu",
@@ -523,7 +523,7 @@ class TestTichHopNguon:
         assert bump == 2
 
     def test_co_nguon_xac_nhan_gan_ly_do_khong_tang_priority(self):
-        ly_do_moi, bump = tich_hop_nguon(
+        ly_do_moi, bump, cta = tich_hop_nguon(
             NhanPhanLoai.DUNG, "Đúng khung tổ chức",
             NhanNguon.CO_NGUON_XAC_NHAN, "2 nguồn Tier 1/2 độc lập xác nhận",
             "tổ chức bị phạt 20-30 triệu",
@@ -532,7 +532,7 @@ class TestTichHopNguon:
         assert bump == 0
 
     def test_chua_tim_thay_nguon_khong_keu_goi_khong_tang_priority(self):
-        ly_do_moi, bump = tich_hop_nguon(
+        ly_do_moi, bump, cta = tich_hop_nguon(
             NhanPhanLoai.CAN_KIEM_CHUNG, "Không khớp hành vi nào",
             NhanNguon.CHUA_TIM_THAY_NGUON, "Không tìm thấy nguồn",
             "hôm nay trời đẹp thật đấy",
@@ -541,7 +541,7 @@ class TestTichHopNguon:
         assert bump == 0
 
     def test_chua_tim_thay_nguon_keu_goi_hanh_dong_day_top(self):
-        ly_do_moi, bump = tich_hop_nguon(
+        ly_do_moi, bump, cta = tich_hop_nguon(
             NhanPhanLoai.CAN_KIEM_CHUNG, "Không khớp hành vi nào",
             NhanNguon.CHUA_TIM_THAY_NGUON, "Không tìm thấy nguồn",
             "mọi người tẩy chay page này ngay, đừng tin",

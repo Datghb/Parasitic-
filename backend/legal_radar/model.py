@@ -168,8 +168,9 @@ class QueueItem:
     status: str = "new"
     score: int = 30
     confidence: int = 50
-    comments: list[dict] = None
-
+    spread_risk: int = 0
+    ai_accuracy: int = 0
+    source_reliability: int = 0
     comments: list[dict] = None
 
     def __post_init__(self):

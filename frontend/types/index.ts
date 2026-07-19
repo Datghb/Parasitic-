@@ -12,6 +12,9 @@ export type Case = {
   priority: Priority;
   score: number;
   confidence: number;
+  spreadRisk: number;
+  aiAccuracy: number;
+  sourceReliability: number;
   verdict: Verdict;
   status: Status;
   reason: string;
@@ -56,6 +59,9 @@ export type ApiQueueItem = {
   source_agency?: string;
   score?: number;
   confidence?: number;
+  spread_risk?: number;
+  ai_accuracy?: number;
+  source_reliability?: number;
   comments?: Array<{ text: string; author: string; timestamp: string }>;
   post_comments?: Array<{ text: string; author: string; timestamp: string }>;
 };

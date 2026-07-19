@@ -20,6 +20,20 @@ class ClassificationResult:
     provision: str = ""
     penalty: str = ""
     document: str = "Nghị định 174/2026/NĐ-CP"
+    bm25_score: float = 0.0
+    amount_match: str = "none"
+    study_case_matched: bool = False
+    cta_detected: bool = False
+
+
+@dataclass
+class PhanLoaiResult:
+    nhan: NhanPhanLoai
+    ly_do: str
+    citations: list[str] = field(default_factory=list)
+    bm25_score: float = 0.0
+    amount_match: str = "none"
+    study_case_matched: bool = False
 
 
 # ── P2.1: Tính mức phạt theo chủ thể ──
@@ -145,6 +159,11 @@ def _bm25_score(query_tokens: list[str], doc_tokens: list[str], k1: float = 1.5,
 
 
 def match_hanh_vi(text: str, kg: KnowledgeGraph, min_score: float = 0.5) -> list[DieuKhoan]:
+    scored = match_hanh_vi_with_scores(text, kg, min_score)
+    return [dk for dk, _ in scored]
+
+
+def match_hanh_vi_with_scores(text: str, kg: KnowledgeGraph, min_score: float = 0.5) -> list[tuple[DieuKhoan, float]]:
     if not text.strip():
         return []
 
@@ -163,12 +182,12 @@ def match_hanh_vi(text: str, kg: KnowledgeGraph, min_score: float = 0.5) -> list
 
     scored.sort(key=lambda x: -x[0])
 
-    result: list[DieuKhoan] = []
+    result: list[tuple[DieuKhoan, float]] = []
     seen: set[str] = set()
-    for _, hv_id in scored:
+    for bm25_sc, hv_id in scored:
         for dk in kg.get_dieu_khoan_for_hanh_vi(hv_id):
             if dk.id not in seen:
-                result.append(dk)
+                result.append((dk, bm25_sc))
                 seen.add(dk.id)
     return result
 
@@ -337,19 +356,21 @@ def phan_loai_claim(
     claim: str,
     loai_chu_the: str | None,
     kg: KnowledgeGraph,
-) -> tuple[NhanPhanLoai, str, list[str]]:
+) -> PhanLoaiResult:
     if not claim.strip():
-        return (NhanPhanLoai.CAN_KIEM_CHUNG, "Claim rỗng", [])
+        return PhanLoaiResult(NhanPhanLoai.CAN_KIEM_CHUNG, "Claim rỗng", [], 0.0, "none", False)
 
     # Check if this matches a study case first
     sc_result = _match_study_case(claim, kg)
     if sc_result:
-        return sc_result
+        return PhanLoaiResult(sc_result[0], sc_result[1], sc_result[2], 0.0, "exact", True)
 
     auto_subject = _detect_subject_type(claim)
     effective_subject = loai_chu_the or auto_subject
 
-    matched_dks = match_hanh_vi(claim, kg)
+    scored_dks = match_hanh_vi_with_scores(claim, kg)
+    matched_dks = [dk for dk, _ in scored_dks]
+    best_bm25 = scored_dks[0][1] if scored_dks else 0.0
     amounts = _extract_amounts_millions(claim)
 
     _ND15_K1_RANGE = (10, 20)
@@ -362,24 +383,30 @@ def phan_loai_claim(
     if _detect_old_regulation(claim):
         old_amounts = [a for a in amounts if a[0] <= 20]
         if old_amounts or not amounts:
-            return (
+            return PhanLoaiResult(
                 NhanPhanLoai.HIEU_LAM,
                 "Tham chiếu quy định cũ (NĐ15/2020) đã hết hiệu lực từ 01/7/2026 — "
                 "khung hiện tại theo NĐ174/2026 là 20-30 triệu (tổ chức), 10-15 triệu (cá nhân)",
                 [],
+                best_bm25,
+                "exact" if amounts else "none",
+                False,
             )
 
     if not matched_dks:
         if has_penalty_keyword and amounts:
             lo_val, hi_val = amounts[0]
             if (lo_val, hi_val) == _ND15_K1_RANGE or (lo_val, hi_val) == _ND15_K1_CA_NHAN:
-                return (
+                return PhanLoaiResult(
                     NhanPhanLoai.HIEU_LAM,
                     f"Mức {lo_val}-{hi_val} triệu là khung NĐ15/2020 (hết hiệu lực 30/6/2026) — "
                     "khung hiện tại theo NĐ174/2026 là 20-30 triệu (tổ chức), 10-15 triệu (cá nhân)",
                     [],
+                    best_bm25,
+                    "exact",
+                    False,
                 )
-        return (NhanPhanLoai.CAN_KIEM_CHUNG, "Không khớp hành vi nào trong phạm vi đã nạp", [])
+        return PhanLoaiResult(NhanPhanLoai.CAN_KIEM_CHUNG, "Không khớp hành vi nào trong phạm vi đã nạp", [], best_bm25, "none", False)
 
     citations = [_build_citation(dk, kg) for dk in matched_dks[:2]]
 
@@ -391,7 +418,6 @@ def phan_loai_claim(
             if penalty:
                 org_range = penalty
                 ind_range = (penalty[0] // 2, penalty[1] // 2)
-                # If the amount does not match either individual or organization range of this clause:
                 if not (
                     (lo_val == org_range[0] and hi_val == org_range[1]) or
                     (lo_val == ind_range[0] and hi_val == ind_range[1]) or
@@ -406,33 +432,44 @@ def phan_loai_claim(
                             break
                     if other_penalty:
                         dk2, p2 = other_penalty
-                        return (
+                        return PhanLoaiResult(
                             NhanPhanLoai.HIEU_LAM,
                             f"Mức {lo_val:.1f}-{hi_val:.1f} triệu thuộc khoản {dk2.khoan}, "
                             f"không phải khoản {best_dk.khoan} ({penalty[0]}-{penalty[1]} triệu cho tổ chức, "
                             f"{penalty[0]//2}-{penalty[1]//2} triệu cho cá nhân) — "
                             f"hành vi khoản {best_dk.khoan} khác khoản {dk2.khoan}".replace('.0', ''),
                             citations,
+                            best_bm25,
+                            "exact",
+                            False,
                         )
 
         if _detect_conditional_claim(claim):
-            return (
+            return PhanLoaiResult(
                 NhanPhanLoai.CAN_KIEM_CHUNG,
                 "Claim có điều kiện/ngoại lệ + thiếu chủ thể — cần cán bộ đối chiếu",
                 citations,
+                best_bm25,
+                "exact" if amounts else "none",
+                False,
             )
-        return (
+        return PhanLoaiResult(
             NhanPhanLoai.CAN_KIEM_CHUNG,
             "Thiếu dữ kiện chủ thể (cá nhân/tổ chức) — không đủ căn cứ phân loại",
             citations,
+            best_bm25,
+            "exact" if amounts else "none",
+            False,
         )
 
     if effective_subject == "ca_nhan":
-        return _classify_ca_nhan(claim, matched_dks, amounts, citations, kg)
+        nhan, ly_do, cites, amt = _classify_ca_nhan(claim, matched_dks, amounts, citations, kg)
+        return PhanLoaiResult(nhan, ly_do, cites, best_bm25, amt, False)
     elif effective_subject == "to_chuc":
-        return _classify_to_chuc(claim, matched_dks, amounts, citations, kg)
+        nhan, ly_do, cites, amt = _classify_to_chuc(claim, matched_dks, amounts, citations, kg)
+        return PhanLoaiResult(nhan, ly_do, cites, best_bm25, amt, False)
 
-    return (NhanPhanLoai.CAN_KIEM_CHUNG, "Không xác định được loại chủ thể", citations)
+    return PhanLoaiResult(NhanPhanLoai.CAN_KIEM_CHUNG, "Không xác định được loại chủ thể", citations, best_bm25, "none", False)
 
 
 def _classify_ca_nhan(
@@ -441,7 +478,7 @@ def _classify_ca_nhan(
     amounts: list[tuple[float, float]],
     citations: list[str],
     kg: KnowledgeGraph,
-) -> tuple[NhanPhanLoai, str, list[str]]:
+) -> tuple[NhanPhanLoai, str, list[str], str]:
     best_dk = matched_dks[0]
     penalty = _get_penalty_range_millions(best_dk, kg)
     expected_ca_nhan = (penalty[0] // 2, penalty[1] // 2) if penalty else (10, 15)
@@ -453,16 +490,17 @@ def _classify_ca_nhan(
                 NhanPhanLoai.CAN_KIEM_CHUNG,
                 "Có nhắc mức phạt nhưng không trích dẫn số cụ thể — cần xác minh",
                 citations,
+                "none",
             )
-        return (NhanPhanLoai.DUNG, "Đúng hành vi + đúng chủ thể cá nhân", citations)
+        return (NhanPhanLoai.DUNG, "Đúng hành vi + đúng chủ thể cá nhân", citations, "none")
 
     lo_val, hi_val = amounts[0]
 
     if lo_val == expected_ca_nhan[0] and hi_val == expected_ca_nhan[1]:
-        return (NhanPhanLoai.DUNG, f"Đúng khung cá nhân ({lo_val}-{hi_val} triệu) theo Điều {best_dk.dieu} NĐ174", citations)
+        return (NhanPhanLoai.DUNG, f"Đúng khung cá nhân ({lo_val}-{hi_val} triệu) theo Điều {best_dk.dieu} NĐ174", citations, "exact")
 
     if lo_val == hi_val and expected_ca_nhan[0] <= lo_val <= expected_ca_nhan[1]:
-        return (NhanPhanLoai.DUNG, f"Đúng khung cá nhân ({lo_val} triệu, nằm trong {expected_ca_nhan[0]}-{expected_ca_nhan[1]})", citations)
+        return (NhanPhanLoai.DUNG, f"Đúng khung cá nhân ({lo_val} triệu, nằm trong {expected_ca_nhan[0]}-{expected_ca_nhan[1]})", citations, "in_range")
 
     if lo_val == 5 and hi_val == 10:
         return (
@@ -470,6 +508,7 @@ def _classify_ca_nhan(
             "Mức 5-10 triệu là khung NĐ15/2020 (hết hiệu lực 30/6/2026) — "
             f"cá nhân theo NĐ174 là {expected_ca_nhan[0]}-{expected_ca_nhan[1]} triệu",
             citations,
+            "exact",
         )
 
     if lo_val >= 20:
@@ -478,6 +517,7 @@ def _classify_ca_nhan(
             f"Gán mức tổ chức ({lo_val}-{hi_val} triệu) cho cá nhân — "
             f"thực tế cá nhân chỉ {expected_ca_nhan[0]}-{expected_ca_nhan[1]} triệu (bằng 1/2 mức tổ chức)",
             citations,
+            "exact",
         )
 
     if penalty:
@@ -487,12 +527,14 @@ def _classify_ca_nhan(
                 NhanPhanLoai.HIEU_LAM,
                 f"Mức {lo_val}-{hi_val} triệu là khung tổ chức — cá nhân chỉ {expected_ca_nhan[0]}-{expected_ca_nhan[1]} triệu",
                 citations,
+                "exact",
             )
 
     return (
         NhanPhanLoai.CAN_KIEM_CHUNG,
         f"Mức {lo_val}-{hi_val} triệu không khớp khung nào đã nạp cho cá nhân ({expected_ca_nhan[0]}-{expected_ca_nhan[1]} triệu)",
         citations,
+        "in_range",
     )
 
 
@@ -502,7 +544,7 @@ def _classify_to_chuc(
     amounts: list[tuple[float, float]],
     citations: list[str],
     kg: KnowledgeGraph,
-) -> tuple[NhanPhanLoai, str, list[str]]:
+) -> tuple[NhanPhanLoai, str, list[str], str]:
     best_dk = matched_dks[0]
     penalty = _get_penalty_range_millions(best_dk, kg)
 
@@ -513,16 +555,17 @@ def _classify_to_chuc(
                 NhanPhanLoai.CAN_KIEM_CHUNG,
                 "Có nhắc mức phạt nhưng không trích dẫn số cụ thể — cần xác minh",
                 citations,
+                "none",
             )
-        return (NhanPhanLoai.DUNG, "Đúng hành vi + đúng chủ thể tổ chức", citations)
+        return (NhanPhanLoai.DUNG, "Đúng hành vi + đúng chủ thể tổ chức", citations, "none")
 
     lo_val, hi_val = amounts[0]
 
     if penalty and lo_val == penalty[0] and hi_val == penalty[1]:
-        return (NhanPhanLoai.DUNG, f"Đúng khung tổ chức ({lo_val}-{hi_val} triệu) theo Điều 95 NĐ174", citations)
+        return (NhanPhanLoai.DUNG, f"Đúng khung tổ chức ({lo_val}-{hi_val} triệu) theo Điều 95 NĐ174", citations, "exact")
 
     if penalty and lo_val == hi_val and penalty[0] <= lo_val <= penalty[1]:
-        return (NhanPhanLoai.DUNG, f"Đúng khung tổ chức ({lo_val} triệu, nằm trong {penalty[0]}-{penalty[1]})", citations)
+        return (NhanPhanLoai.DUNG, f"Đúng khung tổ chức ({lo_val} triệu, nằm trong {penalty[0]}-{penalty[1]})", citations, "in_range")
 
     if lo_val == 10 and hi_val == 20:
         return (
@@ -531,6 +574,7 @@ def _classify_to_chuc(
             f"tổ chức theo NĐ174 là {penalty[0]}-{penalty[1]} triệu" if penalty else
             "Mức 10-20 triệu là khung NĐ15/2020 (hết hiệu lực 30/6/2026)",
             citations,
+            "exact",
         )
 
     if penalty and lo_val > penalty[1]:
@@ -548,12 +592,14 @@ def _classify_to_chuc(
                 f"không phải khoản 1 ({penalty[0]}-{penalty[1]} triệu) — "
                 f"hành vi khoản 1 khác khoản 2",
                 [_build_citation(dk2, kg)],
+                "exact",
             )
         return (
             NhanPhanLoai.HIEU_LAM,
             f"Mức {lo_val}-{hi_val} triệu vượt khung khoản 1 ({penalty[0]}-{penalty[1]} triệu) — "
             "có thể nhầm lẫn khoản",
             citations,
+            "in_range",
         )
 
     if penalty and lo_val < penalty[0]:
@@ -563,17 +609,20 @@ def _classify_to_chuc(
                 "Mức 5-10 triệu là khung cá nhân NĐ15/2020 — "
                 f"tổ chức theo NĐ174 là {penalty[0]}-{penalty[1]} triệu",
                 citations,
+                "exact",
             )
         return (
             NhanPhanLoai.HIEU_LAM,
             f"Mức {lo_val}-{hi_val} triệu thấp hơn khung tối thiểu ({penalty[0]} triệu) cho tổ chức",
             citations,
+            "in_range",
         )
 
     return (
         NhanPhanLoai.CAN_KIEM_CHUNG,
         f"Mức {lo_val}-{hi_val} triệu không khớp khung nào đã nạp",
         citations,
+        "in_range",
     )
 
 
@@ -593,7 +642,7 @@ def classify_claim_full(
     loai_chu_the: str | None,
     kg: KnowledgeGraph,
 ) -> ClassificationResult:
-    nhan, ly_do, citations = phan_loai_claim(claim, loai_chu_the, kg)
+    plr = phan_loai_claim(claim, loai_chu_the, kg)
 
     auto_subject = _detect_subject_type(claim)
     effective_subject = loai_chu_the or auto_subject or ""
@@ -605,15 +654,15 @@ def classify_claim_full(
     elif effective_subject is None or effective_subject == "":
         subject_label = "Chưa xác định"
 
-    matched_dks = match_hanh_vi(claim, kg)
+    matched_dks = [dk for dk, _ in match_hanh_vi_with_scores(claim, kg)]
     provision_str = ""
     penalty_str = ""
     document_str = "Nghị định 174/2026/NĐ-CP"
 
-    if citations:
-        provision_str = "; ".join(citations[:2])
+    if plr.citations:
+        provision_str = "; ".join(plr.citations[:2])
 
-    if nhan == NhanPhanLoai.DUNG:
+    if plr.nhan == NhanPhanLoai.DUNG:
         penalty_str = "Không vi phạm"
         subject_label = subject_label or "Chưa xác định"
     elif matched_dks and effective_subject:
@@ -634,13 +683,17 @@ def classify_claim_full(
         penalty_str = "Cần xác định chủ thể trước khi tính mức phạt"
 
     return ClassificationResult(
-        nhan=nhan,
-        ly_do=ly_do,
-        citations=citations,
+        nhan=plr.nhan,
+        ly_do=plr.ly_do,
+        citations=plr.citations,
         subject=subject_label,
         provision=provision_str,
         penalty=penalty_str,
         document=document_str,
+        bm25_score=plr.bm25_score,
+        amount_match=plr.amount_match,
+        study_case_matched=plr.study_case_matched,
+        cta_detected=_detect_call_to_action(claim),
     )
 
 
@@ -715,10 +768,10 @@ def tich_hop_nguon(
     nhan_nguon: NhanNguon,
     ly_do_nguon: str,
     claim: str,
-) -> tuple[str, int]:
+) -> tuple[str, int, bool]:
     """P2.7: hợp nhất nhãn nguồn (RAG2) vào ly_do của engine (RAG1) + tính priority bump.
 
-    Trả về (ly_do_moi, priority_bump). Không tự quyết định `nhan` — nhãn phân loại
+    Trả về (ly_do_moi, priority_bump, cta_detected). Không tự quyết định `nhan` — nhãn phân loại
     hành vi (RAG1) và nhãn nguồn (RAG2) độc lập nhau, chỉ gộp lời giải thích + ưu tiên.
     """
     if nhan_nguon in (NhanNguon.CO_BAC_BO_CHINH_THUC, NhanNguon.CO_NGUON_XAC_NHAN):
@@ -726,14 +779,12 @@ def tich_hop_nguon(
     else:
         ly_do_moi = ly_do
 
+    cta_detected = _detect_call_to_action(claim)
     priority_bump = 0
     if nhan_nguon == NhanNguon.CO_BAC_BO_CHINH_THUC:
         priority_bump += 2
-    elif nhan_nguon == NhanNguon.CHUA_TIM_THAY_NGUON and _detect_call_to_action(claim):
-        # Kêu gọi hành động (tẩy chay/report/cảnh báo...) mà chưa có nguồn xác
-        # minh nào — rủi ro lan truyền cao hơn claim trung tính chưa có nguồn,
-        # đẩy lên đầu hàng đợi để cán bộ ưu tiên xử lý trước.
+    elif nhan_nguon == NhanNguon.CHUA_TIM_THAY_NGUON and cta_detected:
         priority_bump += 1
 
-    return ly_do_moi, priority_bump
+    return ly_do_moi, priority_bump, cta_detected
 
