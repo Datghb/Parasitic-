@@ -7,7 +7,7 @@ name = "legal-radar"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-  "fastapi>=0.115,<1",
+  "fastapi>=0.139.2,<1",
   "pydantic>=2.10,<3",
   "pydantic-settings>=2.0,<3",
   "uvicorn[standard]>=0.34,<1",
