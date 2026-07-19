@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from legal_radar.model import NhanNguon
-from legal_radar.api.main import app
+from backend.legal_radar.model import NhanNguon
+from backend.legal_radar.api.main import app
 
 client = TestClient(app)
 
@@ -80,21 +80,25 @@ def test_qa_returns_supported_schema() -> None:
     assert response.json()["label"] in {"dung", "hieu_lam", "can_kiem_chung"}
 
 def test_crawl_returns_supported_schema(monkeypatch, tmp_path) -> None:
-    from legal_radar.api.routes import crawl
+    from backend.legal_radar.api.routes import crawl
+    from backend.legal_radar.settings import Settings
 
     monkeypatch.setattr(crawl, "runs_dir", lambda: tmp_path)
-    monkeypatch.setattr(crawl, "_try_live_crawl", lambda *a, **kw: {"items": [], "crawled": 0, "relevant": 0})
-    with patch("legal_radar.source_search.dynamic_search_gemini", return_value=[]):
+    monkeypatch.setattr(crawl, "_try_live_crawl", lambda *a, **kw: ({"items": [], "crawled": 0, "relevant": 0}, "Test: no items"))
+    import backend.legal_radar.settings as settings_mod
+    fake = settings_mod.Settings(BRIGHTDATA_API_KEY="test-key")
+    monkeypatch.setattr(settings_mod, "get_settings", lambda: fake)
+    with patch("backend.legal_radar.source_search.search_brightdata", return_value=[]):
         response = client.post("/api/crawl", json={"keywords": ["tin giả"], "max_posts_per_platform": 2})
     assert response.status_code == 200
     lines = [ln for ln in response.text.strip().split("\n") if ln.strip()]
     assert len(lines) >= 1
     start_msg = json.loads(lines[0])
-    assert start_msg["type"] == "start"
+    assert start_msg["type"] == "error"
 
 
 def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) -> None:
-    from legal_radar.api.routes import crawl
+    from backend.legal_radar.api.routes import crawl
 
     fixture_path = (
         Path(__file__).resolve().parents[3]
@@ -103,7 +107,7 @@ def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) ->
         / "crawled_sample.json"
     )
     fixture_post = json.loads(fixture_path.read_text(encoding="utf-8"))[0]
-    expected_count = 1 + len(fixture_post.get("comments", []))
+    expected_count = 1
     queue_path = tmp_path / "queue.jsonl"
     provider = MagicMock()
     provider.generate.return_value = json.dumps(
@@ -118,12 +122,15 @@ def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) ->
     monkeypatch.setattr(
         crawl,
         "_try_live_crawl",
-        lambda *a, **kw: {"crawled": 1, "relevant": 1, "items": [fixture_post]},
+        lambda *a, **kw: ({"crawled": 1, "relevant": 1, "items": [fixture_post]}, None),
     )
     monkeypatch.setattr(crawl, "runs_dir", lambda: tmp_path)
-    monkeypatch.setattr(crawl, "_load_sample_items", lambda: [fixture_post])
 
-    import legal_radar.pipeline as pipeline_mod
+    import backend.legal_radar.settings as settings_mod
+    fake = settings_mod.Settings(BRIGHTDATA_API_KEY="test-key")
+    monkeypatch.setattr(settings_mod, "get_settings", lambda: fake)
+
+    import backend.legal_radar.pipeline as pipeline_mod
     monkeypatch.setattr(pipeline_mod, "_queue_path", lambda: queue_path)
     monkeypatch.setattr(crawl, "_queue_path", lambda: queue_path)
     monkeypatch.setattr(crawl, "_build_crawled_ingestor", lambda qp: pipeline_mod.CommentIngestor(provider, MagicMock(), str(qp)))
@@ -131,7 +138,7 @@ def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) ->
 
     official_url = "https://chinhphu.vn/thong-tin-chinh-thuc"
     with patch(
-        "legal_radar.source_search.dynamic_search_gemini",
+        "backend.legal_radar.source_search.search_brightdata",
         return_value=[{
             "tieu_de": "Thông tin chính thức",
             "nguon": "Cổng TTĐT Chính phủ",
@@ -142,7 +149,7 @@ def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) ->
             "la_xac_nhan": True,
         }],
     ), patch(
-        "legal_radar.pipeline.xac_thuc_nguon",
+        "backend.legal_radar.pipeline.xac_thuc_nguon",
         return_value=(NhanNguon.CO_NGUON_XAC_NHAN, [{
             "tieu_de": "Thông tin chính thức",
             "nguon": "Cổng TTĐT Chính phủ",

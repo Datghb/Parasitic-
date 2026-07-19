@@ -13,10 +13,10 @@ from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
-from ..paths import runs_dir
-from .facebook import crawl_facebook
-from .news import crawl_news
-from .youtube import crawl_youtube
+from backend.legal_radar.paths import runs_dir
+from backend.legal_radar.crawlers.facebook import crawl_facebook
+from backend.legal_radar.crawlers.news import crawl_news
+from backend.legal_radar.crawlers.youtube import crawl_youtube
 
 logger = logging.getLogger(__name__)
 
@@ -86,33 +86,31 @@ def crawl_now(
     seen_urls = _load_seen_urls(out)
     all_items: list[dict[str, Any]] = []
 
-    crawlers = {
-        "web": (crawl_news, 50),
-    }
+    crawlers: dict[str, tuple[Any, int]] = {}
+    if os.environ.get("CRAWL_NEWS_ENABLED", "true").lower() in {"1", "true", "yes", "on"}:
+        crawlers["web"] = (crawl_news, 50)
     if os.environ.get("CRAWL_YOUTUBE_ENABLED", "true").lower() in {"1", "true", "yes", "on"}:
         crawlers["youtube"] = (crawl_youtube, min(50, max_posts_per_platform * 3))
     if os.environ.get("CRAWL_FACEBOOK_ENABLED", "true").lower() in {"1", "true", "yes", "on"}:
         crawlers["facebook"] = (crawl_facebook, max_posts_per_platform)
-    # Facebook discovery/scraping can take considerably longer than YouTube.
-    # Run platforms concurrently so a slow Facebook request cannot prevent
-    # YouTube results from reaching the API's 45-second response window.
-    pool = ThreadPoolExecutor(max_workers=len(crawlers))
-    futures = {
-        pool.submit(crawler, keywords=kw, max_posts=raw_limit): platform
-        for platform, (crawler, raw_limit) in crawlers.items()
-    }
-    done, pending = wait(futures, timeout=40)
-    for future in done:
-        platform = futures[future]
-        try:
-            all_items.extend(future.result())
-        except Exception as exc:
-            logger.warning("%s crawler failed: %s", platform, exc)
-    for future in pending:
-        logger.warning("%s crawler exceeded the 40-second platform window", futures[future])
-        future.cancel()
-    # Do not block the response waiting for a platform that already timed out.
-    pool.shutdown(wait=False, cancel_futures=True)
+
+    if crawlers:
+        pool = ThreadPoolExecutor(max_workers=len(crawlers))
+        futures = {
+            pool.submit(crawler, keywords=kw, max_posts=raw_limit): platform
+            for platform, (crawler, raw_limit) in crawlers.items()
+        }
+        done, pending = wait(futures, timeout=40)
+        for future in done:
+            platform = futures[future]
+            try:
+                all_items.extend(future.result())
+            except Exception as exc:
+                logger.warning("%s crawler failed: %s", platform, exc)
+        for future in pending:
+            logger.warning("%s crawler exceeded the 40-second platform window", futures[future])
+            future.cancel()
+        pool.shutdown(wait=False, cancel_futures=True)
 
     appended = _append_results(out, all_items, seen_urls)
     logger.info(
@@ -128,16 +126,25 @@ def crawl_and_process(
     output_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Crawl → clean → filter. Return {crawled, relevant, items}."""
-    from .cleaner import clean_post
-    from .filter import is_relevant
+    from backend.legal_radar.crawlers.cleaner import clean_post
+    from backend.legal_radar.crawlers.filter import is_relevant
 
     raw_items = crawl_now(keywords=keywords, max_posts_per_platform=max_posts, output_path=output_path)
+    logger.info("crawl_and_process: %d raw items from crawler", len(raw_items))
 
     relevant_items: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
     for raw in raw_items:
         cleaned = clean_post(raw)
         if not cleaned:
+            logger.debug("clean_post returned None for: %s", str(raw.get("url", ""))[:80])
             continue
+
+        url = cleaned.get("url", "")
+        if url and url in seen_urls:
+            continue
+        if url:
+            seen_urls.add(url)
 
         all_text = cleaned["text"]
         for c in cleaned.get("comments", []):
@@ -145,19 +152,15 @@ def crawl_and_process(
 
         if is_relevant(all_text):
             relevant_items.append(cleaned)
+        else:
+            logger.debug("is_relevant=False for: %s", cleaned["text"][:80])
 
-    selected_items: list[dict[str, Any]] = []
-    platform_counts: dict[str, int] = {}
-    for item in relevant_items:
-        platform = str(item.get("platform", "unknown"))
-        if platform_counts.get(platform, 0) >= max_posts:
-            continue
-        platform_counts[platform] = platform_counts.get(platform, 0) + 1
-        selected_items.append(item)
+    relevant_items = relevant_items[:max_posts]
+    logger.info("crawl_and_process: %d raw → %d relevant", len(raw_items), len(relevant_items))
     return {
         "crawled": len(raw_items),
-        "relevant": len(selected_items),
-        "items": selected_items,
+        "relevant": len(relevant_items),
+        "items": relevant_items,
     }
 
 

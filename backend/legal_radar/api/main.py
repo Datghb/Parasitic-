@@ -1,26 +1,15 @@
 """HTTP API for the Legal-KG backend."""
 
-import os
-from pathlib import Path
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from dotenv import load_dotenv
+from backend.legal_radar.settings import get_settings
 
-_env_path = Path(__file__).resolve().parents[2] / ".env"
-if _env_path.exists():
-    load_dotenv(_env_path, override=False)
+from backend.legal_radar.api.routes import cases, crawl, qa, queue, verify
 
-from fastapi import FastAPI  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+settings = get_settings()
 
-from .routes import cases, crawl, qa, queue, verify  # noqa: E402
-
-_origins = [
-    origin.strip()
-    for origin in os.getenv(
-        "FRONTEND_ORIGIN", "https://diachung.dpdns.org,http://localhost:3000,http://localhost:3001"
-    ).split(",")
-    if origin.strip()
-]
+_origins = [origin.strip() for origin in settings.frontend_origin.split(",") if origin.strip()]
 
 app = FastAPI(title="Legal-KG API", version="0.1.0")
 app.add_middleware(

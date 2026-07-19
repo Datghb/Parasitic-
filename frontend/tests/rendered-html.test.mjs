@@ -49,7 +49,7 @@ test("production UI no longer contains starter preview artifacts", async () => {
   ]);
   const html = await htmlResponse.text();
 
-  assert.match(page, /<DiaChungApp \/>/);
+  assert.match(page, /<MarketOverview/);
   assert.match(layout, /Địa chứng/);
   assert.doesNotMatch(html, /Your site is taking shape|Codex is working|codex-preview/i);
   assert.doesNotMatch(page, /_sites-preview|SkeletonPreview/);

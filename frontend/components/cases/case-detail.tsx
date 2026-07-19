@@ -1,0 +1,447 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useUpdateStatusMutation } from "../../hooks/use-queries";
+import { API_URL } from "../../utils/api";
+import { VerdictBadge } from "../common/badge";
+import { Case, Status } from "../../types";
+import {
+  ExternalLink, Check, HelpCircle, Scale, ArrowRight, ArrowLeft, X, AlertTriangle
+} from "lucide-react";
+
+const statuses: Status[] = ["Mới", "Đang xử lý", "Đã xử lý"];
+
+function platformIcon(platform: Case["platform"]) {
+  const paths: Record<Case["platform"], string> = {
+    Facebook:
+      "M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z",
+    TikTok:
+      "M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z",
+    YouTube:
+      "M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z",
+    X: "M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z",
+    Forum:
+      "M12.103 0C18.666 0 24 5.485 24 11.997c0 6.51-5.33 11.99-11.9 11.99L0 24V11.79C0 5.28 5.532 0 12.103 0zm.116 4.563c-2.593-.003-4.996 1.352-6.337 3.57-1.33 2.208-1.387 4.957-.148 7.22L4.4 19.61l4.794-1.074c2.745 1.225 5.965.676 8.136-1.39 2.17-2.054 2.86-5.228 1.737-7.997-1.135-2.778-3.84-4.59-6.84-4.585h-.008z",
+  };
+  const colors: Record<Case["platform"], string> = {
+    Facebook: "text-[#1877f2]",
+    TikTok: "text-[#111]",
+    YouTube: "text-[#ff0033]",
+    X: "text-[#050505]",
+    Forum: "text-[#aeb6c2]",
+  };
+  return (
+    <svg
+      className={`block fill-current ${colors[platform]}`}
+      viewBox="0 0 24 24"
+      role="img"
+      aria-label={`${platform} logo`}
+      style={{ width: 14, height: 14 }}
+    >
+      <path d={paths[platform]} />
+    </svg>
+  );
+}
+
+const platformBg: Record<Case["platform"], string> = {
+  Facebook: "bg-[#e8f0f8] text-[#286298]",
+  TikTok: "bg-[#202a34] text-white",
+  YouTube: "bg-[#ffebe9] text-[#c54137]",
+  X: "bg-[#e9edf0] text-[#19232d]",
+  Forum: "bg-[#e8f0f8] text-[#286298]",
+};
+
+const detailCard = "rounded-[13px] border border-[#e8eaf1] bg-white p-4";
+const cardLabel = "block text-[10px] tracking-[.9px] text-[#8090a0]";
+const cardHeading = "flex items-center justify-between border-b border-[#eff0f5] pb-[11px]";
+const cardHeadingIcon =
+  "grid h-[25px] w-[25px] place-items-center rounded-full bg-linear-145 from-[#fff0fb] to-[#f2e8ff] text-[9px] font-extrabold text-[#ba1eaa]";
+const cardHeadingTitle = "mt-[3px] text-[14px] font-[750] text-[#293149]";
+const confidenceRow = "flex text-[12px] text-[#788499]";
+const confidenceTrack = "mt-2 mb-3 h-[5px] overflow-hidden rounded-[5px] bg-[#f0e8f0]";
+const flowStep = "flex-1 rounded-[9px] px-[5px] py-[11px] text-center text-[8px] font-extrabold";
+
+export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void }) {
+  const router = useRouter();
+  const updateStatusMutation = useUpdateStatusMutation();
+  const [currentStatus, setCurrentStatus] = useState<Status>(item.status);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+
+  useEffect(() => {
+    setCurrentStatus(item.status);
+  }, [item.status]);
+
+  const handleBack = () => {
+    if (onClose) onClose();
+    else router.push("/queue");
+  };
+
+  const handleStatusChange = async (status: Status) => {
+    setCurrentStatus(status);
+    if (item.id.startsWith("HS-MVP-")) {
+      const saved = sessionStorage.getItem("local_cases");
+      if (saved) {
+        try {
+          const cases = JSON.parse(saved) as Case[];
+          const updated = cases.map((c) => (c.id === item.id ? { ...c, status } : c));
+          sessionStorage.setItem("local_cases", JSON.stringify(updated));
+        } catch {
+          // ignore
+        }
+      }
+    } else {
+      try {
+        await updateStatusMutation.mutateAsync({ id: item.id, status });
+      } catch {
+        // ignore, state is updated locally
+      }
+    }
+  };
+
+  async function handleStartVerification() {
+    setVerifyLoading(true);
+    setVerifyError("");
+    try {
+      if (item.id.startsWith("HS-MVP-")) {
+        const saved = sessionStorage.getItem("local_cases");
+        if (saved) {
+          try {
+            const cases = JSON.parse(saved) as Case[];
+            const updated = cases.map((c) => (c.id === item.id ? { ...c, status: "Đang xử lý" as Status } : c));
+            sessionStorage.setItem("local_cases", JSON.stringify(updated));
+          } catch {
+            // ignore
+          }
+        }
+        setCurrentStatus("Đang xử lý");
+      } else {
+        const res = await fetch(`${API_URL}/api/cases/${item.id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "reviewing" }),
+        });
+        if (!res.ok) throw new Error("API error");
+        setCurrentStatus("Đang xử lý");
+        void handleStatusChange("Đang xử lý");
+      }
+    } catch {
+      setVerifyError("Không thể kết nối API. Trạng thái chỉ cập nhật tạm thời.");
+      setCurrentStatus("Đang xử lý");
+    } finally {
+      setVerifyLoading(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        className="fixed inset-0 z-[70] border-0 bg-[#1e24465c] backdrop-blur-[3px]"
+        onClick={handleBack}
+        aria-label="Đóng hồ sơ"
+      />
+      <div className="fixed inset-y-0 right-0 z-[80] w-[min(590px,100vw)] overflow-y-auto bg-white px-[26px] pt-[26px] pb-[86px] shadow-[-18px_0_55px_#1e294426] max-[700px]:px-4 max-[700px]:pt-[22px]">
+      <button
+        className="absolute top-[17px] right-[18px] grid h-[34px] w-[34px] place-items-center rounded-full border-0 bg-[#f7f3f7] text-[#4e5970]"
+        onClick={handleBack}
+        aria-label="Đóng hồ sơ"
+      >
+        <X size={22} />
+      </button>
+      <div className="mb-[15px] border-b border-[#e8eaf1] pt-1 pr-[42px] pb-[18px]">
+        <div>
+          <span className="text-[10px] font-extrabold tracking-[1.5px] text-[#c01cad]">
+            CHI TIẾT HỒ SƠ · {item.id}
+          </span>
+          <h1 className="my-[9px] text-[19px] font-[760] leading-[1.35] tracking-[-.4px] text-[#202944]">
+            {item.claim}
+          </h1>
+          <p className="m-0 text-[10px] text-[#738195]">
+            {item.platform} · Công khai · {item.publishedAt}
+          </p>
+        </div>
+        <label className="mt-[15px] flex items-center gap-3 text-[10px] font-bold tracking-[.7px] text-[#728194]">
+          Trạng thái xử lý
+          <select
+            className="flex-1 rounded-[10px] border border-[#e7e9f0] bg-[#fafbfe] px-3 py-2.5 text-[13px] text-[#35495e] outline-none focus:border-[#d638b5] focus:shadow-[0_0_0_3px_#d638b512]"
+            value={currentStatus}
+            onChange={(event) => handleStatusChange(event.target.value as Status)}
+          >
+            {statuses.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div>
+        <div className="grid gap-[13px]">
+          <section className={detailCard}>
+            <div className={cardHeading}>
+              <div className="flex items-center gap-[11px]">
+                <span className={cardHeadingIcon}>01</span>
+                <div>
+                  <small className={cardLabel}>NỘI DUNG GỐC</small>
+                  <h2 className={cardHeadingTitle}>Bài viết được giám sát</h2>
+                </div>
+              </div>
+              <em className="text-[11px] not-italic text-[#778698]">{item.reach}</em>
+            </div>
+            <div className="flex items-center pt-4 pb-[5px]">
+              <span
+                className={`mr-[7px] inline-grid h-[25px] w-[25px] place-items-center rounded-full font-extrabold shadow-[inset_0_0_0_1px_#ffffff90] ${platformBg[item.platform]}`}
+              >
+                {platformIcon(item.platform)}
+              </span>
+              <div>
+                <strong className="block text-[13px]">{item.account}</strong>
+                <small className="mt-[3px] block text-[11px] text-[#8593a1]">
+                  {item.platform} · {item.publishedAt}
+                </small>
+              </div>
+            </div>
+            {item.postUrl && item.postUrl !== "#" && (
+              <div style={{ marginBottom: 12 }}>
+                <a
+                  href={item.postUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#3b82f6", fontSize: 13, textDecoration: "none" }}
+                >
+                  <ExternalLink size={14} className="mr-1 inline align-[-2px]" /> Xem bài viết gốc trên {item.platform}
+                </a>
+              </div>
+            )}
+            <blockquote className="my-3 rounded-r-xl border-l-[3px] border-[#d721ac] bg-[#fdf8ff] p-[13px] font-[Georgia] text-[13px] leading-[1.55] text-[#283d52]">
+              {"\u201C"}
+              {item.original}
+              {"\u201D"}
+            </blockquote>
+            <div style={{ marginTop: 16 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                }}
+              >
+                <small style={{ color: "#94a3b8", fontSize: 12, letterSpacing: "0.05em" }}>
+                  BÌNH LUẬN BÀI VIẾT ({(item.postComments || item.comments || []).length})
+                </small>
+              </div>
+              {((item.postComments?.length ?? 0) + (item.comments?.length ?? 0)) > 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    maxHeight: 400,
+                    overflowY: "auto",
+                    paddingRight: 4,
+                  }}
+                >
+                  {(item.postComments || item.comments || []).map((comment, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        background: "#0f172a",
+                        borderRadius: 8,
+                        padding: "10px 14px",
+                        borderLeft: "3px solid #334155",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <strong style={{ fontSize: 13, color: "#e2e8f0" }}>{comment.author || "Ẩn danh"}</strong>
+                        <small style={{ color: "#64748b", fontSize: 11 }}>{comment.timestamp || ""}</small>
+                      </div>
+                      <p style={{ fontSize: 13, color: "#cbd5e1", margin: 0, lineHeight: 1.5 }}>
+                        {comment.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>
+                  Chưa có bình luận
+                </p>
+              )}
+            </div>
+          </section>
+
+          <section className={detailCard}>
+            <div className={cardHeading}>
+              <div className="flex items-center gap-[11px]">
+                <span className={cardHeadingIcon}>02</span>
+                <div>
+                  <small className={cardLabel}>PHÂN TÍCH AI</small>
+                  <h2 className={cardHeadingTitle}>Claim được trích xuất</h2>
+                </div>
+              </div>
+              <VerdictBadge value={item.verdict} />
+            </div>
+            <div className="my-3 rounded-[7px] bg-linear-145 from-[#faf6ff] to-[#f6f7fc] p-[13px] font-[Georgia] text-[14px] font-semibold leading-[1.5] text-[#292e4a]">
+              “{item.claim}”
+            </div>
+            <div className="border-l-2 border-[#d929b2] pl-3">
+              <small className={cardLabel}>LÝ DO PHÂN LOẠI</small>
+              <p className="mt-[6px] mb-0 text-[11px] leading-[1.6] text-[#586a7c]">{item.reason}</p>
+            </div>
+          </section>
+
+          <section className={detailCard}>
+            <div className={cardHeading}>
+              <div className="flex items-center gap-[11px]">
+                <span className={cardHeadingIcon}>03</span>
+                <div>
+                  <small className={cardLabel}>KIỂM CHỨNG NGUỒN</small>
+                  <h2 className={cardHeadingTitle}>Đối chiếu nguồn chính thức</h2>
+                </div>
+              </div>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-[9px] px-2.5 py-[7px] text-[11px] font-[750] whitespace-nowrap ${
+                  item.verdict === "Đúng"
+                    ? "bg-[#e8f5ef] text-[#247656]"
+                    : item.verdict === "Hiểu lầm"
+                    ? "bg-[#ffebe8] text-[#a63b35]"
+                    : "bg-[#fff4d9] text-[#90621a]"
+                }`}
+              >
+                {item.verdict === "Đúng" ? <Check size={14} className="inline align-[-2px]" /> : item.verdict === "Hiểu lầm" ? <AlertTriangle size={14} className="inline align-[-2px]" /> : <HelpCircle size={14} className="inline align-[-2px]" />} {item.sourceResult}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 pt-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-linear-145 from-[#3d4774] to-[#202a53] font-[Georgia] text-[12px] font-semibold text-white shadow-[0_7px_15px_#20294b25]">
+                CQ
+              </div>
+              <div>
+                <small className={cardLabel}>NGUỒN CHÍNH THỨC</small>
+                <h3 className="my-[3px] text-[14px]">{item.sourceTitle}</h3>
+                <p className="m-0 text-[11px] text-[#83909e]">{item.sourceAgency}</p>
+              </div>
+              {item.sourceUrl && item.sourceUrl !== "#" ? (
+                <a
+                  className="ml-auto rounded-[9px] bg-[#fbf0fb] px-2.5 py-2 text-[12px] text-[#b51aa8] no-underline"
+                  href={item.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Mở nguồn <ExternalLink size={14} className="inline align-[-2px]" />
+                </a>
+              ) : (
+                <span
+                  className="ml-auto rounded-[9px] bg-[#f3f4f7] px-2.5 py-2 text-[11px] whitespace-nowrap text-[#9aa2b1]"
+                  aria-disabled="true"
+                >
+                  Chưa có URL nguồn
+                </span>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <aside className="mt-[13px] grid gap-[13px]">
+          <section className={detailCard}>
+            <small className="block text-[10px] tracking-[.9px] text-[#788499]">KẾT QUẢ THẨM ĐỊNH AI</small>
+            <VerdictBadge value={item.verdict} large />
+            <div className={confidenceRow}>
+              <span>Mức rủi ro lan truyền</span>
+              <strong className="ml-auto text-[#1d2940]">{item.spreadRisk}/100</strong>
+            </div>
+            <div className={confidenceTrack}>
+              <i
+                className="block h-full rounded-[5px] bg-linear-90 from-[#ff4cb7] to-[#b731e3]"
+                style={{ width: `${item.spreadRisk}%` }}
+              />
+            </div>
+            <div className={confidenceRow}>
+              <span>Độ chính xác AI</span>
+              <strong className="ml-auto text-[#1d2940]">{item.aiAccuracy}/100</strong>
+            </div>
+            <div className={confidenceTrack}>
+              <i
+                className="block h-full rounded-[5px] bg-linear-90 from-[#4cb7ff] to-[#31b7e3]"
+                style={{ width: `${item.aiAccuracy}%` }}
+              />
+            </div>
+            <div className={confidenceRow}>
+              <span>Độ tin cậy nguồn</span>
+              <strong className="ml-auto text-[#1d2940]">{item.sourceReliability}/100</strong>
+            </div>
+            <div className={confidenceTrack}>
+              <i
+                className="block h-full rounded-[5px] bg-linear-90 from-[#32be7a] to-[#11975c]"
+                style={{ width: `${item.sourceReliability}%` }}
+              />
+            </div>
+            <p className="m-0 text-[11px] leading-[1.5] text-[#788499]">
+              Kết quả tự động hỗ trợ sàng lọc, không thay thế kết luận của chuyên viên.
+            </p>
+          </section>
+          <section className={detailCard}>
+            <div className="flex gap-2.5 border-b border-[#e7ebef] pb-[14px]">
+              <Scale size={20} className="text-[#c524ad]" />
+              <div>
+                <small className={cardLabel}>CĂN CỨ PHÁP LUẬT</small>
+                <h2 className={cardHeadingTitle}>{item.document}</h2>
+              </div>
+            </div>
+            <dl className="m-0">
+              <div className="border-b border-[#edf0f3] py-3">
+                <dt className="mb-[5px] text-[10px] text-[#8693a0]">Điều / khoản / điểm</dt>
+                <dd className="m-0 text-[13px] font-[650] leading-[1.45] text-[#30465b]">{item.provision}</dd>
+              </div>
+              <div className="border-b border-[#edf0f3] py-3">
+                <dt className="mb-[5px] text-[10px] text-[#8693a0]">Chủ thể</dt>
+                <dd className="m-0 text-[13px] font-[650] leading-[1.45] text-[#30465b]">{item.subject}</dd>
+              </div>
+              <div className="border-b border-[#edf0f3] py-3">
+                <dt className="mb-[5px] text-[10px] text-[#8693a0]">Mức phạt</dt>
+                <dd className="m-0 text-[13px] font-[650] leading-[1.45] text-[#30465b]">{item.penalty}</dd>
+              </div>
+            </dl>
+            <div className="mt-[13px] rounded-[11px] bg-[#fff6e7] p-2.5 text-[11px] leading-[1.5] text-[#78633e]">
+              Cần đối chiếu đầy đủ hành vi, chủ thể và tình tiết thực tế trước khi áp dụng.
+            </div>
+          </section>
+          <section className={detailCard}>
+            <small className="text-[9px] font-extrabold text-[#65738a]">KNOWLEDGE GRAPH</small>
+            <div className="mt-[14px] flex items-center justify-between gap-1.5">
+              <span className={`${flowStep} bg-[#fff0f7] text-[#c31b80]`}>Claim</span>
+              <ArrowRight size={14} className="text-[#c3c9d3]" />
+              <span className={`${flowStep} bg-[#fff4e4] text-[#ad7314]`}>Chủ thể</span>
+              <ArrowRight size={14} className="text-[#c3c9d3]" />
+              <span className={`${flowStep} bg-[#eaf8ee] text-[#24865a]`}>Điều luật</span>
+              <ArrowRight size={14} className="text-[#c3c9d3]" />
+              <span className={`${flowStep} bg-[#edf4fc] text-[#3970ad]`}>Nguồn</span>
+            </div>
+          </section>
+        </aside>
+      </div>
+      <div className="fixed right-0 bottom-0 z-[82] grid w-[min(590px,100vw)] grid-cols-[1fr_1.25fr] gap-2.5 border-t border-[#e8eaf1] bg-white px-[26px] py-[14px] max-[700px]:px-4 max-[700px]:py-3">
+        <button
+          className="rounded-[9px] border border-[#dfe2e9] bg-white p-[11px] text-[11px] font-[750] text-[#5c687c]"
+          onClick={handleBack}
+        >
+          <ArrowLeft size={14} className="mr-1 inline align-[-2px]" /> Quay lại hàng đợi
+        </button>
+        <button
+          className="rounded-[9px] border-0 bg-linear-90 from-[#e213aa] to-[#a20ac1] p-[11px] text-[11px] font-[750] text-white"
+          onClick={handleStartVerification}
+          disabled={verifyLoading || currentStatus === "Đang xử lý"}
+        >
+          {verifyLoading
+            ? "Đang xử lý…"
+            : currentStatus === "Đang xử lý"
+            ? <><Check size={14} className="mr-1 inline align-[-2px]" /> Đang kiểm chứng</>
+            : <>Bắt đầu kiểm chứng <ArrowRight size={14} className="ml-1 inline align-[-2px]" /></>}
+        </button>
+      </div>
+      {verifyError && (
+        <div style={{ padding: "8px 24px", color: "#f59e0b", fontSize: 13 }}>{verifyError}</div>
+      )}
+    </div>
+    </>
+  );
+}

@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Providers } from "./providers";
+import { Sidebar } from "@/components/common/sidebar";
+import { Topbar } from "@/components/common/topbar";
 import "./globals.css";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin", "latin-ext"] });
@@ -27,8 +30,20 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi" suppressHydrationWarning>
-      <body className={`${geist.variable} ${mono.variable}`}>{children}</body>
+    <html lang="vi">
+      <body className={`${geist.variable} ${mono.variable}`}>
+        <Providers>
+          <div className="flex min-h-screen bg-[#f7f8fc] text-[15px] text-[#19283b]">
+            <Sidebar />
+            <div className="ml-[248px] flex h-screen flex-1 flex-col max-[980px]:ml-[78px] max-[700px]:ml-0">
+              <Topbar />
+              <main className="min-h-0 flex-1 overflow-y-auto bg-[#f7f8fc]">
+                {children}
+              </main>
+            </div>
+          </div>
+        </Providers>
+      </body>
     </html>
   );
 }
