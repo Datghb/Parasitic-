@@ -5,10 +5,25 @@ from __future__ import annotations
 import json
 import math
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from backend.legal_radar.api.dependencies import data_dir, runs_dir
+from backend.legal_radar.settings import get_settings
+from backend.legal_radar.storage import SqlStore
+
+
+@lru_cache(maxsize=4)
+def _store_for_url(database_url: str) -> SqlStore:
+    store = SqlStore(database_url)
+    store.initialize()
+    return store
+
+
+def _sql_store() -> SqlStore | None:
+    database_url = (get_settings().database_url or "").strip()
+    return _store_for_url(database_url) if database_url else None
 
 
 def _read_json(path: Path) -> Any:
@@ -114,6 +129,7 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any]:
         "created_at": str(raw.get("created_at") or raw.get("published_at", "")),
         "reach": reach,
         "status": str(raw.get("status", "new")),
+        "version": int(raw.get("version", 1)),
         "document": str(raw.get("document", "Nghị định 174/2026/NĐ-CP")),
         "provision": str(raw.get("provision", "")),
         "penalty": str(raw.get("penalty", "")),
@@ -138,7 +154,8 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def list_queue_items() -> list[dict[str, Any]]:
-    raw_rows = _queue_from_jsonl(runs_dir() / "queue.jsonl")
+    store = _sql_store()
+    raw_rows = store.list_cases() if store else _queue_from_jsonl(runs_dir() / "queue.jsonl")
     seen: set[str] = set()
     unique: list[dict[str, Any]] = []
     for row in raw_rows:
@@ -159,7 +176,26 @@ def update_queue_item_status(
     reviewer_label: str = "",
     reviewer_reason: str = "",
     reviewer_note: str = "",
+    expected_version: int | None = None,
+    actor: str = "operator",
 ) -> dict[str, Any] | None:
+    store = _sql_store()
+    if store:
+        try:
+            return _normalise(
+                store.update_case_status(
+                    case_id,
+                    status=new_status,
+                    expected_version=expected_version,
+                    actor=actor,
+                    reviewer_label=reviewer_label,
+                    reviewer_reason=reviewer_reason,
+                    reviewer_note=reviewer_note,
+                )
+            )
+        except KeyError:
+            return None
+
     from datetime import datetime, timezone
 
     queue_path = runs_dir() / "queue.jsonl"
@@ -197,8 +233,26 @@ def review_queue_item(
     decision: str,
     note: str,
     corrected_label: str | None,
+    expected_version: int = 1,
+    actor: str = "operator",
 ) -> dict[str, Any] | None:
     """Persist a human decision while keeping reviewed social content out of audit logs."""
+    store = _sql_store()
+    if store:
+        try:
+            return _normalise(
+                store.review_case(
+                    case_id,
+                    expected_version=expected_version,
+                    decision=decision,
+                    note=note,
+                    corrected_label=corrected_label,
+                    actor=actor,
+                )
+            )
+        except KeyError:
+            return None
+
     queue_path = runs_dir() / "queue.jsonl"
     if not queue_path.exists():
         return None
@@ -209,6 +263,7 @@ def review_queue_item(
         if str(row.get("id", "")) != case_id:
             continue
         row["status"] = "resolved"
+        row["version"] = int(row.get("version", 1)) + 1
         row["review"] = {
             "decision": decision,
             "note": note,
@@ -255,6 +310,9 @@ def _append_audit(case_id: str, action: str, old_value: str, new_value: str, not
 
 
 def get_audit_log(case_id: str) -> list[dict[str, Any]]:
+    store = _sql_store()
+    if store:
+        return store.list_audit(case_id)
     audit_path = runs_dir() / "audit.jsonl"
     if not audit_path.exists():
         return []
@@ -269,6 +327,18 @@ def get_audit_log(case_id: str) -> list[dict[str, Any]]:
         except json.JSONDecodeError:
             continue
     return entries
+
+
+def clear_queue_items() -> int:
+    store = _sql_store()
+    if store:
+        return store.clear_cases()
+    queue_path = runs_dir() / "queue.jsonl"
+    if not queue_path.exists():
+        return 0
+    deleted = len(_queue_from_jsonl(queue_path))
+    queue_path.unlink()
+    return deleted
 
 
 def list_study_cases() -> list[dict[str, Any]]:

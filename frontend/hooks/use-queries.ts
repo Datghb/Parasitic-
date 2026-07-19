@@ -40,6 +40,7 @@ export function useUpdateStatusMutation() {
       id,
       status,
       adminKey,
+      expectedVersion,
       reviewerLabel,
       reviewerReason,
       reviewerNote,
@@ -47,6 +48,7 @@ export function useUpdateStatusMutation() {
       id: string;
       status: Status;
       adminKey: string;
+      expectedVersion?: number;
       reviewerLabel?: string;
       reviewerReason?: string;
       reviewerNote?: string;
@@ -56,7 +58,10 @@ export function useUpdateStatusMutation() {
         "Đang xử lý": "reviewing",
         "Đã xử lý": "resolved",
       };
-      const body: Record<string, string> = { status: statusMap[status] };
+      const body: Record<string, string | number> = {
+        status: statusMap[status],
+      };
+      if (expectedVersion) body.expected_version = expectedVersion;
       if (reviewerLabel) body.reviewer_label = reviewerLabel;
       if (reviewerReason) body.reviewer_reason = reviewerReason;
       if (reviewerNote) body.reviewer_note = reviewerNote;
@@ -86,12 +91,14 @@ export function useReviewCaseMutation() {
       note,
       correctedLabel,
       adminKey,
+      expectedVersion,
     }: {
       id: string;
       decision: ReviewDecision;
       note: string;
       correctedLabel?: ReviewLabel;
       adminKey: string;
+      expectedVersion: number;
     }) => {
       const response = await fetch(`${API_URL}/api/cases/${id}/review`, {
         method: "POST",
@@ -103,6 +110,7 @@ export function useReviewCaseMutation() {
           decision,
           note,
           corrected_label: correctedLabel,
+          expected_version: expectedVersion,
         }),
       });
       if (!response.ok) {

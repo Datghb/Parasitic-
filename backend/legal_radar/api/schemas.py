@@ -43,6 +43,7 @@ class QueueItemResponse(BaseModel):
     reviewer_reason: str = ""
     reviewer_note: str = ""
     reviewed_at: str = ""
+    version: int = 1
 
 
 class AuditEntryResponse(BaseModel):

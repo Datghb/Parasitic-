@@ -17,6 +17,26 @@ thiểu 32 byte, không dùng lại khóa của nhà cung cấp. Compose ép
 `APP_ENV=production`, vì vậy backend sẽ từ chối toàn bộ thao tác quản trị nếu
 khóa này bị bỏ trống.
 
+Đặt thêm `POSTGRES_PASSWORD` và `DATABASE_URL`, ví dụ:
+
+```dotenv
+POSTGRES_DB=legal_radar
+POSTGRES_USER=legal_radar
+POSTGRES_PASSWORD=<mật-khẩu-ngẫu-nhiên>
+DATABASE_URL=postgresql+psycopg://legal_radar:<url-encoded-password>@postgres:5432/legal_radar
+```
+
+Trước lần chuyển dữ liệu đầu tiên, chạy import không phá hủy:
+
+```bash
+docker compose -f deploy/compose.yaml run --rm backend \
+  python scripts/migrate_jsonl_to_sql.py
+```
+
+Giữ `runs/queue.jsonl` cho đến khi đã so sánh số lượng và kiểm thử review trên
+SQL. Rollback bằng cách bỏ `DATABASE_URL` rồi triển khai lại; script import
+không sửa hoặc xóa JSONL.
+
 Hai file `.env` chứa cấu hình riêng và secret, không được commit lên Git.
 
 ## DNS và HTTPS

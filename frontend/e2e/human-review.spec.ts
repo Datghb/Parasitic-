@@ -42,6 +42,7 @@ test("reviewer rejects an AI result and creates an audited decision", async ({ p
     expect(request.postDataJSON()).toEqual({
       decision: "rejected",
       note: "Citation chưa hỗ trợ trực tiếp cho claim",
+      expected_version: 1,
     });
     await route.fulfill({ json: { ...queueItem, status: "resolved" } });
   });

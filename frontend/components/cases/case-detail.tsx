@@ -111,6 +111,7 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
         id: item.id,
         status,
         adminKey: adminKey.trim(),
+        expectedVersion: item.version,
       });
       setCurrentStatus(status);
     } catch {
@@ -148,6 +149,7 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
         note: reviewNote.trim(),
         correctedLabel: reviewDecision === "corrected" ? correctedLabel : undefined,
         adminKey: adminKey.trim(),
+        expectedVersion: item.version ?? 1,
       });
       setCurrentStatus("Đã xử lý");
       setAdminKey("");
@@ -172,6 +174,7 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
           decision: "accepted",
           note: "",
           adminKey: adminKey.trim(),
+          expectedVersion: item.version ?? 1,
         });
         setCurrentStatus("Đã xử lý");
       } else if (action === "escalate") {
@@ -196,6 +199,7 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
         id: item.id,
         status: targetStatus,
         adminKey: adminKey.trim(),
+        expectedVersion: item.version,
         reviewerLabel,
         reviewerReason,
         reviewerNote,

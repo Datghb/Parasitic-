@@ -21,6 +21,7 @@ class Settings(BaseSettings):
         alias="FRONTEND_ORIGIN",
     )
     admin_api_key: str | None = Field(default=None, alias="ADMIN_API_KEY")
+    database_url: str | None = Field(default=None, alias="DATABASE_URL")
     qa_rate_limit: int = Field(default=30, ge=1, le=1000, alias="QA_RATE_LIMIT")
     rate_limit_window_seconds: int = Field(
         default=60,

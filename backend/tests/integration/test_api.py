@@ -230,6 +230,53 @@ def test_reviewer_must_explain_correction_or_rejection(monkeypatch, tmp_path) ->
     assert response.status_code == 400
     assert not (tmp_path / "audit.jsonl").exists()
 
+def test_sql_review_is_transactional_and_rejects_stale_version(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    from backend.legal_radar.api import data_access
+    import backend.legal_radar.settings as settings_mod
+
+    fake = settings_mod.Settings(
+        APP_ENV="development",
+        DATABASE_URL=f"sqlite:///{tmp_path / 'api.db'}",
+    )
+    monkeypatch.setattr(data_access, "get_settings", lambda: fake)
+    data_access._store_for_url.cache_clear()
+    store = data_access._sql_store()
+    assert store is not None
+    store.upsert_case(
+        {
+            "id": "sql-review",
+            "claim": "Claim SQL",
+            "nhan": "can_kiem_chung",
+            "nhan_nguon": "chua_tim_thay_nguon",
+            "status": "new",
+        }
+    )
+
+    accepted = client.post(
+        "/api/cases/sql-review/review",
+        json={
+            "decision": "accepted",
+            "note": "",
+            "expected_version": 1,
+        },
+    )
+    stale = client.post(
+        "/api/cases/sql-review/review",
+        json={
+            "decision": "rejected",
+            "note": "Dữ liệu cũ",
+            "expected_version": 1,
+        },
+    )
+
+    assert accepted.status_code == 200
+    assert accepted.json()["version"] == 2
+    assert stale.status_code == 409
+    assert len(store.list_audit("sql-review")) == 1
+
 
 def test_crawl_returns_supported_schema(monkeypatch, tmp_path) -> None:
     from backend.legal_radar.api.routes import crawl
