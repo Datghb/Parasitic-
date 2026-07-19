@@ -7,39 +7,40 @@ from pathlib import Path
 # Add backend directory to sys.path if run directly
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.legal_radar.model import load_kg, NhanPhanLoai
 from backend.legal_radar.engine import phan_loai_claim
-from backend.legal_radar.guardrails import sanitize_injection, anonymize_pii, validate_label
+from backend.legal_radar.guardrails import anonymize_pii, sanitize_injection, validate_label
+from backend.legal_radar.model import NhanPhanLoai, load_kg
 from backend.legal_radar.paths import data_dir
 
 
 def main() -> int:
+    """Run the smoke evaluation gate and return the exit code."""
     # Set console encoding to UTF-8 on Windows to avoid UnicodeEncodeError
     if sys.platform == "win32":
-        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stdout.reconfigure(encoding="utf-8")
 
     cases_path = Path(__file__).with_name("cases.json")
     cases = json.loads(cases_path.read_text(encoding="utf-8"))
-    
+
     db_dir = data_dir()
     kg = load_kg(db_dir / "kg" / "kg_nodes.json", db_dir / "kg" / "kg_edges.json")
-    
+
     passed = 0
     failed = 0
-    
+
     print(f"Starting business evaluation gate: checking {len(cases)} cases...\n")
-    
+
     for case in cases:
         case_id = case["id"]
         comment = case["comment"]
-        
+
         # 1. Sanitize prompt injection
         sanitized = sanitize_injection(comment)
         if case.get("expected_no_crash") and sanitized == comment:
             print(f"FAIL: Case {case_id} failed: Injection not sanitized.")
             failed += 1
             continue
-            
+
         # 2. Anonymize PII
         anonymized = anonymize_pii(sanitized)
         if case.get("expected_anonymized"):
@@ -47,24 +48,26 @@ def main() -> int:
                 print(f"FAIL: Case {case_id} failed: PII not anonymized.")
                 failed += 1
                 continue
-        
+
         # 3. Refusal / OOD check
         if case.get("expected_refuse"):
             result = phan_loai_claim(anonymized, None, kg)
             if result.citations or result.nhan != NhanPhanLoai.CAN_KIEM_CHUNG:
-                print(f"FAIL: Case {case_id} failed: Expected OOD to be refused/unmatched, but got citations or label {result.nhan}.")
+                print(
+                    f"FAIL: Case {case_id} failed: Expected OOD to be refused/unmatched, but got citations or label {result.nhan}."
+                )
                 failed += 1
                 continue
             passed += 1
             print(f"PASS: Case {case_id} passed (refusal/OOD).")
             continue
-            
+
         # 4. Engine Classification
         result = phan_loai_claim(anonymized, None, kg)
         actual_label = result.nhan.value
         ly_do = result.ly_do
         citations = result.citations
-        
+
         # Validate label against guardrails
         try:
             validate_label(actual_label)
@@ -72,22 +75,24 @@ def main() -> int:
             print(f"FAIL: Case {case_id} failed: Invalid label generated '{actual_label}'. Error: {e}")
             failed += 1
             continue
-            
+
         # Check expected label
         if case.get("expected_label"):
             exp_label = case["expected_label"]
             if actual_label != exp_label:
-                print(f"FAIL: Case {case_id} failed: Expected label '{exp_label}', got '{actual_label}'. Reason: {ly_do}")
+                print(
+                    f"FAIL: Case {case_id} failed: Expected label '{exp_label}', got '{actual_label}'. Reason: {ly_do}"
+                )
                 failed += 1
                 continue
-                
+
         # Check citations
         if case.get("expected_citations_non_empty"):
             if not citations:
                 print(f"FAIL: Case {case_id} failed: Expected non-empty citations, got empty.")
                 failed += 1
                 continue
-                
+
         # Check reason contains keyword
         if case.get("expected_reason_contains"):
             kw = case["expected_reason_contains"]
@@ -95,17 +100,17 @@ def main() -> int:
                 print(f"FAIL: Case {case_id} failed: Expected reason to contain '{kw}', got '{ly_do}'.")
                 failed += 1
                 continue
-                
+
         # Check muc phat match (historical cases)
         if case.get("expected_muc_phat_match"):
             if "Trùng khớp vụ việc thực tế" not in ly_do:
                 print(f"FAIL: Case {case_id} failed: Expected study case match in reason, got '{ly_do}'.")
                 failed += 1
                 continue
-                
+
         passed += 1
         print(f"PASS: Case {case_id} passed.")
-        
+
     print(f"\nEvaluation summary: {passed} passed, {failed} failed.")
     return 1 if failed > 0 else 0
 

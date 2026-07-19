@@ -7,4 +7,5 @@ router = APIRouter(tags=["verification"])
 
 @router.get("/verify")
 def verification_summary() -> dict[str, list[object]]:
+    """Return the curated study cases used for manual verification."""
     return {"cases": list_study_cases()}

@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 
 from backend.legal_radar.guardrails import (
@@ -45,18 +45,14 @@ class TestKgEdgesIntegrity:
         edges = _load_json(DATA_DIR, "kg/kg_edges.json")
         node_ids = {n["id"] for n in nodes}
         for edge in edges:
-            assert edge["from_id"] in node_ids, \
-                f"Edge {edge['type']}: from_id '{edge['from_id']}' not in nodes"
-            assert edge["to_id"] in node_ids, \
-                f"Edge {edge['type']}: to_id '{edge['to_id']}' not in nodes"
+            assert edge["from_id"] in node_ids, f"Edge {edge['type']}: from_id '{edge['from_id']}' not in nodes"
+            assert edge["to_id"] in node_ids, f"Edge {edge['type']}: to_id '{edge['to_id']}' not in nodes"
 
     def test_thay_the_nd15_to_nd174(self):
         edges = _load_json(DATA_DIR, "kg/kg_edges.json")
         thay_the = [e for e in edges if e["type"] == "THAY_THE"]
-        nd15_to_nd174 = [e for e in thay_the
-                         if e["from_id"].startswith("nd15") and e["to_id"].startswith("nd174")]
-        assert len(nd15_to_nd174) >= 3, \
-            f"Expected >=3 THAY_THE edges from NĐ15 to NĐ174, got {len(nd15_to_nd174)}"
+        nd15_to_nd174 = [e for e in thay_the if e["from_id"].startswith("nd15") and e["to_id"].startswith("nd174")]
+        assert len(nd15_to_nd174) >= 3, f"Expected >=3 THAY_THE edges from NĐ15 to NĐ174, got {len(nd15_to_nd174)}"
 
     def test_ap_dung_cho_rule_half(self):
         edges = _load_json(DATA_DIR, "kg/kg_edges.json")
@@ -88,9 +84,9 @@ class TestStudyCasesWithKg:
         for case in cases:
             exp = case["expected_he_thong"]
             cn_range = exp["muc_phat_ca_nhan_cu"]
-            assert cn_range[0] <= case["muc_phat"] <= cn_range[1], \
-                f"Study case {case['id']}: penalty {case['muc_phat']} " \
-                f"not in expected ca_nhan range {cn_range}"
+            assert cn_range[0] <= case["muc_phat"] <= cn_range[1], (
+                f"Study case {case['id']}: penalty {case['muc_phat']} not in expected ca_nhan range {cn_range}"
+            )
 
 
 class TestEvalCasesWithGuardrails:
@@ -105,16 +101,14 @@ class TestEvalCasesWithGuardrails:
         injection_cases = [c for c in cases if c["group"] == "injection"]
         for case in injection_cases:
             result = sanitize_injection(case["comment"])
-            assert result.startswith("[quoted data:"), \
-                f"Eval {case['id']}: injection not sanitized"
+            assert result.startswith("[quoted data:"), f"Eval {case['id']}: injection not sanitized"
 
     def test_pii_case_anonymized(self):
         cases = _load_json(EVAL_DIR, "cases.json")
         pii_cases = [c for c in cases if c["group"] == "pii"]
         for case in pii_cases:
             result = anonymize_pii(case["comment"])
-            assert "Nguyễn Văn A" not in result, \
-                f"Eval {case['id']}: PII not anonymized"
+            assert "Nguyễn Văn A" not in result, f"Eval {case['id']}: PII not anonymized"
 
 
 class TestNd15TrichMd:
@@ -169,7 +163,3 @@ class TestEndToEnd:
         for eval_case in eval_cases:
             if eval_case.get("expected_label"):
                 validate_label(eval_case["expected_label"])
-
-
-
-

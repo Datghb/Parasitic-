@@ -13,8 +13,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
-from backend.legal_radar.providers import GroqProvider, GeminiProvider
-
+from backend.legal_radar.providers import GeminiProvider, GroqProvider
 
 GROQ_KEY_SET = bool(os.getenv("GROQ_API_KEY"))
 GEMINI_KEY_SET = bool(os.getenv("GEMINI_API_KEY"))

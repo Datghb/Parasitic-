@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-import re
 import math
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 
 from backend.legal_radar.model import (
-    KnowledgeGraph, DieuKhoan, MucPhat, HanhVi, LoaiChuThe,
-    NhanPhanLoai, NhanNguon, QueueItem,
+    DieuKhoan,
+    HanhVi,
+    KnowledgeGraph,
+    LoaiChuThe,
+    MucPhat,
+    NhanNguon,
+    NhanPhanLoai,
+    QueueItem,
 )
 
 
@@ -38,7 +44,9 @@ class PhanLoaiResult:
 
 # ── P2.1: Tính mức phạt theo chủ thể ──
 
+
 def muc_phat_cho_chu_the(mp: MucPhat, loai_chu_the: LoaiChuThe) -> tuple[int, int]:
+    """Return the penalty range (min_vnd, max_vnd) adjusted for the subject type."""
     if loai_chu_the == LoaiChuThe.TO_CHUC:
         return (mp.min_vnd, mp.max_vnd)
     return (mp.min_vnd // 2, mp.max_vnd // 2)
@@ -59,7 +67,6 @@ _SLANG_MAP: dict[str, str] = {
     "lít": "triệu",
     "cành": "triệu",
     "trái": "triệu",
-
     # ── Social media action slang ──
     "share": "chia sẻ",
     "reup": "tải lại",
@@ -73,7 +80,6 @@ _SLANG_MAP: dict[str, str] = {
     "livestream": "phát sóng trực tiếp",
     "page": "trang",
     "mod": "điều hành viên",
-
     # ── Content / behavior slang ──
     "fake": "giả",
     "news": "tin",
@@ -89,7 +95,6 @@ _SLANG_MAP: dict[str, str] = {
     "sub": "ám chỉ",
     "tea": "tin đồn",
     "spill the tea": "lan truyền tin đồn",
-
     # ── Vietnamese informal / teen code ──
     "bl": "bình luận",
     "ib": "nhắn tin riêng",
@@ -109,7 +114,6 @@ _SLANG_MAP: dict[str, str] = {
     "thui": "thôi",
     "bóc": "vạch trần",
     "bị ban": "bị cấm",
-
     # ── ĐVHC domain slang ──
     "gop": "sáp nhập",
     "gộp": "sáp nhập",
@@ -118,6 +122,7 @@ _SLANG_MAP: dict[str, str] = {
 
 
 def normalize_text(text: str) -> str:
+    """Normalize Vietnamese slang text to standard formal Vietnamese."""
     if not text:
         return ""
     result = text.lower()
@@ -130,16 +135,17 @@ def normalize_text(text: str) -> str:
     # Single-word slang with word boundary
     single = {k: v for k, v in _SLANG_MAP.items() if " " not in k}
     for slang, standard in single.items():
-        result = re.sub(r'(?<!\w)' + re.escape(slang) + r'(?!\w)', standard, result)
+        result = re.sub(r"(?<!\w)" + re.escape(slang) + r"(?!\w)", standard, result)
 
     return result
 
 
 # ── P2.2: Match hành vi trong KG (BM25-like scoring) ──
 
+
 def _tokenize(text: str) -> list[str]:
     normalized = normalize_text(text)
-    return [w for w in re.findall(r'[\w]+', normalized) if len(w) >= 2]
+    return [w for w in re.findall(r"[\w]+", normalized) if len(w) >= 2]
 
 
 def _bm25_score(query_tokens: list[str], doc_tokens: list[str], k1: float = 1.5, b: float = 0.75) -> float:
@@ -159,11 +165,13 @@ def _bm25_score(query_tokens: list[str], doc_tokens: list[str], k1: float = 1.5,
 
 
 def match_hanh_vi(text: str, kg: KnowledgeGraph, min_score: float = 0.5) -> list[DieuKhoan]:
+    """Return a list of DieuKhoan nodes whose associated HanhVi matches the given text."""
     scored = match_hanh_vi_with_scores(text, kg, min_score)
     return [dk for dk, _ in scored]
 
 
 def match_hanh_vi_with_scores(text: str, kg: KnowledgeGraph, min_score: float = 0.5) -> list[tuple[DieuKhoan, float]]:
+    """Return DieuKhoan nodes paired with their BM25 relevance scores for the given text."""
     if not text.strip():
         return []
 
@@ -194,8 +202,8 @@ def match_hanh_vi_with_scores(text: str, kg: KnowledgeGraph, min_score: float = 
 
 # ── P2.3: Phân loại claim ──
 
-_AMOUNT_RANGE_RE = re.compile(r'(\d+(?:[.,]\d+)?)\s*(?:[-\u2013\u2014~])\s*(\d+(?:[.,]\d+)?)\s*(?:trieu|tri\u1ec7u|tr)')
-_AMOUNT_SINGLE_RE = re.compile(r'(\d+(?:[.,]\d+)?)\s*(?:trieu|tri\u1ec7u|tr)\b')
+_AMOUNT_RANGE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:[-\u2013\u2014~])\s*(\d+(?:[.,]\d+)?)\s*(?:trieu|tri\u1ec7u|tr)")
+_AMOUNT_SINGLE_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:trieu|tri\u1ec7u|tr)\b")
 
 
 def _extract_amounts_millions(text: str) -> list[tuple[float, float]]:
@@ -203,15 +211,15 @@ def _extract_amounts_millions(text: str) -> list[tuple[float, float]]:
     amounts = []
     for m in _AMOUNT_RANGE_RE.finditer(normalized):
         try:
-            lo = float(m.group(1).replace(',', '.'))
-            hi = float(m.group(2).replace(',', '.'))
+            lo = float(m.group(1).replace(",", "."))
+            hi = float(m.group(2).replace(",", "."))
             amounts.append((lo, hi))
         except ValueError:
             continue
     if not amounts:
         for m in _AMOUNT_SINGLE_RE.finditer(normalized):
             try:
-                val = float(m.group(1).replace(',', '.'))
+                val = float(m.group(1).replace(",", "."))
                 amounts.append((val, val))
             except ValueError:
                 continue
@@ -221,20 +229,35 @@ def _extract_amounts_millions(text: str) -> list[tuple[float, float]]:
 def _detect_subject_type(text: str) -> str | None:
     normalized = normalize_text(text)
     ca_nhan_patterns = [
-        r'\bcá\s*nhân\b', r'\bngười\s+dùng\b', r'\btài\s+khoản\b',
-        r'\buser\b', r'\bkol\b', r'\btiktoker\b', r'\bhot\s*girl\b',
-        r'\bhot\s*boy\b', r'\bstreamer\b', r'\byoutuber\b',
-        r'\binfluencer\b', r'\bcreator\b',
+        r"\bcá\s*nhân\b",
+        r"\bngười\s+dùng\b",
+        r"\btài\s+khoản\b",
+        r"\buser\b",
+        r"\bkol\b",
+        r"\btiktoker\b",
+        r"\bhot\s*girl\b",
+        r"\bhot\s*boy\b",
+        r"\bstreamer\b",
+        r"\byoutuber\b",
+        r"\binfluencer\b",
+        r"\bcreator\b",
     ]
     to_chuc_patterns = [
-        r'\btổ\s*chức\b', r'\bdoanh\s*nghiệp\b', r'\bcông\s*ty\b',
-        r'\bfanpage\b', r'\bpage\b.*\bcộng\s*đồng\b',
-        r'\btrang\b.*\bcộng\s*đồng\b',
-        r'\bnhóm\b.*\bcộng\s*đồng\b', r'\bhội\s*nhóm\b',
-        r'\bwebsite\b', r'\btrang\s*tin\b',
-        r'\bnick\s+(?:bán|shop|cửa\s*hàng)\b',
-        r'\bshop\b', r'\bcửa\s*hàng\b', r'\bc.ty\b',
-        r'\bsở\s*tt\b',
+        r"\btổ\s*chức\b",
+        r"\bdoanh\s*nghiệp\b",
+        r"\bcông\s*ty\b",
+        r"\bfanpage\b",
+        r"\bpage\b.*\bcộng\s*đồng\b",
+        r"\btrang\b.*\bcộng\s*đồng\b",
+        r"\bnhóm\b.*\bcộng\s*đồng\b",
+        r"\bhội\s*nhóm\b",
+        r"\bwebsite\b",
+        r"\btrang\s*tin\b",
+        r"\bnick\s+(?:bán|shop|cửa\s*hàng)\b",
+        r"\bshop\b",
+        r"\bcửa\s*hàng\b",
+        r"\bc.ty\b",
+        r"\bsở\s*tt\b",
     ]
     for p in ca_nhan_patterns:
         if re.search(p, normalized):
@@ -248,10 +271,16 @@ def _detect_subject_type(text: str) -> str | None:
 def _detect_old_regulation(text: str) -> bool:
     normalized = normalize_text(text)
     old_patterns = [
-        r'\bnd\s*15\b', r'\bnđ\s*15\b', r'\bnghị\s*định\s*15\b',
-        r'\b15/2020\b', r'\b101\b.*\bnđ\s*15\b', r'\bnđ15\b',
-        r'\bquy\s*định\s*cũ\b', r'\bluật\s*cũ\b', r'\btrước\s*2026\b',
-        r'\btrước\s*01.*7.*2026\b',
+        r"\bnd\s*15\b",
+        r"\bnđ\s*15\b",
+        r"\bnghị\s*định\s*15\b",
+        r"\b15/2020\b",
+        r"\b101\b.*\bnđ\s*15\b",
+        r"\bnđ15\b",
+        r"\bquy\s*định\s*cũ\b",
+        r"\bluật\s*cũ\b",
+        r"\btrước\s*2026\b",
+        r"\btrước\s*01.*7.*2026\b",
     ]
     return any(re.search(p, normalized) for p in old_patterns)
 
@@ -259,11 +288,21 @@ def _detect_old_regulation(text: str) -> bool:
 def _detect_conditional_claim(text: str) -> bool:
     normalized = normalize_text(text)
     patterns = [
-        r'\bnếu\b', r'\bcó\s*thể\b', r'\bliệu\b', r'\bchắc\s*không\b',
-        r'\bphải\s*không\b', r'\bđúng\s*không\b', r'\bcó\s*ko\b',
-        r'\bko\b.*\bthật\s*à\b', r'\bthật\s*à\b', r'\bthật\s*hay\s*giả\b',
-        r'\bnghe\s*nói\b', r'\bnghe\s*đồn\b', r'\btin\s*đồn\b',
-        r'\bchưa\s*xác\s*nhận\b', r'\bkhông\s*chắc\b',
+        r"\bnếu\b",
+        r"\bcó\s*thể\b",
+        r"\bliệu\b",
+        r"\bchắc\s*không\b",
+        r"\bphải\s*không\b",
+        r"\bđúng\s*không\b",
+        r"\bcó\s*ko\b",
+        r"\bko\b.*\bthật\s*à\b",
+        r"\bthật\s*à\b",
+        r"\bthật\s*hay\s*giả\b",
+        r"\bnghe\s*nói\b",
+        r"\bnghe\s*đồn\b",
+        r"\btin\s*đồn\b",
+        r"\bchưa\s*xác\s*nhận\b",
+        r"\bkhông\s*chắc\b",
     ]
     return any(re.search(p, normalized) for p in patterns)
 
@@ -324,8 +363,10 @@ def _build_citation(dk: DieuKhoan, kg: KnowledgeGraph) -> str:
 
 def _match_study_case(claim: str, kg: KnowledgeGraph) -> tuple[NhanPhanLoai, str, list[str]] | None:
     try:
-        from backend.legal_radar.paths import data_dir
         import json
+
+        from backend.legal_radar.paths import data_dir
+
         path = data_dir() / "study_cases" / "study_cases.json"
         if not path.is_file():
             return None
@@ -334,11 +375,11 @@ def _match_study_case(claim: str, kg: KnowledgeGraph) -> tuple[NhanPhanLoai, str
         return None
 
     normalized = normalize_text(claim)
-    
+
     # Extract decimal or integer amounts
     numbers = []
-    for m in re.finditer(r'(\d+(?:[.,]\d+)?)\s*(?:trieu|tri\u1ec7u|tr)\b', normalized):
-        val_str = m.group(1).replace(',', '.')
+    for m in re.finditer(r"(\d+(?:[.,]\d+)?)\s*(?:trieu|tri\u1ec7u|tr)\b", normalized):
+        val_str = m.group(1).replace(",", ".")
         try:
             numbers.append(float(val_str))
         except ValueError:
@@ -352,7 +393,7 @@ def _match_study_case(claim: str, kg: KnowledgeGraph) -> tuple[NhanPhanLoai, str
             keywords = ["ghép mặt", "ai"]
         elif sc["id"] == "sc-003":
             keywords = ["sáp nhập", "tỉnh"]
-            
+
         if keywords and all(kw in normalized for kw in keywords):
             sc_penalty_millions = sc["muc_phat"] / 1_000_000.0
             if any(abs(n - sc_penalty_millions) < 0.1 for n in numbers):
@@ -361,7 +402,7 @@ def _match_study_case(claim: str, kg: KnowledgeGraph) -> tuple[NhanPhanLoai, str
                     f"do {sc['nguon_cong_bo']} xử phạt ngày {sc['ngay_quyet_dinh']} "
                     f"với mức phạt {sc_penalty_millions} triệu đồng ({sc['chu_the']})."
                 )
-                
+
                 citations = []
                 for node in kg.nodes:
                     if isinstance(node, DieuKhoan):
@@ -371,9 +412,9 @@ def _match_study_case(claim: str, kg: KnowledgeGraph) -> tuple[NhanPhanLoai, str
                 if not citations:
                     matched = match_hanh_vi(claim, kg)
                     citations = [_build_citation(dk, kg) for dk in matched[:2]]
-                    
+
                 return (NhanPhanLoai.DUNG, reason, citations)
-                
+
     return None
 
 
@@ -382,6 +423,7 @@ def phan_loai_claim(
     loai_chu_the: str | None,
     kg: KnowledgeGraph,
 ) -> PhanLoaiResult:
+    """Classify a legal claim and return a PhanLoaiResult with label, reason, and citations."""
     if not claim.strip():
         return PhanLoaiResult(NhanPhanLoai.CAN_KIEM_CHUNG, "Claim rỗng", [], 0.0, "none", False)
 
@@ -398,12 +440,10 @@ def phan_loai_claim(
     best_bm25 = scored_dks[0][1] if scored_dks else 0.0
     amounts = _extract_amounts_millions(claim)
 
-    _ND15_K1_RANGE = (10, 20)
-    _ND15_K1_CA_NHAN = (5, 10)
-    _ND174_K1_RANGE = (20, 30)
-    _ND174_K2_RANGE = (30, 50)
+    nd15_k1_range = (10, 20)
+    nd15_k1_ca_nhan = (5, 10)
 
-    has_penalty_keyword = bool(re.search(r'\b(?:phạt|tiền|mức|vi phạm)\b', normalize_text(claim)))
+    has_penalty_keyword = bool(re.search(r"\b(?:phạt|tiền|mức|vi phạm)\b", normalize_text(claim)))
 
     if not _has_actionable_legal_signal(claim):
         return PhanLoaiResult(
@@ -431,7 +471,7 @@ def phan_loai_claim(
     if not matched_dks:
         if has_penalty_keyword and amounts:
             lo_val, hi_val = amounts[0]
-            if (lo_val, hi_val) == _ND15_K1_RANGE or (lo_val, hi_val) == _ND15_K1_CA_NHAN:
+            if (lo_val, hi_val) == nd15_k1_range or (lo_val, hi_val) == nd15_k1_ca_nhan:
                 return PhanLoaiResult(
                     NhanPhanLoai.HIEU_LAM,
                     f"Mức {lo_val}-{hi_val} triệu là khung NĐ15/2020 (hết hiệu lực 30/6/2026) — "
@@ -441,7 +481,9 @@ def phan_loai_claim(
                     "exact",
                     False,
                 )
-        return PhanLoaiResult(NhanPhanLoai.CAN_KIEM_CHUNG, "Không khớp hành vi nào trong phạm vi đã nạp", [], best_bm25, "none", False)
+        return PhanLoaiResult(
+            NhanPhanLoai.CAN_KIEM_CHUNG, "Không khớp hành vi nào trong phạm vi đã nạp", [], best_bm25, "none", False
+        )
 
     citations = [_build_citation(dk, kg) for dk in matched_dks[:2]]
 
@@ -454,15 +496,15 @@ def phan_loai_claim(
                 org_range = penalty
                 ind_range = (penalty[0] // 2, penalty[1] // 2)
                 if not (
-                    (lo_val == org_range[0] and hi_val == org_range[1]) or
-                    (lo_val == ind_range[0] and hi_val == ind_range[1]) or
-                    (lo_val == hi_val and org_range[0] <= lo_val <= org_range[1]) or
-                    (lo_val == hi_val and ind_range[0] <= lo_val <= ind_range[1])
+                    (lo_val == org_range[0] and hi_val == org_range[1])
+                    or (lo_val == ind_range[0] and hi_val == ind_range[1])
+                    or (lo_val == hi_val and org_range[0] <= lo_val <= org_range[1])
+                    or (lo_val == hi_val and ind_range[0] <= lo_val <= ind_range[1])
                 ):
                     other_penalty = None
                     for dk in matched_dks:
                         p = _get_penalty_range_millions(dk, kg)
-                        if p and (p[0] <= lo_val <= p[1] or p[0]//2 <= lo_val <= p[1]//2):
+                        if p and (p[0] <= lo_val <= p[1] or p[0] // 2 <= lo_val <= p[1] // 2):
                             other_penalty = (dk, p)
                             break
                     if other_penalty:
@@ -471,8 +513,8 @@ def phan_loai_claim(
                             NhanPhanLoai.HIEU_LAM,
                             f"Mức {lo_val:.1f}-{hi_val:.1f} triệu thuộc khoản {dk2.khoan}, "
                             f"không phải khoản {best_dk.khoan} ({penalty[0]}-{penalty[1]} triệu cho tổ chức, "
-                            f"{penalty[0]//2}-{penalty[1]//2} triệu cho cá nhân) — "
-                            f"hành vi khoản {best_dk.khoan} khác khoản {dk2.khoan}".replace('.0', ''),
+                            f"{penalty[0] // 2}-{penalty[1] // 2} triệu cho cá nhân) — "
+                            f"hành vi khoản {best_dk.khoan} khác khoản {dk2.khoan}".replace(".0", ""),
                             citations,
                             best_bm25,
                             "exact",
@@ -504,7 +546,9 @@ def phan_loai_claim(
         nhan, ly_do, cites, amt = _classify_to_chuc(claim, matched_dks, amounts, citations, kg)
         return PhanLoaiResult(nhan, ly_do, cites, best_bm25, amt, False)
 
-    return PhanLoaiResult(NhanPhanLoai.CAN_KIEM_CHUNG, "Không xác định được loại chủ thể", citations, best_bm25, "none", False)
+    return PhanLoaiResult(
+        NhanPhanLoai.CAN_KIEM_CHUNG, "Không xác định được loại chủ thể", citations, best_bm25, "none", False
+    )
 
 
 def _classify_ca_nhan(
@@ -519,7 +563,7 @@ def _classify_ca_nhan(
     expected_ca_nhan = (penalty[0] // 2, penalty[1] // 2) if penalty else (10, 15)
 
     if not amounts:
-        has_amount_word = bool(re.search(r'\b(?:phạt|tiền|mức)\b', normalize_text(claim)))
+        has_amount_word = bool(re.search(r"\b(?:phạt|tiền|mức)\b", normalize_text(claim)))
         if has_amount_word:
             return (
                 NhanPhanLoai.CAN_KIEM_CHUNG,
@@ -532,10 +576,20 @@ def _classify_ca_nhan(
     lo_val, hi_val = amounts[0]
 
     if lo_val == expected_ca_nhan[0] and hi_val == expected_ca_nhan[1]:
-        return (NhanPhanLoai.DUNG, f"Đúng khung cá nhân ({lo_val}-{hi_val} triệu) theo Điều {best_dk.dieu} NĐ174", citations, "exact")
+        return (
+            NhanPhanLoai.DUNG,
+            f"Đúng khung cá nhân ({lo_val}-{hi_val} triệu) theo Điều {best_dk.dieu} NĐ174",
+            citations,
+            "exact",
+        )
 
     if lo_val == hi_val and expected_ca_nhan[0] <= lo_val <= expected_ca_nhan[1]:
-        return (NhanPhanLoai.DUNG, f"Đúng khung cá nhân ({lo_val} triệu, nằm trong {expected_ca_nhan[0]}-{expected_ca_nhan[1]})", citations, "in_range")
+        return (
+            NhanPhanLoai.DUNG,
+            f"Đúng khung cá nhân ({lo_val} triệu, nằm trong {expected_ca_nhan[0]}-{expected_ca_nhan[1]})",
+            citations,
+            "in_range",
+        )
 
     if lo_val == 5 and hi_val == 10:
         return (
@@ -584,7 +638,7 @@ def _classify_to_chuc(
     penalty = _get_penalty_range_millions(best_dk, kg)
 
     if not amounts:
-        has_amount_word = bool(re.search(r'\b(?:phạt|tiền|mức)\b', normalize_text(claim)))
+        has_amount_word = bool(re.search(r"\b(?:phạt|tiền|mức)\b", normalize_text(claim)))
         if has_amount_word:
             return (
                 NhanPhanLoai.CAN_KIEM_CHUNG,
@@ -597,17 +651,28 @@ def _classify_to_chuc(
     lo_val, hi_val = amounts[0]
 
     if penalty and lo_val == penalty[0] and hi_val == penalty[1]:
-        return (NhanPhanLoai.DUNG, f"Đúng khung tổ chức ({lo_val}-{hi_val} triệu) theo Điều 95 NĐ174", citations, "exact")
+        return (
+            NhanPhanLoai.DUNG,
+            f"Đúng khung tổ chức ({lo_val}-{hi_val} triệu) theo Điều 95 NĐ174",
+            citations,
+            "exact",
+        )
 
     if penalty and lo_val == hi_val and penalty[0] <= lo_val <= penalty[1]:
-        return (NhanPhanLoai.DUNG, f"Đúng khung tổ chức ({lo_val} triệu, nằm trong {penalty[0]}-{penalty[1]})", citations, "in_range")
+        return (
+            NhanPhanLoai.DUNG,
+            f"Đúng khung tổ chức ({lo_val} triệu, nằm trong {penalty[0]}-{penalty[1]})",
+            citations,
+            "in_range",
+        )
 
     if lo_val == 10 and hi_val == 20:
         return (
             NhanPhanLoai.HIEU_LAM,
             "Mức 10-20 triệu là khung NĐ15/2020 (hết hiệu lực 30/6/2026) — "
-            f"tổ chức theo NĐ174 là {penalty[0]}-{penalty[1]} triệu" if penalty else
-            "Mức 10-20 triệu là khung NĐ15/2020 (hết hiệu lực 30/6/2026)",
+            f"tổ chức theo NĐ174 là {penalty[0]}-{penalty[1]} triệu"
+            if penalty
+            else "Mức 10-20 triệu là khung NĐ15/2020 (hết hiệu lực 30/6/2026)",
             citations,
             "exact",
         )
@@ -631,8 +696,7 @@ def _classify_to_chuc(
             )
         return (
             NhanPhanLoai.HIEU_LAM,
-            f"Mức {lo_val}-{hi_val} triệu vượt khung khoản 1 ({penalty[0]}-{penalty[1]} triệu) — "
-            "có thể nhầm lẫn khoản",
+            f"Mức {lo_val}-{hi_val} triệu vượt khung khoản 1 ({penalty[0]}-{penalty[1]} triệu) — có thể nhầm lẫn khoản",
             citations,
             "in_range",
         )
@@ -641,8 +705,7 @@ def _classify_to_chuc(
         if lo_val == 5 and hi_val == 10:
             return (
                 NhanPhanLoai.HIEU_LAM,
-                "Mức 5-10 triệu là khung cá nhân NĐ15/2020 — "
-                f"tổ chức theo NĐ174 là {penalty[0]}-{penalty[1]} triệu",
+                f"Mức 5-10 triệu là khung cá nhân NĐ15/2020 — tổ chức theo NĐ174 là {penalty[0]}-{penalty[1]} triệu",
                 citations,
                 "exact",
             )
@@ -677,6 +740,7 @@ def classify_claim_full(
     loai_chu_the: str | None,
     kg: KnowledgeGraph,
 ) -> ClassificationResult:
+    """Classify a claim and return a full ClassificationResult including subject, provision, and penalty."""
     plr = phan_loai_claim(claim, loai_chu_the, kg)
 
     auto_subject = _detect_subject_type(claim)
@@ -689,11 +753,7 @@ def classify_claim_full(
     elif effective_subject is None or effective_subject == "":
         subject_label = "Chưa xác định"
 
-    matched_dks = (
-        [dk for dk, _ in match_hanh_vi_with_scores(claim, kg)]
-        if plr.citations
-        else []
-    )
+    matched_dks = [dk for dk, _ in match_hanh_vi_with_scores(claim, kg)] if plr.citations else []
     provision_str = ""
     penalty_str = ""
     document_str = "Nghị định 174/2026/NĐ-CP"
@@ -738,7 +798,9 @@ def classify_claim_full(
 
 # ── P2.4: Diff THAY_THE ──
 
+
 def diff_thay_the(dk_id: str, kg: KnowledgeGraph) -> str | None:
+    """Return a human-readable diff string for a THAY_THE edge, or None if no replacement exists."""
     edges = kg.get_thay_the(dk_id)
     if not edges:
         return None
@@ -758,7 +820,7 @@ def diff_thay_the(dk_id: str, kg: KnowledgeGraph) -> str | None:
         new_mp = _get_penalty_range_millions(new_node, kg)
         if old_mp and new_mp:
             parts.append(f"Tổ chức: {old_mp[0]}-{old_mp[1]}tr → {new_mp[0]}-{new_mp[1]}tr")
-            parts.append(f"Cá nhân: {old_mp[0]//2}-{old_mp[1]//2}tr → {new_mp[0]//2}-{new_mp[1]//2}tr")
+            parts.append(f"Cá nhân: {old_mp[0] // 2}-{old_mp[1] // 2}tr → {new_mp[0] // 2}-{new_mp[1] // 2}tr")
 
     if edge.dien_giai:
         parts.append(edge.dien_giai)
@@ -776,23 +838,24 @@ _NHAN_PRIORITY = {
 
 
 def xep_uu_tien(items: list[QueueItem]) -> list[QueueItem]:
+    """Sort queue items by descending priority then label severity, then ID."""
     return sorted(items, key=lambda x: (-x.priority, _NHAN_PRIORITY.get(x.nhan, 99), x.id))
 
 
 # ── P2.7: Tích hợp nhãn nguồn vào lý do + ưu tiên ──
 
 _CALL_TO_ACTION_PATTERNS = [
-    r'\btẩy\s*chay\b',
-    r'\bcảnh\s*giác\b',
-    r'\bcảnh\s*báo\b',
-    r'\bcẩn\s*thận\b',
-    r'\btránh\s*xa\b',
-    r'\bđừng\s*(?:mua|dùng|tin|theo|ủng\s*hộ)\b',
-    r'\bkêu\s*gọi\b',
-    r'\bmọi\s*người\s*(?:báo\s*cáo|report)\b',
-    r'\bchia\s*sẻ\s*(?:ngay|gấp|rộng\s*rãi)\b',
-    r'\bbáo\s*cáo\s*(?:ngay|giúp|gấp)\b',
-    r'\brút\s*tiền\b',
+    r"\btẩy\s*chay\b",
+    r"\bcảnh\s*giác\b",
+    r"\bcảnh\s*báo\b",
+    r"\bcẩn\s*thận\b",
+    r"\btránh\s*xa\b",
+    r"\bđừng\s*(?:mua|dùng|tin|theo|ủng\s*hộ)\b",
+    r"\bkêu\s*gọi\b",
+    r"\bmọi\s*người\s*(?:báo\s*cáo|report)\b",
+    r"\bchia\s*sẻ\s*(?:ngay|gấp|rộng\s*rãi)\b",
+    r"\bbáo\s*cáo\s*(?:ngay|giúp|gấp)\b",
+    r"\brút\s*tiền\b",
 ]
 
 

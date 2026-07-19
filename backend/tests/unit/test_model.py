@@ -1,15 +1,28 @@
-import pytest
 import json
 
+import pytest
+
 from backend.legal_radar.model import (
-    VanBan, DieuKhoan, HanhVi, ChuThe, MucPhat, BienPhapKhacPhuc,
-    NguonTin, Edge, KnowledgeGraph, QueueItem,
-    NhomHanhVi, LoaiChuThe, NhanNguon, NhanPhanLoai,
-    load_kg, validate_kg,
+    BienPhapKhacPhuc,
+    ChuThe,
+    DieuKhoan,
+    Edge,
+    HanhVi,
+    KnowledgeGraph,
+    LoaiChuThe,
+    MucPhat,
+    NguonTin,
+    NhanNguon,
+    NhanPhanLoai,
+    NhomHanhVi,
+    QueueItem,
+    VanBan,
+    load_kg,
+    validate_kg,
 )
 
-
 # ── VanBan ──
+
 
 class TestVanBan:
     def test_create(self):
@@ -30,9 +43,17 @@ class TestVanBan:
 
 # ── DieuKhoan ──
 
+
 class TestDieuKhoan:
     def test_create_full(self):
-        dk = DieuKhoan(id="nd174-d95-k1-a", van_ban_id="nd174", dieu=95, khoan=1, diem="a", noi_dung="Cung cấp, chia sẻ thông tin giả mạo...")
+        dk = DieuKhoan(
+            id="nd174-d95-k1-a",
+            van_ban_id="nd174",
+            dieu=95,
+            khoan=1,
+            diem="a",
+            noi_dung="Cung cấp, chia sẻ thông tin giả mạo...",
+        )
         assert dk.id == "nd174-d95-k1-a"
         assert dk.dieu == 95
 
@@ -48,9 +69,15 @@ class TestDieuKhoan:
 
 # ── HanhVi ──
 
+
 class TestHanhVi:
     def test_create(self):
-        hv = HanhVi(id="hv-tin-gia", dieu_khoan_id="nd174-d95-k1-a", mo_ta="Cung cấp, chia sẻ thông tin giả mạo", nhom=NhomHanhVi.TIN_GIA)
+        hv = HanhVi(
+            id="hv-tin-gia",
+            dieu_khoan_id="nd174-d95-k1-a",
+            mo_ta="Cung cấp, chia sẻ thông tin giả mạo",
+            nhom=NhomHanhVi.TIN_GIA,
+        )
         assert hv.nhom == NhomHanhVi.TIN_GIA
         assert hv.dieu_khoan_id == "nd174-d95-k1-a"
 
@@ -60,6 +87,7 @@ class TestHanhVi:
 
 
 # ── ChuThe ──
+
 
 class TestChuThe:
     def test_ca_nhan(self):
@@ -73,9 +101,16 @@ class TestChuThe:
 
 # ── MucPhat ──
 
+
 class TestMucPhat:
     def test_create(self):
-        mp = MucPhat(id="mp-d95-k1", dieu_khoan_id="nd174-d95-k1-a", min_vnd=20_000_000, max_vnd=30_000_000, ap_dung_cho=LoaiChuThe.TO_CHUC)
+        mp = MucPhat(
+            id="mp-d95-k1",
+            dieu_khoan_id="nd174-d95-k1-a",
+            min_vnd=20_000_000,
+            max_vnd=30_000_000,
+            ap_dung_cho=LoaiChuThe.TO_CHUC,
+        )
         assert mp.min_vnd == 20_000_000
 
     def test_min_greater_than_max_raises(self):
@@ -89,20 +124,28 @@ class TestMucPhat:
 
 # ── BienPhapKhacPhuc ──
 
+
 class TestBienPhapKhacPhuc:
     def test_create(self):
-        bp = BienPhapKhacPhuc(id="bp-d95-k1k2", dieu_khoan_id="nd174-d95-k3-a", mo_ta="Gỡ bỏ thông tin", pham_vi="k1_k2")
+        bp = BienPhapKhacPhuc(
+            id="bp-d95-k1k2", dieu_khoan_id="nd174-d95-k3-a", mo_ta="Gỡ bỏ thông tin", pham_vi="k1_k2"
+        )
         assert bp.pham_vi == "k1_k2"
 
 
 # ── NguonTin ──
 
+
 class TestNguonTin:
     def test_create(self):
         nt = NguonTin(
-            id="nt-sbv-1", tier=0, nguon="SBV",
-            tieu_de="SBV bác bỏ tin đồn", noi_dung_tom_tat="Ngân hàng Nhà nước bác bỏ...",
-            ngay_dang="2022-10-10", url="https://sbv.gov.vn/...",
+            id="nt-sbv-1",
+            tier=0,
+            nguon="SBV",
+            tieu_de="SBV bác bỏ tin đồn",
+            noi_dung_tom_tat="Ngân hàng Nhà nước bác bỏ...",
+            ngay_dang="2022-10-10",
+            url="https://sbv.gov.vn/...",
         )
         assert nt.tier == 0
 
@@ -112,6 +155,7 @@ class TestNguonTin:
 
 
 # ── Edge ──
+
 
 class TestEdge:
     def test_create(self):
@@ -130,13 +174,19 @@ class TestEdge:
 
 # ── QueueItem ──
 
+
 class TestQueueItem:
     def test_create(self):
         qi = QueueItem(
-            id="q1", comment_id="c1", text="tin giả bị phạt 30 củ",
-            claim="tin giả bị phạt 30 triệu", keywords=["tin giả", "phạt", "30 triệu"],
-            nhan=NhanPhanLoai.DUNG, ly_do="Điểm a khoản 1 Điều 95 NĐ174",
-            nhan_nguon=NhanNguon.CHUA_TIM_THAY_NGUON, priority=1,
+            id="q1",
+            comment_id="c1",
+            text="tin giả bị phạt 30 củ",
+            claim="tin giả bị phạt 30 triệu",
+            keywords=["tin giả", "phạt", "30 triệu"],
+            nhan=NhanPhanLoai.DUNG,
+            ly_do="Điểm a khoản 1 Điều 95 NĐ174",
+            nhan_nguon=NhanNguon.CHUA_TIM_THAY_NGUON,
+            priority=1,
         )
         assert qi.nhan == NhanPhanLoai.DUNG
 
@@ -147,13 +197,27 @@ class TestQueueItem:
 
 # ── KnowledgeGraph + load/validate ──
 
+
 class TestKnowledgeGraph:
     def _make_kg(self):
         nodes = [
             VanBan(id="nd174", so_hieu="174/2026/NĐ-CP", ngay_hieu_luc="2026-07-01", trang_thai="hieu_luc"),
-            DieuKhoan(id="nd174-d95-k1-a", van_ban_id="nd174", dieu=95, khoan=1, diem="a", noi_dung="Thông tin giả mạo"),
-            HanhVi(id="hv-tin-gia", dieu_khoan_id="nd174-d95-k1-a", mo_ta="Cung cấp thông tin giả mạo", nhom=NhomHanhVi.TIN_GIA),
-            MucPhat(id="mp-d95-k1", dieu_khoan_id="nd174-d95-k1-a", min_vnd=20_000_000, max_vnd=30_000_000, ap_dung_cho=LoaiChuThe.TO_CHUC),
+            DieuKhoan(
+                id="nd174-d95-k1-a", van_ban_id="nd174", dieu=95, khoan=1, diem="a", noi_dung="Thông tin giả mạo"
+            ),
+            HanhVi(
+                id="hv-tin-gia",
+                dieu_khoan_id="nd174-d95-k1-a",
+                mo_ta="Cung cấp thông tin giả mạo",
+                nhom=NhomHanhVi.TIN_GIA,
+            ),
+            MucPhat(
+                id="mp-d95-k1",
+                dieu_khoan_id="nd174-d95-k1-a",
+                min_vnd=20_000_000,
+                max_vnd=30_000_000,
+                ap_dung_cho=LoaiChuThe.TO_CHUC,
+            ),
         ]
         edges = [
             Edge(source="hv-tin-gia", target="nd174-d95-k1-a", loai="QUY_DINH_TAI"),
@@ -210,14 +274,42 @@ class TestKnowledgeGraph:
 
 # ── Load from JSON ──
 
+
 class TestLoadKG:
     def _write_fixture(self, tmp_path):
         kg_data = {
             "nodes": [
-                {"type": "VanBan", "id": "nd174", "so_hieu": "174/2026/NĐ-CP", "ngay_hieu_luc": "2026-07-01", "trang_thai": "hieu_luc"},
-                {"type": "DieuKhoan", "id": "nd174-d95-k1-a", "van_ban_id": "nd174", "dieu": 95, "khoan": 1, "diem": "a", "noi_dung": "Thông tin giả mạo"},
-                {"type": "HanhVi", "id": "hv-tin-gia", "dieu_khoan_id": "nd174-d95-k1-a", "mo_ta": "Cung cấp thông tin giả mạo", "nhom": "tin_gia"},
-                {"type": "MucPhat", "id": "mp-d95-k1", "dieu_khoan_id": "nd174-d95-k1-a", "min_vnd": 20000000, "max_vnd": 30000000, "ap_dung_cho": "to_chuc"},
+                {
+                    "type": "VanBan",
+                    "id": "nd174",
+                    "so_hieu": "174/2026/NĐ-CP",
+                    "ngay_hieu_luc": "2026-07-01",
+                    "trang_thai": "hieu_luc",
+                },
+                {
+                    "type": "DieuKhoan",
+                    "id": "nd174-d95-k1-a",
+                    "van_ban_id": "nd174",
+                    "dieu": 95,
+                    "khoan": 1,
+                    "diem": "a",
+                    "noi_dung": "Thông tin giả mạo",
+                },
+                {
+                    "type": "HanhVi",
+                    "id": "hv-tin-gia",
+                    "dieu_khoan_id": "nd174-d95-k1-a",
+                    "mo_ta": "Cung cấp thông tin giả mạo",
+                    "nhom": "tin_gia",
+                },
+                {
+                    "type": "MucPhat",
+                    "id": "mp-d95-k1",
+                    "dieu_khoan_id": "nd174-d95-k1-a",
+                    "min_vnd": 20000000,
+                    "max_vnd": 30000000,
+                    "ap_dung_cho": "to_chuc",
+                },
             ],
             "edges": [
                 {"type": "QUY_DINH_TAI", "from_id": "hv-tin-gia", "to_id": "nd174-d95-k1-a"},
@@ -242,9 +334,14 @@ class TestLoadKG:
 
 # ── Enum constraints ──
 
+
 class TestEnums:
     def test_nhan_phan_loai_values(self):
         assert set(NhanPhanLoai) == {NhanPhanLoai.DUNG, NhanPhanLoai.HIEU_LAM, NhanPhanLoai.CAN_KIEM_CHUNG}
 
     def test_nhan_nguon_values(self):
-        assert set(NhanNguon) == {NhanNguon.CO_NGUON_XAC_NHAN, NhanNguon.CO_BAC_BO_CHINH_THUC, NhanNguon.CHUA_TIM_THAY_NGUON}
+        assert set(NhanNguon) == {
+            NhanNguon.CO_NGUON_XAC_NHAN,
+            NhanNguon.CO_BAC_BO_CHINH_THUC,
+            NhanNguon.CHUA_TIM_THAY_NGUON,
+        }

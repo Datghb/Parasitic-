@@ -1,12 +1,12 @@
-﻿# Vietnamese text normalization helpers
+# Vietnamese text normalization helpers
 
 import unicodedata
 
 
 def strip_diacritics(text: str) -> str:
     """Remove Vietnamese diacritics: 'triệu' -> 'trieu', 'tổ chức' -> 'to chuc'."""
-    nfkd = unicodedata.normalize('NFKD', text)
-    return ''.join(c for c in nfkd if not unicodedata.combining(c))
+    nfkd = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 # Non-diacritics keyword patterns (used when input lacks diacritics)

@@ -12,14 +12,17 @@ from backend.legal_radar.settings import get_settings
 
 
 def repo_root() -> Path:
+    """Return the repository root path."""
     return project_repo_root()
 
 
 def runs_dir() -> Path:
+    """Return the runtime runs directory path."""
     return project_runs_dir()
 
 
 def data_dir() -> Path:
+    """Return the data directory path."""
     return project_data_dir()
 
 

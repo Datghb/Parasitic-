@@ -8,6 +8,7 @@ router = APIRouter(tags=["cases"])
 
 @router.get("/cases/{case_id}", response_model=QueueItemResponse)
 def get_case(case_id: str) -> QueueItemResponse:
+    """Retrieve a single case by ID, returning 404 if not found."""
     item = get_queue_item(case_id)
     if item is None:
         raise HTTPException(status_code=404, detail=f"Case {case_id} not found")

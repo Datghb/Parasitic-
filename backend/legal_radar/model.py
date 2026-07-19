@@ -1,33 +1,33 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-
 # ── Enums ──
 
-class NhomHanhVi(str, Enum):
+
+class NhomHanhVi(StrEnum):
     TIN_GIA = "tin_gia"
     BOC_PHOT = "boc_phot"
     KHAC = "khac"
 
 
-class LoaiChuThe(str, Enum):
+class LoaiChuThe(StrEnum):
     CA_NHAN = "ca_nhan"
     TO_CHUC = "to_chuc"
 
 
-class NhanPhanLoai(str, Enum):
+class NhanPhanLoai(StrEnum):
     DUNG = "dung"
     HIEU_LAM = "hieu_lam"
     CAN_KIEM_CHUNG = "can_kiem_chung"
 
 
-class NhanNguon(str, Enum):
+class NhanNguon(StrEnum):
     CO_NGUON_XAC_NHAN = "co_nguon_xac_nhan"
     CO_BAC_BO_CHINH_THUC = "co_bac_bo_chinh_thuc"
     CHUA_TIM_THAY_NGUON = "chua_tim_thay_nguon"
@@ -39,6 +39,7 @@ SourceLabel = NhanNguon
 
 
 # ── Frozen dataclasses (nodes) ──
+
 
 @dataclass(frozen=True)
 class VanBan:
@@ -71,7 +72,7 @@ class HanhVi:
 
     def __post_init__(self):
         if isinstance(self.nhom, str):
-            object.__setattr__(self, 'nhom', NhomHanhVi(self.nhom))
+            object.__setattr__(self, "nhom", NhomHanhVi(self.nhom))
 
 
 @dataclass(frozen=True)
@@ -131,6 +132,7 @@ class FactRef:
 
 # ── Frozen dataclass (edge) ──
 
+
 @dataclass(frozen=True)
 class Edge:
     source: str
@@ -141,6 +143,7 @@ class Edge:
 
 
 # ── QueueItem ──
+
 
 @dataclass
 class QueueItem:
@@ -165,7 +168,7 @@ class QueueItem:
     platform: str = "Forum"
     account: str = ""
     published_at: str = ""
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     reach: int = 0
     status: str = "new"
     score: int = 30
@@ -191,6 +194,7 @@ class QueueItem:
 
 
 # ── AuditEntry ──
+
 
 @dataclass
 class AuditEntry:
@@ -236,15 +240,19 @@ class KnowledgeGraph:
         self.edges: list[Edge] = list(edges)
 
     def find_node(self, node_id: str) -> Any | None:
+        """Return the node with the given ID, or None if not found."""
         return self._nodes_by_id.get(node_id)
 
     def get_edges_from(self, source_id: str) -> list[Edge]:
+        """Return all edges originating from the given source node ID."""
         return [e for e in self.edges if e.source == source_id]
 
     def get_edges_to(self, target_id: str) -> list[Edge]:
+        """Return all edges pointing to the given target node ID."""
         return [e for e in self.edges if e.target == target_id]
 
     def get_dieu_khoan_for_hanh_vi(self, hanh_vi_id: str) -> list[DieuKhoan]:
+        """Return the DieuKhoan node associated with the given HanhVi node ID."""
         hv = self.find_node(hanh_vi_id)
         if not isinstance(hv, HanhVi):
             return []
@@ -252,12 +260,15 @@ class KnowledgeGraph:
         return [dk] if isinstance(dk, DieuKhoan) else []
 
     def get_muc_phat_for_dieu_khoan(self, dk_id: str) -> list[MucPhat]:
+        """Return all MucPhat nodes associated with the given DieuKhoan ID."""
         return [n for n in self.nodes if isinstance(n, MucPhat) and n.dieu_khoan_id == dk_id]
 
     def get_thay_the(self, dk_id: str) -> list[Edge]:
+        """Return all THAY_THE replacement edges connected to the given DieuKhoan ID."""
         return [e for e in self.edges if e.loai == "THAY_THE" and (e.source == dk_id or e.target == dk_id)]
 
     def get_fact_refs(self) -> list[FactRef]:
+        """Return all FactRef nodes in the knowledge graph."""
         return [n for n in self.nodes if isinstance(n, FactRef)]
 
 
@@ -280,6 +291,7 @@ def _build_edge(raw: dict[str, Any]) -> Edge:
 
 
 def load_kg(nodes_path: Path, edges_path: Path | None = None) -> KnowledgeGraph:
+    """Load a KnowledgeGraph from one combined JSON file or separate nodes/edges files."""
     if edges_path is None:
         data = json.loads(nodes_path.read_text(encoding="utf-8"))
         nodes_raw = data["nodes"]
@@ -293,13 +305,16 @@ def load_kg(nodes_path: Path, edges_path: Path | None = None) -> KnowledgeGraph:
 
 
 def load_queue(path: Path) -> list[QueueItem]:
+    """Load a list of QueueItem objects from a JSON file."""
     data = json.loads(path.read_text(encoding="utf-8"))
     return [QueueItem(**item) for item in data]
 
 
 # ── Validation ──
 
+
 def validate_kg(kg: KnowledgeGraph) -> list[str]:
+    """Validate knowledge graph referential integrity and return a list of error messages."""
     errors: list[str] = []
     node_ids = {n.id for n in kg.nodes}
     van_ban_ids = {vb.id for vb in kg.nodes if isinstance(vb, VanBan)}

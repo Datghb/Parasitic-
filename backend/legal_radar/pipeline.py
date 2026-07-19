@@ -1,4 +1,4 @@
-﻿"""Pipeline orchestration.
+"""Pipeline orchestration.
 
 P4 — ingest comments: LLM extract -> engine -> runs/queue.jsonl.
 
@@ -11,20 +11,26 @@ import json
 import logging
 import os
 from dataclasses import asdict
+from datetime import UTC, datetime
 from hashlib import sha1
 from pathlib import Path
 from uuid import uuid4
-from datetime import datetime, timezone
 
-from backend.legal_radar.model import QueueItem, NhanPhanLoai, NhanNguon, load_kg
 from backend.legal_radar.engine import classify_claim_full, tich_hop_nguon
-from backend.legal_radar.providers import TokenRouterProvider, GeminiProvider, GroqProvider, OpenRouterProvider, FallbackProvider
-from backend.legal_radar.source_classifier import xac_thuc_nguon
-from backend.legal_radar.guardrails import validate_label, sanitize_injection
+from backend.legal_radar.guardrails import sanitize_injection, validate_label
+from backend.legal_radar.model import NhanNguon, NhanPhanLoai, QueueItem, load_kg
 from backend.legal_radar.paths import data_dir as project_data_dir
 from backend.legal_radar.paths import repo_root
 from backend.legal_radar.paths import runs_dir as project_runs_dir
+from backend.legal_radar.providers import (
+    FallbackProvider,
+    GeminiProvider,
+    GroqProvider,
+    OpenRouterProvider,
+    TokenRouterProvider,
+)
 from backend.legal_radar.settings import get_settings
+from backend.legal_radar.source_classifier import xac_thuc_nguon
 
 logger = logging.getLogger(__name__)
 
@@ -34,17 +40,16 @@ def _fallback_fact_source(comment: str) -> tuple[str, str, str]:
     try:
         import json as _json
         import unicodedata
+
         comment_lower = comment.lower()
         comment_stripped = "".join(
-            c for c in unicodedata.normalize("NFD", comment_lower)
-            if unicodedata.category(c) != "Mn"
+            c for c in unicodedata.normalize("NFD", comment_lower) if unicodedata.category(c) != "Mn"
         )
 
         def _match(text: str, keywords: list[str]) -> bool:
             text_lower = text.lower()
             text_stripped = "".join(
-                c for c in unicodedata.normalize("NFD", text_lower)
-                if unicodedata.category(c) != "Mn"
+                c for c in unicodedata.normalize("NFD", text_lower) if unicodedata.category(c) != "Mn"
             )
             return any(kw.lower() in text_lower or kw.lower() in text_stripped for kw in keywords)
 
@@ -56,7 +61,16 @@ def _fallback_fact_source(comment: str) -> tuple[str, str, str]:
                 if _match(comment, keywords) or _match(comment_stripped, keywords):
                     return fact.get("nguon", ""), fact.get("url", ""), fact.get("nguon", "")
 
-        merger_kw = ["sáp nhập", "sap nhap", "đơn vị hành chính", "don vi hanh chinh", "tỉnh", "tinh", "16 tinh", "16 tỉnh"]
+        merger_kw = [
+            "sáp nhập",
+            "sap nhap",
+            "đơn vị hành chính",
+            "don vi hanh chinh",
+            "tỉnh",
+            "tinh",
+            "16 tinh",
+            "16 tỉnh",
+        ]
         if any(kw in comment_lower or kw in comment_stripped for kw in merger_kw):
             corpus_path = project_data_dir() / "facts" / "facts_corpus.json"
             if corpus_path.exists():
@@ -72,6 +86,7 @@ def _fallback_fact_source(comment: str) -> tuple[str, str, str]:
 
 
 def analyze_comment(comment: str) -> dict:
+    """Classify a raw comment string end-to-end and return a result dict."""
     data_dir = project_data_dir()
     kg = load_kg(data_dir / "kg" / "kg_nodes.json", data_dir / "kg" / "kg_edges.json")
     result = classify_claim_full(comment, None, kg)
@@ -84,10 +99,14 @@ def analyze_comment(comment: str) -> dict:
 
     try:
         from backend.legal_radar.source_search import search_brightdata
+
         search_results = search_brightdata(result.citations or [comment], "")
         from backend.legal_radar.source_classifier import xac_thuc_nguon
+
         nhan_nguon, matched_docs, ly_do_nguon = xac_thuc_nguon(
-            result.citations or [comment], "", search_results,
+            result.citations or [comment],
+            "",
+            search_results,
         )
         if matched_docs:
             doc = matched_docs[0]
@@ -118,18 +137,24 @@ def analyze_comment(comment: str) -> dict:
         "source_agency": source_agency,
         "platform": "Manual",
         "account": "",
-        "published_at": datetime.now(timezone.utc).isoformat(),
+        "published_at": datetime.now(UTC).isoformat(),
         "reach": 0,
         "status": "new",
         "score": _compute_score(result.nhan, 0, 0),
         "confidence": _compute_confidence(result.nhan, nhan_nguon, bool(result.citations)),
         "spread_risk": _compute_risk(result.nhan, 0, result.cta_detected, nhan_nguon),
         "ai_accuracy": _compute_accuracy(
-            result.bm25_score, result.amount_match, result.subject,
-            result.citations, result.study_case_matched,
+            result.bm25_score,
+            result.amount_match,
+            result.subject,
+            result.citations,
+            result.study_case_matched,
         ),
         "source_reliability": _compute_reliability(
-            matched_docs, "", nhan_nguon, bool(result.citations),
+            matched_docs,
+            "",
+            nhan_nguon,
+            bool(result.citations),
         ),
     }
 
@@ -167,12 +192,15 @@ def _compute_risk(
 ) -> int:
     severity = 40 if nhan == NhanPhanLoai.HIEU_LAM else 20 if nhan == NhanPhanLoai.CAN_KIEM_CHUNG else 5
     import math
+
     reach_sc = min(30, round(math.log2(reach + 1) * 5)) if reach > 0 else 0
     if cta_detected:
         cta = 15 if nhan_nguon == NhanNguon.CHUA_TIM_THAY_NGUON else 5
     else:
         cta = 0
-    source_gap = 10 if nhan_nguon == NhanNguon.CHUA_TIM_THAY_NGUON else 5 if nhan_nguon == NhanNguon.CO_BAC_BO_CHINH_THUC else 0
+    source_gap = (
+        10 if nhan_nguon == NhanNguon.CHUA_TIM_THAY_NGUON else 5 if nhan_nguon == NhanNguon.CO_BAC_BO_CHINH_THUC else 0
+    )
     return min(100, severity + reach_sc + cta + source_gap)
 
 
@@ -209,6 +237,7 @@ def _compute_reliability(
     best_tier = min(d.get("tier", 2) for d in matched_docs)
     tier_sc = 45 if best_tier == 0 else 35 if best_tier == 1 else 20
     from backend.legal_radar.source_classifier import _parse_date
+
     claim_date = _parse_date(thoi_gian_claim)
     recency_sc = 0
     if claim_date:
@@ -217,7 +246,9 @@ def _compute_reliability(
             if src_date and abs((src_date - claim_date).days) <= 30:
                 recency_sc = 15
                 break
-    denial_sc = 30 if nhan_nguon == NhanNguon.CO_BAC_BO_CHINH_THUC else 15 if nhan_nguon == NhanNguon.CO_NGUON_XAC_NHAN else 0
+    denial_sc = (
+        30 if nhan_nguon == NhanNguon.CO_BAC_BO_CHINH_THUC else 15 if nhan_nguon == NhanNguon.CO_NGUON_XAC_NHAN else 0
+    )
     cite_sc = 5 if has_citations else 0
     return min(100, tier_sc + recency_sc + denial_sc + cite_sc)
 
@@ -230,6 +261,7 @@ def _classify_comments(comments: list[dict], kg) -> list[dict]:
     'label_reason' field added.
     """
     from backend.legal_radar.engine import classify_claim_full
+
     annotated = []
     for c in comments:
         text = (c.get("text") or "").strip()
@@ -238,11 +270,13 @@ def _classify_comments(comments: list[dict], kg) -> list[dict]:
             continue
         try:
             result = classify_claim_full(text, None, kg)
-            annotated.append({
-                **c,
-                "label": result.nhan.value,
-                "label_reason": result.ly_do[:200] if result.ly_do else "",
-            })
+            annotated.append(
+                {
+                    **c,
+                    "label": result.nhan.value,
+                    "label_reason": result.ly_do[:200] if result.ly_do else "",
+                }
+            )
         except Exception:
             annotated.append({**c, "label": None, "label_reason": ""})
     return annotated
@@ -382,8 +416,10 @@ class CommentIngestor:
                 score=50,
                 confidence=30,
                 url=str(comment.get("url", "")),
-            comments=_classify_comments(list(comment.get("comments") or []), self.kg),
-                spread_risk=_compute_risk(NhanPhanLoai.CAN_KIEM_CHUNG, int(comment.get("reach", 0) or 0), False, NhanNguon.CHUA_TIM_THAY_NGUON),
+                comments=_classify_comments(list(comment.get("comments") or []), self.kg),
+                spread_risk=_compute_risk(
+                    NhanPhanLoai.CAN_KIEM_CHUNG, int(comment.get("reach", 0) or 0), False, NhanNguon.CHUA_TIM_THAY_NGUON
+                ),
                 ai_accuracy=30,
                 source_reliability=0,
             )
@@ -400,6 +436,7 @@ class CommentIngestor:
             if not skip_source_search:
                 try:
                     from backend.legal_radar.source_search import search_brightdata
+
                     search_results = search_brightdata(
                         extracted["keywords"],
                         comment.get("thoi_gian", ""),
@@ -411,7 +448,9 @@ class CommentIngestor:
                 comment.get("thoi_gian", ""),
                 search_results,
             )
-            ly_do, priority_bump, cta_detected = tich_hop_nguon(nhan, ly_do, nhan_nguon, ly_do_nguon, extracted["claim"])
+            ly_do, priority_bump, cta_detected = tich_hop_nguon(
+                nhan, ly_do, nhan_nguon, ly_do_nguon, extracted["claim"]
+            )
             priority = (1 if nhan == NhanPhanLoai.HIEU_LAM else 0) + priority_bump
 
             source_title = ""
@@ -454,7 +493,9 @@ class CommentIngestor:
             subject=getattr(cls_result, "subject", "Chưa xác định") if cls_result else "Chưa xác định",
             provision=getattr(cls_result, "provision", "") if cls_result else "",
             penalty=getattr(cls_result, "penalty", "") if cls_result else "",
-            document=getattr(cls_result, "document", "Nghị định 174/2026/NĐ-CP") if cls_result else "Nghị định 174/2026/NĐ-CP",
+            document=getattr(cls_result, "document", "Nghị định 174/2026/NĐ-CP")
+            if cls_result
+            else "Nghị định 174/2026/NĐ-CP",
             citations=getattr(cls_result, "citations", []) if cls_result else [],
             source_title=source_title,
             source_url=source_url,
@@ -500,6 +541,7 @@ class CommentIngestor:
             The number of new comments processed and appended to the queue.
         """
         from dataclasses import asdict
+
         with open(batch_path, encoding="utf-8") as f:
             comments = json.load(f)
         seen_ids: set[str] = set()
@@ -637,9 +679,7 @@ def ingest_crawled_items(items: list[dict]) -> list[QueueItem]:
                 continue
             try:
                 queue_item = ingestor.process_one(candidate, skip_source_search=False)
-                queue_file.write(
-                    json.dumps(asdict(queue_item), ensure_ascii=False) + "\n"
-                )
+                queue_file.write(json.dumps(asdict(queue_item), ensure_ascii=False) + "\n")
                 queue_file.flush()
             except Exception as exc:
                 logger.exception(

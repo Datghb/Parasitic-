@@ -1,4 +1,5 @@
 """Domain relevance filter — only keep posts related to ĐVHC (administrative unit) mergers."""
+
 from __future__ import annotations
 
 from typing import Any

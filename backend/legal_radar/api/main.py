@@ -2,14 +2,12 @@
 
 import os
 
-from fastapi import FastAPI
-from fastapi import HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.legal_radar.settings import get_settings
-from backend.legal_radar.paths import data_dir, runs_dir
-
 from backend.legal_radar.api.routes import cases, crawl, qa, queue, verify
+from backend.legal_radar.paths import data_dir, runs_dir
+from backend.legal_radar.settings import get_settings
 
 settings = get_settings()
 
@@ -27,14 +25,17 @@ app.add_middleware(
     allow_credentials=False,
 )
 
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
+    """Attach security-hardening response headers to every HTTP response."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     return response
+
 
 app.include_router(queue.router, prefix="/api")
 app.include_router(cases.router, prefix="/api")
@@ -45,10 +46,13 @@ app.include_router(crawl.router, prefix="/api")
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    """Return a simple liveness check confirming the service is up."""
     return {"status": "ok"}
+
 
 @app.get("/ready")
 def readiness() -> dict[str, str]:
+    """Check that required data files and runtime storage are available."""
     required_kg = data_dir() / "kg" / "kg_nodes.json"
     runtime_dir = runs_dir()
     if not required_kg.is_file() or not runtime_dir.is_dir() or not os.access(runtime_dir, os.W_OK):

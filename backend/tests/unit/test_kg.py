@@ -1,8 +1,15 @@
 from pathlib import Path
 
 from backend.legal_radar.model import (
-    load_kg, validate_kg, VanBan, DieuKhoan, HanhVi, MucPhat, BienPhapKhacPhuc,
-    NhomHanhVi, LoaiChuThe,
+    BienPhapKhacPhuc,
+    DieuKhoan,
+    HanhVi,
+    LoaiChuThe,
+    MucPhat,
+    NhomHanhVi,
+    VanBan,
+    load_kg,
+    validate_kg,
 )
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "kg"

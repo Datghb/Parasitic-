@@ -1,15 +1,29 @@
-import pytest
 from pathlib import Path
 
-from backend.legal_radar.model import (
-    load_kg, KnowledgeGraph, LoaiChuThe, NhanPhanLoai, NhanNguon,
-    QueueItem,
-)
+import pytest
+
 from backend.legal_radar.engine import (
-    muc_phat_cho_chu_the, match_hanh_vi, phan_loai_claim, classify_claim_full,
-    diff_thay_the, xep_uu_tien, normalize_text,
-    _detect_subject_type, _detect_old_regulation, _detect_conditional_claim,
-    _extract_amounts_millions, tich_hop_nguon, _detect_call_to_action,
+    _detect_call_to_action,
+    _detect_conditional_claim,
+    _detect_old_regulation,
+    _detect_subject_type,
+    _extract_amounts_millions,
+    classify_claim_full,
+    diff_thay_the,
+    match_hanh_vi,
+    muc_phat_cho_chu_the,
+    normalize_text,
+    phan_loai_claim,
+    tich_hop_nguon,
+    xep_uu_tien,
+)
+from backend.legal_radar.model import (
+    KnowledgeGraph,
+    LoaiChuThe,
+    NhanNguon,
+    NhanPhanLoai,
+    QueueItem,
+    load_kg,
 )
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "kg"
@@ -23,6 +37,7 @@ def kg() -> KnowledgeGraph:
 # ═══════════════════════════════════════════════════════════════════════════
 # P2.1: muc_phat_cho_chu_the
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestMucPhatChoChuThe:
     def test_to_chuc_k1(self, kg):
@@ -53,6 +68,7 @@ class TestMucPhatChoChuThe:
 # ═══════════════════════════════════════════════════════════════════════════
 # normalize_text — comprehensive slang coverage
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestNormalizeText:
     def test_empty(self):
@@ -165,6 +181,7 @@ class TestNormalizeText:
 # match_hanh_vi — BM25 with slang
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestMatchHanhVi:
     def test_tin_gia(self, kg):
         matches = match_hanh_vi("đăng tin giả mạo", kg)
@@ -223,6 +240,7 @@ class TestMatchHanhVi:
 # ═══════════════════════════════════════════════════════════════════════════
 # _detect helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDetectSubjectType:
     def test_ca_nhan(self):
@@ -303,6 +321,7 @@ class TestExtractAmounts:
 # ═══════════════════════════════════════════════════════════════════════════
 # P2.3: phan_loai_claim — comprehensive edge cases
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPhanLoaiClaimDUNG:
     def test_to_chuc_k1_correct(self, kg):
@@ -441,6 +460,7 @@ class TestPhanLoaiClaimCAN_KIEM_CHUNG:
 # P2.4: diff_thay_the
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDiffThayThe:
     def test_render_from_old_side(self, kg):
         result = diff_thay_the("nd15-d101-k1-a", kg)
@@ -474,25 +494,73 @@ class TestDiffThayThe:
 # P2.5: xep_uu_tien
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestXepUuTien:
     def test_priority_descending(self, kg):
         items = [
-            QueueItem(id="low", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.DUNG, ly_do="", priority=1),
-            QueueItem(id="high", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.DUNG, ly_do="", priority=10),
+            QueueItem(
+                id="low", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.DUNG, ly_do="", priority=1
+            ),
+            QueueItem(
+                id="high",
+                comment_id="c",
+                text="t",
+                claim="t",
+                keywords=[],
+                nhan=NhanPhanLoai.DUNG,
+                ly_do="",
+                priority=10,
+            ),
         ]
         assert xep_uu_tien(items)[0].id == "high"
 
     def test_can_kiem_chung_before_dung(self, kg):
         items = [
-            QueueItem(id="dung", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.DUNG, ly_do="", priority=5),
-            QueueItem(id="ckc", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.CAN_KIEM_CHUNG, ly_do="", priority=5),
+            QueueItem(
+                id="dung",
+                comment_id="c",
+                text="t",
+                claim="t",
+                keywords=[],
+                nhan=NhanPhanLoai.DUNG,
+                ly_do="",
+                priority=5,
+            ),
+            QueueItem(
+                id="ckc",
+                comment_id="c",
+                text="t",
+                claim="t",
+                keywords=[],
+                nhan=NhanPhanLoai.CAN_KIEM_CHUNG,
+                ly_do="",
+                priority=5,
+            ),
         ]
         assert xep_uu_tien(items)[0].id == "ckc"
 
     def test_hieu_lam_before_dung(self, kg):
         items = [
-            QueueItem(id="dung", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.DUNG, ly_do="", priority=5),
-            QueueItem(id="hl", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.HIEU_LAM, ly_do="", priority=5),
+            QueueItem(
+                id="dung",
+                comment_id="c",
+                text="t",
+                claim="t",
+                keywords=[],
+                nhan=NhanPhanLoai.DUNG,
+                ly_do="",
+                priority=5,
+            ),
+            QueueItem(
+                id="hl",
+                comment_id="c",
+                text="t",
+                claim="t",
+                keywords=[],
+                nhan=NhanPhanLoai.HIEU_LAM,
+                ly_do="",
+                priority=5,
+            ),
         ]
         assert xep_uu_tien(items)[0].id == "hl"
 
@@ -505,8 +573,12 @@ class TestXepUuTien:
 
     def test_stable_sort(self):
         items = [
-            QueueItem(id="a", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.DUNG, ly_do="", priority=1),
-            QueueItem(id="b", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.DUNG, ly_do="", priority=1),
+            QueueItem(
+                id="a", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.DUNG, ly_do="", priority=1
+            ),
+            QueueItem(
+                id="b", comment_id="c", text="t", claim="t", keywords=[], nhan=NhanPhanLoai.DUNG, ly_do="", priority=1
+            ),
         ]
         assert [i.id for i in xep_uu_tien(items)] == ["a", "b"]
 
@@ -514,6 +586,7 @@ class TestXepUuTien:
 # ═══════════════════════════════════════════════════════════════════════════
 # P2.7: tich_hop_nguon — hợp nhất nhãn nguồn vào ly_do + priority
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestDetectCallToAction:
     def test_tay_chay(self):
@@ -538,8 +611,10 @@ class TestDetectCallToAction:
 class TestTichHopNguon:
     def test_co_bac_bo_gan_ly_do_va_tang_priority(self):
         ly_do_moi, bump, cta = tich_hop_nguon(
-            NhanPhanLoai.HIEU_LAM, "Gán mức tổ chức cho cá nhân",
-            NhanNguon.CO_BAC_BO_CHINH_THUC, "SBV (Tier 0) bác bỏ ngày 2026-07-10",
+            NhanPhanLoai.HIEU_LAM,
+            "Gán mức tổ chức cho cá nhân",
+            NhanNguon.CO_BAC_BO_CHINH_THUC,
+            "SBV (Tier 0) bác bỏ ngày 2026-07-10",
             "cá nhân bị phạt 20-30 triệu",
         )
         assert "SBV" in ly_do_moi
@@ -547,8 +622,10 @@ class TestTichHopNguon:
 
     def test_co_nguon_xac_nhan_gan_ly_do_khong_tang_priority(self):
         ly_do_moi, bump, cta = tich_hop_nguon(
-            NhanPhanLoai.DUNG, "Đúng khung tổ chức",
-            NhanNguon.CO_NGUON_XAC_NHAN, "2 nguồn Tier 1/2 độc lập xác nhận",
+            NhanPhanLoai.DUNG,
+            "Đúng khung tổ chức",
+            NhanNguon.CO_NGUON_XAC_NHAN,
+            "2 nguồn Tier 1/2 độc lập xác nhận",
             "tổ chức bị phạt 20-30 triệu",
         )
         assert "xác nhận" in ly_do_moi
@@ -556,8 +633,10 @@ class TestTichHopNguon:
 
     def test_chua_tim_thay_nguon_khong_keu_goi_khong_tang_priority(self):
         ly_do_moi, bump, cta = tich_hop_nguon(
-            NhanPhanLoai.CAN_KIEM_CHUNG, "Không khớp hành vi nào",
-            NhanNguon.CHUA_TIM_THAY_NGUON, "Không tìm thấy nguồn",
+            NhanPhanLoai.CAN_KIEM_CHUNG,
+            "Không khớp hành vi nào",
+            NhanNguon.CHUA_TIM_THAY_NGUON,
+            "Không tìm thấy nguồn",
             "hôm nay trời đẹp thật đấy",
         )
         assert ly_do_moi == "Không khớp hành vi nào"
@@ -565,8 +644,10 @@ class TestTichHopNguon:
 
     def test_chua_tim_thay_nguon_keu_goi_hanh_dong_day_top(self):
         ly_do_moi, bump, cta = tich_hop_nguon(
-            NhanPhanLoai.CAN_KIEM_CHUNG, "Không khớp hành vi nào",
-            NhanNguon.CHUA_TIM_THAY_NGUON, "Không tìm thấy nguồn",
+            NhanPhanLoai.CAN_KIEM_CHUNG,
+            "Không khớp hành vi nào",
+            NhanNguon.CHUA_TIM_THAY_NGUON,
+            "Không tìm thấy nguồn",
             "mọi người tẩy chay page này ngay, đừng tin",
         )
         assert ly_do_moi == "Không khớp hành vi nào"

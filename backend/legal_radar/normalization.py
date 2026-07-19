@@ -5,9 +5,7 @@ import unicodedata
 
 
 def normalize_text(value: str) -> str:
+    """Normalize Vietnamese text: casefold, strip diacritics, collapse whitespace."""
     normalized = unicodedata.normalize("NFD", value.casefold())
-    without_marks = "".join(
-        char for char in normalized if unicodedata.category(char) != "Mn"
-    ).replace("đ", "d")
+    without_marks = "".join(char for char in normalized if unicodedata.category(char) != "Mn").replace("đ", "d")
     return re.sub(r"\s+", " ", without_marks).strip()
-

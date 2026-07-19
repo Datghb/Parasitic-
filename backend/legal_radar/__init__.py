@@ -1,2 +1,1 @@
 """Legal-KG domain package."""
-

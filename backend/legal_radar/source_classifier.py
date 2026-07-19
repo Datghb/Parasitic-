@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
-from enum import Enum
 import re
 import unicodedata
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum, StrEnum
 
 
-class NhanNguon(str, Enum):
+class NhanNguon(StrEnum):
     CO_NGUON_XAC_NHAN = "co_nguon_xac_nhan"
     CO_BAC_BO_CHINH_THUC = "co_bac_bo_chinh_thuc"
     CHUA_TIM_THAY_NGUON = "chua_tim_thay_nguon"
@@ -53,6 +53,7 @@ TIER_2_DOMAINS = [
 
 
 def classify_tier(url: str) -> int:
+    """Return the source trustworthiness tier (0=government, 1=major press, 2=general) for a URL."""
     url_lower = url.lower()
     if ".gov.vn" in url_lower:
         return 0
@@ -98,6 +99,7 @@ def apply_fusion_rules(
     docs: list[SearchDoc],
     thoi_gian_claim: str,
 ) -> tuple[NhanNguon, list[SearchDoc], str]:
+    """Apply source fusion rules to a list of search docs and return a source label with explanation."""
     if not docs:
         return NhanNguon.CHUA_TIM_THAY_NGUON, [], "Không tìm thấy nguồn"
 
@@ -150,6 +152,8 @@ def xac_thuc_nguon(
     thoi_gian_claim: str,
     search_results: list[dict],
 ) -> tuple[NhanNguon, list[dict], str]:
+    """Verify a claim against search results and return a source label, matched docs, and explanation."""
+
     def normalize(value: str) -> str:
         decomposed = unicodedata.normalize("NFD", value.lower())
         return " ".join(
@@ -159,19 +163,11 @@ def xac_thuc_nguon(
             )
         )
 
-    normalized_keywords = [
-        normalize(keyword)
-        for keyword in claim_keywords
-        if len(normalize(keyword)) >= 4
-    ]
+    normalized_keywords = [normalize(keyword) for keyword in claim_keywords if len(normalize(keyword)) >= 4]
     docs: list[SearchDoc] = []
     for r in search_results:
-        evidence = normalize(
-            f"{r.get('tieu_de', '')} {r.get('noi_dung_tom_tat', '')}"
-        )
-        if normalized_keywords and not any(
-            keyword in evidence for keyword in normalized_keywords
-        ):
+        evidence = normalize(f"{r.get('tieu_de', '')} {r.get('noi_dung_tom_tat', '')}")
+        if normalized_keywords and not any(keyword in evidence for keyword in normalized_keywords):
             continue
         tier = classify_tier(r.get("url", ""))
         docs.append(

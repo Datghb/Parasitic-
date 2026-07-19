@@ -36,12 +36,8 @@ class Settings(BaseSettings):
     openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
     tokenrouter_api_key: str | None = Field(default=None, alias="TOKENROUTER_API_KEY")
     brightdata_api_key: str | None = Field(default=None, alias="BRIGHTDATA_API_KEY")
-    tokenrouter_model: str = Field(
-        default="google/gemini-3-flash-preview", alias="TOKENROUTER_MODEL"
-    )
-    tokenrouter_base_url: str = Field(
-        default="https://api.tokenrouter.com/v1", alias="TOKENROUTER_BASE_URL"
-    )
+    tokenrouter_model: str = Field(default="google/gemini-3-flash-preview", alias="TOKENROUTER_MODEL")
+    tokenrouter_base_url: str = Field(default="https://api.tokenrouter.com/v1", alias="TOKENROUTER_BASE_URL")
 
     youtube_api_key: str | None = Field(default=None, alias="YOUTUBE_API_KEY")
 

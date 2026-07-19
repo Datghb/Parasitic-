@@ -19,8 +19,10 @@ def repo_root() -> Path:
 
 
 def data_dir() -> Path:
+    """Return the path to the project data directory."""
     return repo_root() / "data"
 
 
 def runs_dir() -> Path:
+    """Return the path to the runtime output directory."""
     return repo_root() / "runs"

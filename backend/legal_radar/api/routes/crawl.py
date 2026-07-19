@@ -12,10 +12,9 @@ from hashlib import sha1
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from backend.legal_radar.pipeline import _build_crawled_ingestor, _queue_path
-from backend.legal_radar.api.dependencies import runs_dir
+from backend.legal_radar.api.dependencies import require_admin, runs_dir
 from backend.legal_radar.api.schemas import CrawlRequest
-from backend.legal_radar.api.dependencies import require_admin
+from backend.legal_radar.pipeline import _build_crawled_ingestor, _queue_path
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +25,11 @@ router = APIRouter(tags=["crawl"])
 def debug_crawl():
     """Debug endpoint — test Bright Data APIs and return raw results."""
     import time
+
     import requests as http_requests
+
+    from backend.legal_radar.crawlers.facebook import BD_BASE_URL, BD_COMMENTS_DATASET, BD_POSTS_DATASET
     from backend.legal_radar.settings import get_settings
-    from backend.legal_radar.crawlers.facebook import BD_BASE_URL, BD_POSTS_DATASET, BD_COMMENTS_DATASET
 
     settings = get_settings()
     key = settings.brightdata_api_key or ""
@@ -110,8 +111,12 @@ def debug_crawl():
                         result[f"scraper_{label}_poll_{j}"] = sr.status_code
                         if sr.status_code == 200:
                             snap_data = sr.json()
-                            result[f"scraper_{label}_result_count"] = len(snap_data) if isinstance(snap_data, list) else "not_list"
-                            result[f"scraper_{label}_result"] = snap_data[:2] if isinstance(snap_data, list) else str(snap_data)[:500]
+                            result[f"scraper_{label}_result_count"] = (
+                                len(snap_data) if isinstance(snap_data, list) else "not_list"
+                            )
+                            result[f"scraper_{label}_result"] = (
+                                snap_data[:2] if isinstance(snap_data, list) else str(snap_data)[:500]
+                            )
                             break
         except Exception as exc:
             result[f"scraper_{label}_error"] = str(exc)
@@ -122,19 +127,24 @@ def debug_crawl():
 def _try_live_crawl(keywords, max_posts, output_path):
     """Try Bright Data crawl in a background thread with timeout."""
     from backend.legal_radar.crawlers.scheduler import crawl_and_process
+
     result = {"items": [], "crawled": 0, "relevant": 0}
     error = None
+
     def _run():
         nonlocal error
         try:
-            result.update(crawl_and_process(
-                keywords=keywords or None,
-                max_posts=max_posts,
-                output_path=output_path,
-            ))
+            result.update(
+                crawl_and_process(
+                    keywords=keywords or None,
+                    max_posts=max_posts,
+                    output_path=output_path,
+                )
+            )
         except Exception as exc:
             error = str(exc)
             logger.warning("Live crawl failed: %s", exc)
+
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
     thread.join(timeout=600)
@@ -145,18 +155,28 @@ def _try_live_crawl(keywords, max_posts, output_path):
 
 @router.post("/crawl", dependencies=[Depends(require_admin)])
 def trigger_crawl(request: CrawlRequest):
+    """Start a crawl job and stream progress events back to the caller."""
     from backend.legal_radar.settings import get_settings
+
     settings = get_settings()
     youtube_enabled = os.environ.get("CRAWL_YOUTUBE_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
     news_enabled = os.environ.get("CRAWL_NEWS_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
     if not settings.brightdata_api_key and not youtube_enabled and not news_enabled:
+
         def stream_no_key():
-            yield json.dumps({
-                "type": "error",
-                "message": "BRIGHTDATA_API_KEY chưa được cấu hình. Không thể quét MXH.",
-                "crawled": 0,
-                "relevant": 0,
-            }, ensure_ascii=False) + "\n"
+            yield (
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": "BRIGHTDATA_API_KEY chưa được cấu hình. Không thể quét MXH.",
+                        "crawled": 0,
+                        "relevant": 0,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+
         return StreamingResponse(stream_no_key(), media_type="text/event-stream")
 
     output_path = runs_dir() / "crawled_raw.jsonl"
@@ -176,17 +196,26 @@ def trigger_crawl(request: CrawlRequest):
                 reason = f"Discover tìm thấy {crawled} URL nhưng không có nội dung liên quan sáp nhập ĐVHC."
             else:
                 reason = "Không tìm thấy nội dung liên quan trên mạng xã hội"
-            yield json.dumps({
-                "type": "error",
-                "message": f"Quét MXH thất bại: {reason}",
-                "crawled": crawled,
-                "relevant": relevant,
-            }, ensure_ascii=False) + "\n"
+            yield (
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": f"Quét MXH thất bại: {reason}",
+                        "crawled": crawled,
+                        "relevant": relevant,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
             return
 
         message = f"Đã thu thập {live['crawled']} nội dung, {live['relevant']} liên quan."
 
-        yield json.dumps({"type": "start", "message": message, "mode": "live", "total": len(items)}, ensure_ascii=False) + "\n"
+        yield (
+            json.dumps({"type": "start", "message": message, "mode": "live", "total": len(items)}, ensure_ascii=False)
+            + "\n"
+        )
 
         queue_path = _queue_path()
         ingestor = _build_crawled_ingestor(queue_path)
@@ -234,18 +263,24 @@ def trigger_crawl(request: CrawlRequest):
                     queue_file.write(json.dumps(asdict(queue_item), ensure_ascii=False) + "\n")
                     queue_file.flush()
                     count += 1
-                    yield json.dumps({
-                        "type": "item",
-                        "count": count,
-                        "id": queue_item.id,
-                        "claim": queue_item.claim[:100],
-                        "label": queue_item.nhan.value,
-                        "subject": queue_item.subject,
-                        "source_title": queue_item.source_title,
-                        "source_url": queue_item.source_url,
-                        "source_agency": queue_item.source_agency,
-                        "comments_count": len(bundled_comments),
-                    }, ensure_ascii=False) + "\n"
+                    yield (
+                        json.dumps(
+                            {
+                                "type": "item",
+                                "count": count,
+                                "id": queue_item.id,
+                                "claim": queue_item.claim[:100],
+                                "label": queue_item.nhan.value,
+                                "subject": queue_item.subject,
+                                "source_title": queue_item.source_title,
+                                "source_url": queue_item.source_url,
+                                "source_agency": queue_item.source_agency,
+                                "comments_count": len(bundled_comments),
+                            },
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
                 except Exception as exc:
                     logger.warning("Crawl item error: %s", exc)
                     continue

@@ -1,14 +1,14 @@
-﻿import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
 from backend.legal_radar.source_classifier import (
-    classify_tier,
-    apply_fusion_rules,
-    xac_thuc_nguon,
-    SearchDoc,
     NhanNguon,
+    SearchDoc,
+    apply_fusion_rules,
+    classify_tier,
+    xac_thuc_nguon,
 )
 
 
@@ -61,8 +61,7 @@ class TestApplyFusionRules:
 
     def test_tier0_confirm(self):
         docs = [
-            SearchDoc("d1", 0, "SBV", "SBV xác nhận", "nội dung", "2026-07-01",
-                       "https://sbv.gov.vn", la_xac_nhan=True)
+            SearchDoc("d1", 0, "SBV", "SBV xác nhận", "nội dung", "2026-07-01", "https://sbv.gov.vn", la_xac_nhan=True)
         ]
         nhan, matched, ly_do = apply_fusion_rules(docs, "2026-07-10")
         assert nhan == NhanNguon.CO_NGUON_XAC_NHAN
@@ -70,10 +69,12 @@ class TestApplyFusionRules:
 
     def test_two_tier1_confirm(self):
         docs = [
-            SearchDoc("d1", 1, "TTXVN", "TTXVN xác nhận", "nội dung", "2026-07-01",
-                       "https://baotintuc.vn", la_xac_nhan=True),
-            SearchDoc("d2", 1, "Nhân Dân", "ND xác nhận", "nội dung", "2026-07-02",
-                       "https://nhandan.vn", la_xac_nhan=True),
+            SearchDoc(
+                "d1", 1, "TTXVN", "TTXVN xác nhận", "nội dung", "2026-07-01", "https://baotintuc.vn", la_xac_nhan=True
+            ),
+            SearchDoc(
+                "d2", 1, "Nhân Dân", "ND xác nhận", "nội dung", "2026-07-02", "https://nhandan.vn", la_xac_nhan=True
+            ),
         ]
         nhan, matched, ly_do = apply_fusion_rules(docs, "2026-07-10")
         assert nhan == NhanNguon.CO_NGUON_XAC_NHAN
@@ -81,24 +82,21 @@ class TestApplyFusionRules:
 
     def test_one_tier1_not_enough(self):
         docs = [
-            SearchDoc("d1", 1, "TTXVN", "TTXVN", "nội dung", "2026-07-01",
-                       "https://baotintuc.vn", la_xac_nhan=True),
+            SearchDoc("d1", 1, "TTXVN", "TTXVN", "nội dung", "2026-07-01", "https://baotintuc.vn", la_xac_nhan=True),
         ]
         nhan, matched, ly_do = apply_fusion_rules(docs, "2026-07-10")
         assert nhan == NhanNguon.CHUA_TIM_THAY_NGUON
 
     def test_deny_after_claim_time(self):
         docs = [
-            SearchDoc("d1", 0, "SBV", "SBV bác bỏ", "nội dung", "2026-07-15",
-                       "https://sbv.gov.vn", la_bac_bo=True),
+            SearchDoc("d1", 0, "SBV", "SBV bác bỏ", "nội dung", "2026-07-15", "https://sbv.gov.vn", la_bac_bo=True),
         ]
         nhan, matched, ly_do = apply_fusion_rules(docs, "2026-07-10")
         assert nhan == NhanNguon.CO_BAC_BO_CHINH_THUC
 
     def test_deny_before_claim_time_not_counted(self):
         docs = [
-            SearchDoc("d1", 0, "SBV", "SBV bác bỏ", "nội dung", "2026-07-01",
-                       "https://sbv.gov.vn", la_bac_bo=True),
+            SearchDoc("d1", 0, "SBV", "SBV bác bỏ", "nội dung", "2026-07-01", "https://sbv.gov.vn", la_bac_bo=True),
         ]
         nhan, matched, ly_do = apply_fusion_rules(docs, "2026-07-10")
         assert nhan == NhanNguon.CHUA_TIM_THAY_NGUON
@@ -117,9 +115,7 @@ class TestXacThucNguon:
                 "la_xac_nhan": True,
             }
         ]
-        nhan, matched, ly_do = xac_thuc_nguon(
-            ["tin đồn", "ngân hàng"], "2026-07-10", results
-        )
+        nhan, matched, ly_do = xac_thuc_nguon(["tin đồn", "ngân hàng"], "2026-07-10", results)
         assert nhan == NhanNguon.CO_NGUON_XAC_NHAN
         assert len(matched) == 1
         assert matched[0]["tier"] == 0
@@ -130,15 +126,17 @@ class TestXacThucNguon:
         assert matched == []
 
     def test_same_topic_without_claim_evidence_is_not_confirmation(self):
-        results = [{
-            "tieu_de": "Luật Báo chí 2016",
-            "nguon": "Cổng TTĐT Chính phủ",
-            "url": "https://chinhphu.vn/luat-bao-chi",
-            "ngay_dang": "2026-07-01",
-            "noi_dung_tom_tat": "Quy định chung về hoạt động báo chí.",
-            "la_xac_nhan": True,
-            "la_bac_bo": False,
-        }]
+        results = [
+            {
+                "tieu_de": "Luật Báo chí 2016",
+                "nguon": "Cổng TTĐT Chính phủ",
+                "url": "https://chinhphu.vn/luat-bao-chi",
+                "ngay_dang": "2026-07-01",
+                "noi_dung_tom_tat": "Quy định chung về hoạt động báo chí.",
+                "la_xac_nhan": True,
+                "la_bac_bo": False,
+            }
+        ]
 
         nhan, docs, ly_do = xac_thuc_nguon(
             ["kênh Hùng Hợi", "giọng đọc thật", "trí tuệ nhân tạo"],
@@ -164,5 +162,3 @@ class TestXacThucNguon:
         ]
         nhan, matched, ly_do = xac_thuc_nguon(["test"], "2026-07-10", results)
         assert matched[0]["tier"] == 2
-
-

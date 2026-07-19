@@ -14,6 +14,8 @@ from backend.legal_radar.api.dependencies import require_admin
 from backend.legal_radar.api.schemas import (
     AuditEntryResponse,
     QueueItemResponse,
+)
+from backend.legal_radar.api.schemas import (
     ReviewRequest as LegacyReviewRequest,
 )
 from backend.legal_radar.guardrails import validate_reviewer_label
@@ -36,6 +38,7 @@ class DecisionReviewRequest(BaseModel):
 
 @router.get("/queue", response_model=list[QueueItemResponse])
 def list_queue(response: Response) -> list[QueueItemResponse]:
+    """List all queue items, disabling caching on the response."""
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return [QueueItemResponse.model_validate(item) for item in list_queue_items()]
 
@@ -46,6 +49,7 @@ def list_queue(response: Response) -> list[QueueItemResponse]:
     dependencies=[Depends(require_admin)],
 )
 def update_case_status(case_id: str, body: StatusUpdate) -> QueueItemResponse:
+    """Update the status of a case, optionally setting a reviewer label."""
     allowed = {"new", "reviewing", "resolved"}
     if body.status not in allowed:
         raise HTTPException(status_code=400, detail=f"Status phải là một trong: {allowed}")
@@ -54,9 +58,7 @@ def update_case_status(case_id: str, body: StatusUpdate) -> QueueItemResponse:
             validate_reviewer_label(body.reviewer_label)
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
-    effective_status = (
-        "resolved" if body.reviewer_label and body.status != "resolved" else body.status
-    )
+    effective_status = "resolved" if body.reviewer_label and body.status != "resolved" else body.status
     item = update_queue_item_status(
         case_id,
         effective_status,
@@ -78,6 +80,7 @@ def record_review_decision(
     case_id: str,
     body: DecisionReviewRequest,
 ) -> QueueItemResponse:
+    """Record a human review decision and persist it for the given case."""
     if body.decision == "corrected" and body.corrected_label is None:
         raise HTTPException(
             status_code=400,
@@ -108,6 +111,7 @@ def update_legacy_review(
     case_id: str,
     body: LegacyReviewRequest,
 ) -> QueueItemResponse:
+    """Apply a legacy PATCH review update with human label and action fields."""
     allowed_actions = {"approve", "reject", "escalate"}
     if body.action and body.action not in allowed_actions:
         raise HTTPException(
@@ -148,11 +152,13 @@ def update_legacy_review(
     dependencies=[Depends(require_admin)],
 )
 def get_case_audit(case_id: str) -> list[AuditEntryResponse]:
+    """Return the full audit trail for a given case."""
     return [AuditEntryResponse.model_validate(entry) for entry in get_audit_log(case_id)]
 
 
 @router.delete("/queue", dependencies=[Depends(require_admin)])
 def clear_queue() -> dict[str, object]:
+    """Delete all items from the queue file and return a deletion summary."""
     from backend.legal_radar.api.dependencies import runs_dir
 
     queue_path = runs_dir() / "queue.jsonl"

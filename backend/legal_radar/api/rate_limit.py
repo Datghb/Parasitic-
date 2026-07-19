@@ -56,6 +56,7 @@ qa_rate_limiter = SlidingWindowRateLimiter(
 
 
 def enforce_qa_rate_limit(request: Request) -> None:
+    """Raise HTTP 429 if the client has exceeded the configured QA rate limit."""
     client_key = request.client.host if request.client else "unknown"
     retry_after = qa_rate_limiter.check(client_key)
     if retry_after is not None:

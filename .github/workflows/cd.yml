@@ -18,8 +18,8 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            mkdir -p /home/khuong/vaic
-            cd /home/khuong/vaic
+            mkdir -p ${{ secrets.VPS_DEPLOY_PATH }}
+            cd ${{ secrets.VPS_DEPLOY_PATH }}
 
             if [ ! -d .git ]; then
               git init

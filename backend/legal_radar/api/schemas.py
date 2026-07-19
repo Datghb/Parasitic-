@@ -65,9 +65,11 @@ class ReviewRequest(BaseModel):
 class QuestionRequest(BaseModel):
     question: str = Field(min_length=3, max_length=5000)
 
+
 class CrawlRequest(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     max_posts_per_platform: int = Field(default=10, ge=1, le=50)
+
 
 class CrawlResponse(BaseModel):
     collected: int

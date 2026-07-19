@@ -1,8 +1,9 @@
-﻿"""Crawler scheduler — on-demand + periodic background crawling.
+"""Crawler scheduler — on-demand + periodic background crawling.
 
 Appends results to runs/crawled_raw.jsonl with URL-based dedup.
 Thread-safe for background execution.
 """
+
 from __future__ import annotations
 
 import json
@@ -13,8 +14,8 @@ from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
-from backend.legal_radar.paths import runs_dir
 from backend.legal_radar.crawlers.facebook import crawl_facebook
+from backend.legal_radar.paths import runs_dir
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +110,9 @@ def crawl_now(
     appended = _append_results(out, all_items, seen_urls)
     logger.info(
         "crawl_now: %d items collected, %d new appended to %s",
-        len(all_items), appended, out,
+        len(all_items),
+        appended,
+        out,
     )
     return all_items
 
@@ -183,6 +186,7 @@ class CrawlScheduler:
 
     @property
     def is_running(self) -> bool:
+        """Return True if the scheduler is currently active."""
         with self._lock:
             return self._running
 

@@ -11,7 +11,9 @@ import requests
 
 
 class ClaimExtractor(Protocol):
-    def extract(self, text: str) -> dict[str, object]: ...
+    def extract(self, text: str) -> dict[str, object]:
+        """Extract a structured claim from raw text and return it as a dict."""
+        ...
 
 
 class TokenRouterProvider:
@@ -30,6 +32,7 @@ class TokenRouterProvider:
         self.timeout_s = timeout_s
 
     def generate(self, prompt: str) -> str:
+        """Send prompt to the TokenRouter API and return the model response text."""
         if not self.api_key:
             raise RuntimeError("Thieu bien moi truong TOKENROUTER_API_KEY")
         response = requests.post(
@@ -230,6 +233,7 @@ class FallbackProvider:
         self.providers = providers
 
     def generate(self, prompt: str) -> str:
+        """Try each provider in sequence and return the first successful response."""
         last_error = ""
         for provider in self.providers:
             try:

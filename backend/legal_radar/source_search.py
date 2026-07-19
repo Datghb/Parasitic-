@@ -8,8 +8,8 @@ from urllib.parse import urlparse
 
 import requests as http_requests
 
-from backend.legal_radar.source_classifier import TIER_0_DOMAINS, TIER_1_DOMAINS, TIER_2_DOMAINS
 from backend.legal_radar.settings import get_settings
+from backend.legal_radar.source_classifier import TIER_0_DOMAINS, TIER_1_DOMAINS, TIER_2_DOMAINS
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,15 @@ def _build_source_query(keywords: list[str]) -> list[str]:
     tier0_sites = " OR ".join(f"site:{d}" for d in [".gov.vn", "chinhphu.vn", "bocongan.gov.vn", "sbv.gov.vn"])
     tier12_sites = " OR ".join(
         f"site:{d}"
-        for d in ["baotintuc.vn", "vtv.vn", "nhandan.vn", "vnexpress.net", "tuoitre.vn", "thanhnien.vn", "vietnamnet.vn"]
+        for d in [
+            "baotintuc.vn",
+            "vtv.vn",
+            "nhandan.vn",
+            "vnexpress.net",
+            "tuoitre.vn",
+            "thanhnien.vn",
+            "vietnamnet.vn",
+        ]
     )
 
     return [
@@ -217,9 +225,7 @@ def _fallback_llm_search(
     tr_key, base_url, model = _get_tokenrouter_config()
     tokenrouter_key = api_key or tr_key
     gemini_key = (
-        os.environ.get("GEMINI_API_KEY")
-        or os.environ.get("GOOGLE_API_KEY")
-        or os.environ.get("GOOGLE_API_KEY_1", "")
+        os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GOOGLE_API_KEY_1", "")
     )
     if not tokenrouter_key and not gemini_key:
         logger.warning("No TOKENROUTER_API_KEY or GEMINI_API_KEY set — skipping fallback LLM search")

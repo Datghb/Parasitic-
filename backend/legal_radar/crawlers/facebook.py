@@ -1,18 +1,19 @@
-﻿"""Facebook crawler — Bright Data Discover API + Scraper API.
+"""Facebook crawler — Bright Data Discover API + Scraper API.
 
 Architecture:
     1. Discover API  → search keywords → collect Facebook post URLs
     2. Scraper API   → scrape post content + comments per URL (parallel)
     3. No Playwright, no browser automation needed.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import re
 import time
-from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from pathlib import Path
 
 import requests
@@ -37,10 +38,22 @@ FALLBACK_QUERIES = [
 ]
 
 _DISCOVER_META_KEYWORDS = [
-    "sáp nhập", "đơn vị hành chính", "dvhc", "đvhc",
-    "gộp tỉnh", "giảm tỉnh", "tỉnh mới", "sắp xếp",
-    "hợp nhất", "nhập tỉnh", "chia tỉnh", "tách tỉnh",
-    "nghị quyết", "bộ nội vụ", "16 tỉnh", "34 tỉnh",
+    "sáp nhập",
+    "đơn vị hành chính",
+    "dvhc",
+    "đvhc",
+    "gộp tỉnh",
+    "giảm tỉnh",
+    "tỉnh mới",
+    "sắp xếp",
+    "hợp nhất",
+    "nhập tỉnh",
+    "chia tỉnh",
+    "tách tỉnh",
+    "nghị quyết",
+    "bộ nội vụ",
+    "16 tỉnh",
+    "34 tỉnh",
 ]
 
 
@@ -102,7 +115,6 @@ def _discover_urls(queries: list[str], needed: int) -> list[dict]:
     return items
 
 
-
 def _poll_discover(task_id: str) -> list[dict]:
     """Poll Discover API until done. Returns list of result items."""
     for i in range(15):
@@ -122,7 +134,9 @@ def _poll_discover(task_id: str) -> list[dict]:
         data = r.json()
         status = data.get("status", "unknown")
         if status == "done":
-            logger.info("Discover task %s done after %d polls, got %d results", task_id, i + 1, len(data.get("results", [])))
+            logger.info(
+                "Discover task %s done after %d polls, got %d results", task_id, i + 1, len(data.get("results", []))
+            )
             return data.get("results", [])
         logger.info("Discover poll %d: status=%s for task %s", i, status, task_id)
     logger.warning("Discover task %s timed out after 15 polls (45s)", task_id)
@@ -138,8 +152,11 @@ def _bd_scrape(dataset_id: str, url: str) -> list[dict]:
     payload = {"input": [{"url": url}]}
     try:
         resp = requests.post(
-            f"{BD_BASE_URL}/scrape", params=params,
-            headers=_bd_headers(), json=payload, timeout=60,
+            f"{BD_BASE_URL}/scrape",
+            params=params,
+            headers=_bd_headers(),
+            json=payload,
+            timeout=60,
         )
     except requests.Timeout:
         logger.warning("Scrape POST timeout for %s", url)
@@ -207,7 +224,8 @@ def _crawl_one_post(url: str) -> dict | None:
     post_url = post.get("url", "")
     post_id = post.get("post_id", "")
     post_comments = [
-        c for c in comments
+        c
+        for c in comments
         if c.get("post_id") == post_id
         or c.get("post_url", "").split("?")[0] == post_url.split("?")[0]
         or post_url in c.get("post_url", "")
@@ -228,7 +246,8 @@ def _crawl_one_post(url: str) -> dict | None:
     total_likes = sum(item.get("num", 0) for item in likes_data) if likes_data else post.get("likes", 0)
 
     return {
-        "platform": "facebook", "content_type": "post",
+        "platform": "facebook",
+        "content_type": "post",
         "text": post.get("content", ""),
         "author": post.get("user_username_raw", "Unknown"),
         "author_id": post.get("profile_id", ""),
@@ -238,7 +257,11 @@ def _crawl_one_post(url: str) -> dict | None:
         "page_verified": post.get("page_is_verified", False),
         "url": post_url,
         "timestamp": post.get("date_posted", ""),
-        "engagement": {"likes": total_likes, "shares": post.get("num_shares", 0), "comments": post.get("num_comments", 0)},
+        "engagement": {
+            "likes": total_likes,
+            "shares": post.get("num_shares", 0),
+            "comments": post.get("num_comments", 0),
+        },
         "comments": formatted_comments[:50],
     }
 
@@ -296,7 +319,9 @@ def crawl_facebook(
             results.append(scraped)
             with open(out, "a", encoding="utf-8") as f:
                 f.write(json.dumps(scraped, ensure_ascii=False) + "\n")
-            logger.info("[%d/%d] scraped %s - %d comments", len(results), max_posts, scraped["author"], len(scraped["comments"]))
+            logger.info(
+                "[%d/%d] scraped %s - %d comments", len(results), max_posts, scraped["author"], len(scraped["comments"])
+            )
         else:
             fallback = {
                 "platform": "facebook",
@@ -309,7 +334,7 @@ def crawl_facebook(
                 "page_followers": None,
                 "page_verified": False,
                 "url": url,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "engagement": {"likes": 0, "shares": 0, "comments": 0},
                 "comments": [],
             }
@@ -322,5 +347,7 @@ def crawl_facebook(
                 failed += 1
                 logger.warning("Skipped %s — scraper failed and no Discover metadata", url[:80])
 
-    logger.info("Done! %d/%d items, %d failed in %.1fs -> %s", len(results), max_posts, failed, time.time() - t_start, out)
+    logger.info(
+        "Done! %d/%d items, %d failed in %.1fs -> %s", len(results), max_posts, failed, time.time() - t_start, out
+    )
     return results

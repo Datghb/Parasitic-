@@ -32,7 +32,9 @@ def _queue_from_jsonl(path: Path) -> list[dict[str, Any]]:
 def _compute_spread_risk_fallback(label: str, reach: int, source_label: str, reason: str) -> int:
     severity = 40 if label == "hieu_lam" else 20 if label == "can_kiem_chung" else 5
     reach_sc = min(30, round(math.log2(reach + 1) * 5)) if reach > 0 else 0
-    has_cta = any(w in reason.lower() for w in ["tẩy chay", "cảnh giác", "cảnh báo", "đừng tin", "báo cáo", "chia sẻ ngay"])
+    has_cta = any(
+        w in reason.lower() for w in ["tẩy chay", "cảnh giác", "cảnh báo", "đừng tin", "báo cáo", "chia sẻ ngay"]
+    )
     cta = 15 if has_cta and source_label == "chua_tim_thay_nguon" else 5 if has_cta else 0
     source_gap = 10 if source_label == "chua_tim_thay_nguon" else 5 if source_label == "co_bac_bo_chinh_thuc" else 0
     return min(100, severity + reach_sc + cta + source_gap)
@@ -91,7 +93,10 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any]:
         spread_risk = _compute_spread_risk_fallback(label_val, reach, source_val, reason)
     if not ai_accuracy:
         ai_accuracy = _compute_ai_accuracy_fallback(
-            int(raw.get("score", score)), int(raw.get("confidence", 50)), label_val, citations,
+            int(raw.get("score", score)),
+            int(raw.get("confidence", 50)),
+            label_val,
+            citations,
         )
     if not source_reliability:
         source_reliability = _compute_source_reliability_fallback(source_val, citations)
@@ -138,6 +143,7 @@ def _normalise(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def list_queue_items() -> list[dict[str, Any]]:
+    """Return all unique queue items sorted by priority and reach."""
     raw_rows = _queue_from_jsonl(runs_dir() / "queue.jsonl")
     seen: set[str] = set()
     unique: list[dict[str, Any]] = []
@@ -150,6 +156,7 @@ def list_queue_items() -> list[dict[str, Any]]:
 
 
 def get_queue_item(case_id: str) -> dict[str, Any] | None:
+    """Return a single queue item by case ID, or None if not found."""
     return next((item for item in list_queue_items() if item["id"] == case_id), None)
 
 
@@ -160,7 +167,8 @@ def update_queue_item_status(
     reviewer_reason: str = "",
     reviewer_note: str = "",
 ) -> dict[str, Any] | None:
-    from datetime import datetime, timezone
+    """Update the status and optional reviewer fields of a queue item."""
+    from datetime import datetime
 
     queue_path = runs_dir() / "queue.jsonl"
     if not queue_path.exists():
@@ -171,7 +179,7 @@ def update_queue_item_status(
         if str(row.get("id", "")) == case_id:
             old_status = row.get("status", "new")
             row["status"] = new_status
-            now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = datetime.now(UTC).isoformat()
             if reviewer_label:
                 row["reviewer_label"] = reviewer_label
                 row["reviewed_at"] = now_iso
@@ -191,6 +199,7 @@ def update_queue_item_status(
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
     return updated
+
 
 def review_queue_item(
     case_id: str,
@@ -238,7 +247,7 @@ def review_queue_item(
 
 
 def _append_audit(case_id: str, action: str, old_value: str, new_value: str, note: str) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     audit_path = runs_dir() / "audit.jsonl"
     entry = {
@@ -248,13 +257,14 @@ def _append_audit(case_id: str, action: str, old_value: str, new_value: str, not
         "old_value": old_value,
         "new_value": new_value,
         "note": note,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
     with audit_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 def get_audit_log(case_id: str) -> list[dict[str, Any]]:
+    """Return all audit log entries for a given case ID."""
     audit_path = runs_dir() / "audit.jsonl"
     if not audit_path.exists():
         return []
@@ -272,6 +282,7 @@ def get_audit_log(case_id: str) -> list[dict[str, Any]]:
 
 
 def list_study_cases() -> list[dict[str, Any]]:
+    """Return the list of curated study cases used for verification."""
     path = data_dir() / "study_cases" / "study_cases.json"
     return _read_json(path) if path.exists() else []
 
@@ -283,6 +294,7 @@ def update_queue_item_review(
     reviewer_notes: str | None = None,
     action: str | None = None,
 ) -> dict[str, Any] | None:
+    """Apply a legacy human review update to a queue item."""
     queue_path = runs_dir() / "queue.jsonl"
     if not queue_path.exists():
         return None

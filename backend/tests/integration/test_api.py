@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from backend.legal_radar.model import NhanNguon
 from backend.legal_radar.api.main import app
+from backend.legal_radar.model import NhanNguon
 
 client = TestClient(app)
 
@@ -15,10 +15,12 @@ def test_health() -> None:
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
+
 def test_readiness_checks_required_data_and_runtime_storage() -> None:
     response = client.get("/ready")
     assert response.status_code == 200
     assert response.json() == {"status": "ready"}
+
 
 def test_api_responses_include_security_headers() -> None:
     response = client.get("/health")
@@ -36,10 +38,8 @@ def test_cors_preflight_allows_production_frontend() -> None:
         },
     )
     assert response.status_code == 200
-    assert (
-        response.headers["access-control-allow-origin"]
-        == "https://diachung.dpdns.org"
-    )
+    assert response.headers["access-control-allow-origin"] == "https://diachung.dpdns.org"
+
 
 def test_cors_preflight_allows_local_frontend() -> None:
     response = client.options(
@@ -97,8 +97,8 @@ def test_qa_rejects_oversized_input() -> None:
 
 
 def test_debug_route_does_not_expose_api_key_prefix(monkeypatch) -> None:
-    from backend.legal_radar.api.routes import crawl
     import backend.legal_radar.settings as settings_mod
+    from backend.legal_radar.api.routes import crawl
 
     fake = settings_mod.Settings(
         APP_ENV="development",
@@ -112,8 +112,8 @@ def test_debug_route_does_not_expose_api_key_prefix(monkeypatch) -> None:
 
 
 def test_admin_write_route_rejects_missing_key(monkeypatch) -> None:
-    from backend.legal_radar.api import dependencies
     import backend.legal_radar.settings as settings_mod
+    from backend.legal_radar.api import dependencies
 
     fake = settings_mod.Settings(
         APP_ENV="production",
@@ -130,8 +130,8 @@ def test_admin_write_route_rejects_missing_key(monkeypatch) -> None:
 
 
 def test_admin_write_route_accepts_valid_key(monkeypatch) -> None:
-    from backend.legal_radar.api import dependencies
     import backend.legal_radar.settings as settings_mod
+    from backend.legal_radar.api import dependencies
 
     fake = settings_mod.Settings(
         APP_ENV="production",
@@ -149,8 +149,8 @@ def test_admin_write_route_accepts_valid_key(monkeypatch) -> None:
 
 
 def test_production_write_route_fails_closed_without_config(monkeypatch) -> None:
-    from backend.legal_radar.api import dependencies
     import backend.legal_radar.settings as settings_mod
+    from backend.legal_radar.api import dependencies
 
     fake = settings_mod.Settings(APP_ENV="production", ADMIN_API_KEY="")
     monkeypatch.setattr(dependencies, "get_settings", lambda: fake)
@@ -196,13 +196,11 @@ def test_reviewer_can_reject_result_and_create_audit_event(
 
     assert response.status_code == 200
     assert response.json()["status"] == "resolved"
-    audit_rows = [
-        json.loads(line)
-        for line in (tmp_path / "audit.jsonl").read_text(encoding="utf-8").splitlines()
-    ]
+    audit_rows = [json.loads(line) for line in (tmp_path / "audit.jsonl").read_text(encoding="utf-8").splitlines()]
     assert audit_rows[-1]["event"] == "ai_reviewed"
     assert audit_rows[-1]["decision"] == "rejected"
     assert audit_rows[-1]["case_id"] == "review-me"
+
 
 def test_reviewer_must_explain_correction_or_rejection(monkeypatch, tmp_path) -> None:
     from backend.legal_radar.api import data_access
@@ -235,8 +233,11 @@ def test_crawl_returns_supported_schema(monkeypatch, tmp_path) -> None:
     from backend.legal_radar.api.routes import crawl
 
     monkeypatch.setattr(crawl, "runs_dir", lambda: tmp_path)
-    monkeypatch.setattr(crawl, "_try_live_crawl", lambda *a, **kw: ({"items": [], "crawled": 0, "relevant": 0}, "Test: no items"))
+    monkeypatch.setattr(
+        crawl, "_try_live_crawl", lambda *a, **kw: ({"items": [], "crawled": 0, "relevant": 0}, "Test: no items")
+    )
     import backend.legal_radar.settings as settings_mod
+
     fake = settings_mod.Settings(BRIGHTDATA_API_KEY="test-key")
     monkeypatch.setattr(settings_mod, "get_settings", lambda: fake)
     with patch("backend.legal_radar.source_search.search_brightdata", return_value=[]):
@@ -251,12 +252,7 @@ def test_crawl_returns_supported_schema(monkeypatch, tmp_path) -> None:
 def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) -> None:
     from backend.legal_radar.api.routes import crawl
 
-    fixture_path = (
-        Path(__file__).resolve().parents[3]
-        / "data"
-        / "fixtures"
-        / "crawled_sample.json"
-    )
+    fixture_path = Path(__file__).resolve().parents[3] / "data" / "fixtures" / "crawled_sample.json"
     fixture_post = json.loads(fixture_path.read_text(encoding="utf-8"))[0]
     expected_count = 1
     queue_path = tmp_path / "queue.jsonl"
@@ -278,34 +274,49 @@ def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) ->
     monkeypatch.setattr(crawl, "runs_dir", lambda: tmp_path)
 
     import backend.legal_radar.settings as settings_mod
+
     fake = settings_mod.Settings(BRIGHTDATA_API_KEY="test-key")
     monkeypatch.setattr(settings_mod, "get_settings", lambda: fake)
 
     import backend.legal_radar.pipeline as pipeline_mod
+
     monkeypatch.setattr(pipeline_mod, "_queue_path", lambda: queue_path)
     monkeypatch.setattr(crawl, "_queue_path", lambda: queue_path)
-    monkeypatch.setattr(crawl, "_build_crawled_ingestor", lambda qp: pipeline_mod.CommentIngestor(provider, MagicMock(), str(qp)))
+    monkeypatch.setattr(
+        crawl, "_build_crawled_ingestor", lambda qp: pipeline_mod.CommentIngestor(provider, MagicMock(), str(qp))
+    )
     monkeypatch.setattr(pipeline_mod, "_default_provider", lambda: provider)
 
     official_url = "https://chinhphu.vn/thong-tin-chinh-thuc"
-    with patch(
-        "backend.legal_radar.source_search.search_brightdata",
-        return_value=[{
-            "tieu_de": "Thông tin chính thức",
-            "nguon": "Cổng TTĐT Chính phủ",
-            "url": official_url,
-            "ngay_dang": "2026-07-16",
-            "noi_dung_tom_tat": "Thông tin đối chiếu",
-            "la_bac_bo": False,
-            "la_xac_nhan": True,
-        }],
-    ), patch(
-        "backend.legal_radar.pipeline.xac_thuc_nguon",
-        return_value=(NhanNguon.CO_NGUON_XAC_NHAN, [{
-            "tieu_de": "Thông tin chính thức",
-            "nguon": "Cổng TTĐT Chính phủ",
-            "url": official_url,
-        }], "Có nguồn xác nhận"),
+    with (
+        patch(
+            "backend.legal_radar.source_search.search_brightdata",
+            return_value=[
+                {
+                    "tieu_de": "Thông tin chính thức",
+                    "nguon": "Cổng TTĐT Chính phủ",
+                    "url": official_url,
+                    "ngay_dang": "2026-07-16",
+                    "noi_dung_tom_tat": "Thông tin đối chiếu",
+                    "la_bac_bo": False,
+                    "la_xac_nhan": True,
+                }
+            ],
+        ),
+        patch(
+            "backend.legal_radar.pipeline.xac_thuc_nguon",
+            return_value=(
+                NhanNguon.CO_NGUON_XAC_NHAN,
+                [
+                    {
+                        "tieu_de": "Thông tin chính thức",
+                        "nguon": "Cổng TTĐT Chính phủ",
+                        "url": official_url,
+                    }
+                ],
+                "Có nguồn xác nhận",
+            ),
+        ),
     ):
         response = client.post(
             "/api/crawl",
@@ -320,10 +331,7 @@ def test_crawl_analyzes_fixture_posts_and_writes_queue(monkeypatch, tmp_path) ->
     done_msg = json.loads(lines[-1])
     assert done_msg["analyzed"] == expected_count
 
-    rows = [
-        json.loads(line)
-        for line in queue_path.read_text(encoding="utf-8").splitlines()
-    ]
+    rows = [json.loads(line) for line in queue_path.read_text(encoding="utf-8").splitlines()]
     assert len(rows) == expected_count
     assert all(row["source_url"] == official_url for row in rows)
     assert all(row["url"] == fixture_post["url"] for row in rows)

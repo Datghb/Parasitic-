@@ -1,0 +1,22 @@
+target-version = "py311"
+line-length = 120
+exclude = [
+  ".git",
+  ".github",
+  ".pytest_cache",
+  ".ruff_cache",
+  "__pycache__",
+  "data",
+  "node_modules",
+]
+
+[lint]
+select = ["E", "F", "I", "N", "W", "UP", "D102", "D103"]
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+"backend/tests/**" = ["D102", "D103", "N801"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

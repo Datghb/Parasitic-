@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data")
@@ -48,24 +48,24 @@ class TestKgNodes:
         van_ban_ids = {n["id"] for n in self.nodes if n["type"] == "VanBan"}
         for node in self.nodes:
             if node["type"] == "DieuKhoan":
-                assert node["van_ban_id"] in van_ban_ids, \
+                assert node["van_ban_id"] in van_ban_ids, (
                     f"DieuKhoan {node['id']} references invalid van_ban_id '{node['van_ban_id']}'"
+                )
 
     def test_dieu_khoan_hierarchy(self):
         for node in self.nodes:
             if node["type"] == "DieuKhoan":
                 if node.get("diem"):
-                    assert node.get("khoan") is not None, \
-                        f"DieuKhoan {node['id']} has diem but no khoan"
+                    assert node.get("khoan") is not None, f"DieuKhoan {node['id']} has diem but no khoan"
                 if node.get("khoan") is not None:
-                    assert node.get("dieu") is not None, \
-                        f"DieuKhoan {node['id']} has khoan but no dieu"
+                    assert node.get("dieu") is not None, f"DieuKhoan {node['id']} has khoan but no dieu"
 
     def test_muc_phat_min_le_max(self):
         for node in self.nodes:
             if node["type"] == "MucPhat":
-                assert node["min_vnd"] <= node["max_vnd"], \
+                assert node["min_vnd"] <= node["max_vnd"], (
                     f"MucPhat {node['id']}: min ({node['min_vnd']}) > max ({node['max_vnd']})"
+                )
 
     def test_muc_phat_positive(self):
         for node in self.nodes:
@@ -82,29 +82,32 @@ class TestKgNodes:
 
         for node in self.nodes:
             if node["type"] == "HanhVi":
-                assert node["nhom"] in valid_nhom, \
-                    f"HanhVi {node['id']}: invalid nhom '{node['nhom']}'"
+                assert node["nhom"] in valid_nhom, f"HanhVi {node['id']}: invalid nhom '{node['nhom']}'"
             if node["type"] == "ChuThe":
-                assert node["loai"] in valid_loai, \
-                    f"ChuThe {node['id']}: invalid loai '{node['loai']}'"
+                assert node["loai"] in valid_loai, f"ChuThe {node['id']}: invalid loai '{node['loai']}'"
             if node["type"] == "VanBan":
-                assert node["trang_thai"] in valid_trang_thai, \
+                assert node["trang_thai"] in valid_trang_thai, (
                     f"VanBan {node['id']}: invalid trang_thai '{node['trang_thai']}'"
+                )
             if node["type"] == "MucPhat":
-                assert node["ap_dung_cho"] in valid_ap_dung, \
+                assert node["ap_dung_cho"] in valid_ap_dung, (
                     f"MucPhat {node['id']}: invalid ap_dung_cho '{node['ap_dung_cho']}'"
+                )
             if node["type"] == "BienPhapKhacPhuc":
-                assert node["pham_vi"] in valid_pham_vi, \
+                assert node["pham_vi"] in valid_pham_vi, (
                     f"BienPhapKhacPhuc {node['id']}: invalid pham_vi '{node['pham_vi']}'"
+                )
 
     def test_nd174_d95_exists(self):
-        d95_nodes = [n for n in self.nodes if n["type"] == "DieuKhoan"
-                     and n.get("dieu") == 95 and n.get("van_ban_id") == "nd174"]
+        d95_nodes = [
+            n for n in self.nodes if n["type"] == "DieuKhoan" and n.get("dieu") == 95 and n.get("van_ban_id") == "nd174"
+        ]
         assert len(d95_nodes) >= 5, f"Expected >=5 DieuKhoan for Đ95 NĐ174, got {len(d95_nodes)}"
 
     def test_nd15_d101_exists(self):
-        d101_nodes = [n for n in self.nodes if n["type"] == "DieuKhoan"
-                      and n.get("dieu") == 101 and n.get("van_ban_id") == "nd15"]
+        d101_nodes = [
+            n for n in self.nodes if n["type"] == "DieuKhoan" and n.get("dieu") == 101 and n.get("van_ban_id") == "nd15"
+        ]
         assert len(d101_nodes) >= 3, f"Expected >=3 DieuKhoan for Đ101 NĐ15, got {len(d101_nodes)}"
 
 
@@ -131,10 +134,8 @@ class TestKgEdges:
 
     def test_references_valid_nodes(self):
         for edge in self.edges:
-            assert edge["from_id"] in self.node_ids, \
-                f"Edge references invalid from_id: '{edge['from_id']}'"
-            assert edge["to_id"] in self.node_ids, \
-                f"Edge references invalid to_id: '{edge['to_id']}'"
+            assert edge["from_id"] in self.node_ids, f"Edge references invalid from_id: '{edge['from_id']}'"
+            assert edge["to_id"] in self.node_ids, f"Edge references invalid to_id: '{edge['to_id']}'"
 
     def test_thay_the_edges_exist(self):
         thay_the = [e for e in self.edges if e["type"] == "THAY_THE"]
@@ -143,16 +144,13 @@ class TestKgEdges:
     def test_thay_the_has_dien_giai(self):
         for edge in self.edges:
             if edge["type"] == "THAY_THE":
-                assert "dien_giai" in edge, \
-                    f"THAY_THE edge {edge['from_id']}→{edge['to_id']} missing dien_giai"
-                assert len(edge["dien_giai"]) > 10, \
-                    f"THAY_THE edge dien_giai too short: '{edge['dien_giai']}'"
+                assert "dien_giai" in edge, f"THAY_THE edge {edge['from_id']}→{edge['to_id']} missing dien_giai"
+                assert len(edge["dien_giai"]) > 10, f"THAY_THE edge dien_giai too short: '{edge['dien_giai']}'"
 
     def test_ap_dung_cho_has_he_so(self):
         for edge in self.edges:
             if edge["type"] == "AP_DUNG_CHO":
-                assert "he_so" in edge, \
-                    f"AP_DUNG_CHO edge {edge['from_id']}→{edge['to_id']} missing he_so"
+                assert "he_so" in edge, f"AP_DUNG_CHO edge {edge['from_id']}→{edge['to_id']} missing he_so"
 
     def test_rule_half_in_edges(self):
         ap_dung = [e for e in self.edges if e["type"] == "AP_DUNG_CHO"]
@@ -165,11 +163,5 @@ class TestKgEdges:
 
         for mp_id, mapping in pairs.items():
             if "ct-to-chuc" in mapping and "ct-ca-nhan" in mapping:
-                assert mapping["ct-to-chuc"] == 1.0, \
-                    f"{mp_id}: to_chuc he_so should be 1.0"
-                assert mapping["ct-ca-nhan"] == 0.5, \
-                    f"{mp_id}: ca_nhan he_so should be 0.5"
-
-
-
-
+                assert mapping["ct-to-chuc"] == 1.0, f"{mp_id}: to_chuc he_so should be 1.0"
+                assert mapping["ct-ca-nhan"] == 0.5, f"{mp_id}: ca_nhan he_so should be 0.5"

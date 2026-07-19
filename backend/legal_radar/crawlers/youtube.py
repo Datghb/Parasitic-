@@ -1,4 +1,5 @@
 """YouTube crawler using the official YouTube Data API v3."""
+
 from __future__ import annotations
 
 import logging
@@ -36,11 +37,7 @@ def _comments(video_id: str, limit: int = 20) -> list[dict[str, Any]]:
 
     comments: list[dict[str, Any]] = []
     for item in data.get("items", []):
-        snippet = (
-            item.get("snippet", {})
-            .get("topLevelComment", {})
-            .get("snippet", {})
-        )
+        snippet = item.get("snippet", {}).get("topLevelComment", {}).get("snippet", {})
         text = snippet.get("textDisplay") or snippet.get("textOriginal") or ""
         if text:
             comments.append(
@@ -110,9 +107,7 @@ def crawl_youtube(
         video_id = video.get("id", "")
         snippet = video.get("snippet", found.get(video_id, {}))
         stats = video.get("statistics", {})
-        text = "\n\n".join(
-            part for part in (snippet.get("title", ""), snippet.get("description", "")) if part
-        )
+        text = "\n\n".join(part for part in (snippet.get("title", ""), snippet.get("description", "")) if part)
         results.append(
             {
                 "platform": "youtube",

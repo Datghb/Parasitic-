@@ -1,4 +1,5 @@
 """Vietnamese news crawler using publisher-provided RSS feeds."""
+
 from __future__ import annotations
 
 import html
@@ -6,7 +7,7 @@ import logging
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import timezone
+from datetime import UTC
 from email.utils import parsedate_to_datetime
 from typing import Any
 from xml.etree import ElementTree
@@ -38,7 +39,7 @@ def _timestamp(value: str | None) -> str:
     try:
         parsed = parsedate_to_datetime(value)
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.replace(tzinfo=UTC)
         return parsed.isoformat()
     except (TypeError, ValueError, OverflowError):
         return value
@@ -71,8 +72,7 @@ def _fetch_feed(source: str, url: str) -> list[dict[str, Any]]:
                 "author_handle": source,
                 "url": link,
                 "timestamp": _timestamp(
-                    item.findtext("pubDate")
-                    or item.findtext("{http://purl.org/dc/elements/1.1/}date")
+                    item.findtext("pubDate") or item.findtext("{http://purl.org/dc/elements/1.1/}date")
                 ),
                 "source_name": source,
                 "source_type": "press",
@@ -94,10 +94,7 @@ def crawl_news(
 
     results: list[dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=len(DEFAULT_FEEDS)) as pool:
-        futures = {
-            pool.submit(_fetch_feed, source, url): source
-            for source, url in DEFAULT_FEEDS
-        }
+        futures = {pool.submit(_fetch_feed, source, url): source for source, url in DEFAULT_FEEDS}
         for future in as_completed(futures):
             try:
                 results.extend(future.result())

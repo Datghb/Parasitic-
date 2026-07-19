@@ -1,14 +1,15 @@
-﻿import sys
 import os
+import sys
+
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
 from backend.legal_radar.guardrails import (
-    validate_label,
-    assert_rule_half,
     anonymize_pii,
+    assert_rule_half,
     sanitize_injection,
+    validate_label,
     validate_source_label,
 )
 
@@ -127,7 +128,3 @@ class TestValidateSourceLabel:
 
     def test_co_nguon_with_forbidden_phrase_ok(self):
         validate_source_label("co_nguon_xac_nhan", "nghi vấn sai — có bác bỏ từ SBV")
-
-
-
-
