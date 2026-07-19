@@ -4,6 +4,18 @@
 node_modules/
 /.pnp
 .pnp.*
+
+# local secrets and generated output
+.env
+.env.*
+!.env.example
+dist/
+.next/
+frontend/test-results/
+frontend/playwright-report/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
