@@ -31,8 +31,8 @@ export type Case = {
   contentType?: "post" | "comment";
   parentContent?: string;
   keywords?: string[];
-  postComments?: Array<{ text: string; author: string; timestamp: string }>;
-  comments?: Array<{ text: string; author: string; timestamp: string }>;
+  postComments?: Array<{ text: string; author: string; timestamp: string; label?: string | null; label_reason?: string }>;
+  comments?: Array<{ text: string; author: string; timestamp: string; label?: string | null; label_reason?: string }>;
 };
 
 export type ApiQueueItem = {
@@ -62,8 +62,8 @@ export type ApiQueueItem = {
   spread_risk?: number;
   ai_accuracy?: number;
   source_reliability?: number;
-  comments?: Array<{ text: string; author: string; timestamp: string }>;
-  post_comments?: Array<{ text: string; author: string; timestamp: string }>;
+  comments?: Array<{ text: string; author: string; timestamp: string; label?: string | null; label_reason?: string }>;
+  post_comments?: Array<{ text: string; author: string; timestamp: string; label?: string | null; label_reason?: string }>;
 };
 
 export type StudyCase = {

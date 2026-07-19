@@ -68,6 +68,7 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
   const [currentStatus, setCurrentStatus] = useState<Status>(item.status);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
+  const [showFlaggedOnly, setShowFlaggedOnly] = useState(true);
 
   useEffect(() => {
     setCurrentStatus(item.status);
@@ -219,54 +220,110 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
               {"\u201D"}
             </blockquote>
             <div style={{ marginTop: 16 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 12,
-                }}
-              >
-                <small style={{ color: "#94a3b8", fontSize: 12, letterSpacing: "0.05em" }}>
-                  BÌNH LUẬN BÀI VIẾT ({(item.postComments || item.comments || []).length})
-                </small>
-              </div>
-              {((item.postComments?.length ?? 0) + (item.comments?.length ?? 0)) > 0 ? (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    maxHeight: 400,
-                    overflowY: "auto",
-                    paddingRight: 4,
-                  }}
-                >
-                  {(item.postComments || item.comments || []).map((comment, idx) => (
+              {(() => {
+                const allComments = item.postComments || item.comments || [];
+                const flaggedComments = allComments.filter(
+                  (c) => c.label === "hieu_lam" || c.label === "can_kiem_chung"
+                );
+                const displayComments = showFlaggedOnly ? flaggedComments : allComments;
+                return (
+                  <>
                     <div
-                      key={idx}
                       style={{
-                        background: "#0f172a",
-                        borderRadius: 8,
-                        padding: "10px 14px",
-                        borderLeft: "3px solid #334155",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 12,
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <strong style={{ fontSize: 13, color: "#e2e8f0" }}>{comment.author || "Ẩn danh"}</strong>
-                        <small style={{ color: "#64748b", fontSize: 11 }}>{comment.timestamp || ""}</small>
-                      </div>
-                      <p style={{ fontSize: 13, color: "#cbd5e1", margin: 0, lineHeight: 1.5 }}>
-                        {comment.text}
-                      </p>
+                      <small style={{ color: "#94a3b8", fontSize: 12, letterSpacing: "0.05em" }}>
+                        BÌNH LUẬN BÀI VIẾT ({flaggedComments.length}/{allComments.length} cần chú ý)
+                      </small>
+                      <button
+                        onClick={() => setShowFlaggedOnly(!showFlaggedOnly)}
+                        style={{
+                          background: showFlaggedOnly ? "#1e293b" : "#334155",
+                          color: "#94a3b8",
+                          border: "1px solid #475569",
+                          borderRadius: 6,
+                          padding: "4px 10px",
+                          fontSize: 11,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {showFlaggedOnly ? "Hiện tất cả" : "Chỉ flagged"}
+                      </button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>
-                  Chưa có bình luận
-                </p>
-              )}
+                    {displayComments.length > 0 ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                          maxHeight: 400,
+                          overflowY: "auto",
+                          paddingRight: 4,
+                        }}
+                      >
+                        {displayComments.map((comment, idx) => {
+                          const labelColors: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+                            hieu_lam: { bg: "#1a0a0a", border: "#dc2626", text: "#fca5a5", badge: "Hiểu lầm" },
+                            can_kiem_chung: { bg: "#1a1500", border: "#d97706", text: "#fcd34d", badge: "Cần kiểm chứng" },
+                            dung: { bg: "#0a1a0a", border: "#16a34a", text: "#86efac", badge: "Đúng" },
+                          };
+                          const lc = comment.label ? labelColors[comment.label] : null;
+                          return (
+                            <div
+                              key={idx}
+                              style={{
+                                background: lc?.bg || "#0f172a",
+                                borderRadius: 8,
+                                padding: "10px 14px",
+                                borderLeft: `3px solid ${lc?.border || "#334155"}`,
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <strong style={{ fontSize: 13, color: "#e2e8f0" }}>{comment.author || "Ẩn danh"}</strong>
+                                  {lc && (
+                                    <span
+                                      style={{
+                                        fontSize: 9,
+                                        fontWeight: 700,
+                                        color: lc.text,
+                                        background: `${lc.border}22`,
+                                        padding: "2px 6px",
+                                        borderRadius: 4,
+                                      }}
+                                    >
+                                      {lc.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <small style={{ color: "#64748b", fontSize: 11 }}>{comment.timestamp || ""}</small>
+                              </div>
+                              <p style={{ fontSize: 13, color: "#cbd5e1", margin: 0, lineHeight: 1.5 }}>
+                                {comment.text}
+                              </p>
+                              {comment.label_reason && comment.label !== "dung" && (
+                                <p style={{ fontSize: 11, color: lc?.text || "#94a3b8", margin: "4px 0 0", fontStyle: "italic" }}>
+                                  {comment.label_reason}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>
+                        {showFlaggedOnly
+                          ? "Không có bình luận nào cần chú ý"
+                          : "Chưa có bình luận"}
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </section>
 
