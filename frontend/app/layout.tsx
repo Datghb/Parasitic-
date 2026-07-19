@@ -9,10 +9,14 @@ const geist = Geist({ variable: "--font-geist", subsets: ["latin", "latin-ext"] 
 const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin", "latin-ext"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://legalshield174.openai.site"),
+  metadataBase: new URL("https://legalshield-174.khanhvan22081995.chatgpt.site"),
   title: "Địa Chứng — Giám sát nội dung mạng xã hội",
   description: "Hàng đợi giám sát, kiểm chứng claim và hồ sơ căn cứ pháp luật.",
-  icons: { icon: "/dia-chung-logo.png" },
+  icons: {
+    icon: [{ url: "/dia-chung-logo.png?v=2", type: "image/png" }],
+    shortcut: "/dia-chung-logo.png?v=2",
+    apple: "/dia-chung-logo.png?v=2",
+  },
   openGraph: {
     title: "Địa Chứng — Giám sát nội dung mạng xã hội",
     description: "Kiểm chứng claim, điều phối xử lý và truy xuất căn cứ pháp luật.",
