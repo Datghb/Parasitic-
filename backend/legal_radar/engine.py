@@ -268,6 +268,31 @@ def _detect_conditional_claim(text: str) -> bool:
     return any(re.search(p, normalized) for p in patterns)
 
 
+def _has_actionable_legal_signal(text: str) -> bool:
+    """Return true only when a claim actually asserts legally relevant conduct.
+
+    Broad topic overlap (for example "video", "sáp nhập", or "dịch vụ công")
+    is not enough to attach a penalty provision.  This conservative gate keeps
+    out-of-domain and benign discourse in the human-review state.
+    """
+    normalized = normalize_text(text)
+    patterns = [
+        r"\bphạt\b",
+        r"\bvi\s*phạm\b",
+        r"\bnghị\s*định\b",
+        r"\bđiều\s+\d+\b",
+        r"\bkhoản\s+\d+\b",
+        r"\btin\s*giả\b",
+        r"\bsai\s*sự\s*thật\b",
+        r"\bgây\s*hoang\s*mang\b",
+        r"\bxuyên\s*tạc\b",
+        r"\bgiả\s*mạo\b",
+        r"\bvu\s*khống\b",
+        r"\bbịa\s*đặt\b",
+    ]
+    return any(re.search(pattern, normalized) for pattern in patterns)
+
+
 def _get_penalty_range_millions(dk: DieuKhoan, kg: KnowledgeGraph) -> tuple[int, int] | None:
     for mp_node in kg.get_muc_phat_for_dieu_khoan(dk.id):
         if isinstance(mp_node, MucPhat):
@@ -379,6 +404,16 @@ def phan_loai_claim(
     _ND174_K2_RANGE = (30, 50)
 
     has_penalty_keyword = bool(re.search(r'\b(?:phạt|tiền|mức|vi phạm)\b', normalize_text(claim)))
+
+    if not _has_actionable_legal_signal(claim):
+        return PhanLoaiResult(
+            NhanPhanLoai.CAN_KIEM_CHUNG,
+            "Ngoài phạm vi đối chiếu chế tài hoặc chưa có dấu hiệu pháp lý cụ thể",
+            [],
+            0.0,
+            "none",
+            False,
+        )
 
     if _detect_old_regulation(claim):
         old_amounts = [a for a in amounts if a[0] <= 20]
@@ -654,7 +689,11 @@ def classify_claim_full(
     elif effective_subject is None or effective_subject == "":
         subject_label = "Chưa xác định"
 
-    matched_dks = [dk for dk, _ in match_hanh_vi_with_scores(claim, kg)]
+    matched_dks = (
+        [dk for dk, _ in match_hanh_vi_with_scores(claim, kg)]
+        if plr.citations
+        else []
+    )
     provision_str = ""
     penalty_str = ""
     document_str = "Nghị định 174/2026/NĐ-CP"
@@ -787,4 +826,3 @@ def tich_hop_nguon(
         priority_bump += 1
 
     return ly_do_moi, priority_bump, cta_detected
-

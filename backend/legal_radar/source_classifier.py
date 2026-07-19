@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+import re
+import unicodedata
 
 
 class NhanNguon(str, Enum):
@@ -148,8 +150,29 @@ def xac_thuc_nguon(
     thoi_gian_claim: str,
     search_results: list[dict],
 ) -> tuple[NhanNguon, list[dict], str]:
+    def normalize(value: str) -> str:
+        decomposed = unicodedata.normalize("NFD", value.lower())
+        return " ".join(
+            re.findall(
+                r"[a-z0-9]+",
+                "".join(char for char in decomposed if unicodedata.category(char) != "Mn"),
+            )
+        )
+
+    normalized_keywords = [
+        normalize(keyword)
+        for keyword in claim_keywords
+        if len(normalize(keyword)) >= 4
+    ]
     docs: list[SearchDoc] = []
     for r in search_results:
+        evidence = normalize(
+            f"{r.get('tieu_de', '')} {r.get('noi_dung_tom_tat', '')}"
+        )
+        if normalized_keywords and not any(
+            keyword in evidence for keyword in normalized_keywords
+        ):
+            continue
         tier = classify_tier(r.get("url", ""))
         docs.append(
             SearchDoc(
@@ -163,6 +186,13 @@ def xac_thuc_nguon(
                 la_bac_bo=r.get("la_bac_bo", False),
                 la_xac_nhan=r.get("la_xac_nhan", False),
             )
+        )
+
+    if search_results and not docs:
+        return (
+            NhanNguon.CHUA_TIM_THAY_NGUON,
+            [],
+            "Nguồn tìm thấy không hỗ trợ trực tiếp cho claim",
         )
 
     nhan, matched, ly_do = apply_fusion_rules(docs, thoi_gian_claim)

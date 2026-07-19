@@ -79,9 +79,29 @@ def test_qa_returns_supported_schema() -> None:
     assert response.status_code == 200
     assert response.json()["label"] in {"dung", "hieu_lam", "can_kiem_chung"}
 
+
+def test_qa_rejects_oversized_input() -> None:
+    response = client.post("/api/qa", json={"question": "a" * 5001})
+    assert response.status_code == 422
+
+
+def test_debug_route_does_not_expose_api_key_prefix(monkeypatch) -> None:
+    from backend.legal_radar.api.routes import crawl
+    import backend.legal_radar.settings as settings_mod
+
+    fake = settings_mod.Settings(
+        APP_ENV="development",
+        BRIGHTDATA_API_KEY="secret-key-that-must-not-leak",
+    )
+    monkeypatch.setattr(crawl, "get_settings", lambda: fake, raising=False)
+
+    response = client.get("/api/crawl/debug")
+
+    assert "api_key_prefix" not in response.text
+
+
 def test_crawl_returns_supported_schema(monkeypatch, tmp_path) -> None:
     from backend.legal_radar.api.routes import crawl
-    from backend.legal_radar.settings import Settings
 
     monkeypatch.setattr(crawl, "runs_dir", lambda: tmp_path)
     monkeypatch.setattr(crawl, "_try_live_crawl", lambda *a, **kw: ({"items": [], "crawled": 0, "relevant": 0}, "Test: no items"))

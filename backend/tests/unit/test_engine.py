@@ -3,10 +3,10 @@ from pathlib import Path
 
 from backend.legal_radar.model import (
     load_kg, KnowledgeGraph, LoaiChuThe, NhanPhanLoai, NhanNguon,
-    QueueItem, MucPhat,
+    QueueItem,
 )
 from backend.legal_radar.engine import (
-    muc_phat_cho_chu_the, match_hanh_vi, phan_loai_claim,
+    muc_phat_cho_chu_the, match_hanh_vi, phan_loai_claim, classify_claim_full,
     diff_thay_the, xep_uu_tien, normalize_text,
     _detect_subject_type, _detect_old_regulation, _detect_conditional_claim,
     _extract_amounts_millions, tich_hop_nguon, _detect_call_to_action,
@@ -412,6 +412,29 @@ class TestPhanLoaiClaimCAN_KIEM_CHUNG:
         claim = "chia sẻ lại bài của người khác cũng bị phạt?"
         result = phan_loai_claim(claim, None, kg)
         assert result.nhan == NhanPhanLoai.CAN_KIEM_CHUNG
+
+    def test_benign_request_does_not_receive_legal_citations(self, kg):
+        result = classify_claim_full(
+            "Kênh có thể ghim danh sách tổng thể vào video được không?",
+            "to_chuc",
+            kg,
+        )
+
+        assert result.nhan == NhanPhanLoai.CAN_KIEM_CHUNG
+        assert result.citations == []
+        assert result.provision == ""
+        assert result.penalty == ""
+
+    def test_general_policy_comment_does_not_receive_penalty(self, kg):
+        result = classify_claim_full(
+            "Việc sáp nhập xã gây khó khăn khi người dân làm dịch vụ công.",
+            "to_chuc",
+            kg,
+        )
+
+        assert result.nhan == NhanPhanLoai.CAN_KIEM_CHUNG
+        assert result.citations == []
+        assert result.penalty == ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -129,12 +129,33 @@ class TestXacThucNguon:
         assert nhan == NhanNguon.CHUA_TIM_THAY_NGUON
         assert matched == []
 
+    def test_same_topic_without_claim_evidence_is_not_confirmation(self):
+        results = [{
+            "tieu_de": "Luật Báo chí 2016",
+            "nguon": "Cổng TTĐT Chính phủ",
+            "url": "https://chinhphu.vn/luat-bao-chi",
+            "ngay_dang": "2026-07-01",
+            "noi_dung_tom_tat": "Quy định chung về hoạt động báo chí.",
+            "la_xac_nhan": True,
+            "la_bac_bo": False,
+        }]
+
+        nhan, docs, ly_do = xac_thuc_nguon(
+            ["kênh Hùng Hợi", "giọng đọc thật", "trí tuệ nhân tạo"],
+            "",
+            results,
+        )
+
+        assert nhan == NhanNguon.CHUA_TIM_THAY_NGUON
+        assert docs == []
+        assert "không hỗ trợ trực tiếp" in ly_do.lower()
+
     def test_tier_classified_from_url(self):
         results = [
             {
                 "id": "r1",
                 "nguon": "VnExpress",
-                "tieu_de": "Bài báo",
+                "tieu_de": "Bài test",
                 "noi_dung_tom_tat": "Nội dung",
                 "ngay_dang": "2026-07-01",
                 "url": "https://vnexpress.net/tin",
@@ -143,7 +164,5 @@ class TestXacThucNguon:
         ]
         nhan, matched, ly_do = xac_thuc_nguon(["test"], "2026-07-10", results)
         assert matched[0]["tier"] == 2
-
-
 
 

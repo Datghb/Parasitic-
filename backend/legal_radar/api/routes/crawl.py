@@ -34,7 +34,6 @@ def debug_crawl():
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     result = {
         "api_key_set": bool(key),
-        "api_key_prefix": key[:8] + "..." if len(key) > 8 else key,
     }
 
     if not key:
