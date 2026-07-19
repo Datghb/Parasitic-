@@ -21,6 +21,13 @@ class Settings(BaseSettings):
         alias="FRONTEND_ORIGIN",
     )
     admin_api_key: str | None = Field(default=None, alias="ADMIN_API_KEY")
+    qa_rate_limit: int = Field(default=30, ge=1, le=1000, alias="QA_RATE_LIMIT")
+    rate_limit_window_seconds: int = Field(
+        default=60,
+        ge=1,
+        le=3600,
+        alias="RATE_LIMIT_WINDOW_SECONDS",
+    )
 
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
     google_api_key: str | None = Field(default=None, alias="GOOGLE_API_KEY")
