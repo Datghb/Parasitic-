@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import threading
+from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
@@ -83,8 +84,27 @@ def crawl_now(
     seen_urls = _load_seen_urls(out)
     all_items: list[dict[str, Any]] = []
 
-    fb_results = crawl_facebook(keywords=kw, max_posts=max_posts_per_platform)
-    all_items.extend(fb_results)
+    crawlers: dict[str, tuple[Any, int]] = {}
+    if os.environ.get("CRAWL_FACEBOOK_ENABLED", "true").lower() in {"1", "true", "yes", "on"}:
+        crawlers["facebook"] = (crawl_facebook, max_posts_per_platform)
+
+    if crawlers:
+        pool = ThreadPoolExecutor(max_workers=len(crawlers))
+        futures = {
+            pool.submit(crawler, keywords=kw, max_posts=raw_limit): platform
+            for platform, (crawler, raw_limit) in crawlers.items()
+        }
+        done, pending = wait(futures, timeout=40)
+        for future in done:
+            platform = futures[future]
+            try:
+                all_items.extend(future.result())
+            except Exception as exc:
+                logger.warning("%s crawler failed: %s", platform, exc)
+        for future in pending:
+            logger.warning("%s crawler exceeded the 40-second platform window", futures[future])
+            future.cancel()
+        pool.shutdown(wait=False, cancel_futures=True)
 
     appended = _append_results(out, all_items, seen_urls)
     logger.info(
@@ -129,6 +149,7 @@ def crawl_and_process(
         else:
             logger.debug("is_relevant=False for: %s", cleaned["text"][:80])
 
+    relevant_items = relevant_items[:max_posts]
     logger.info("crawl_and_process: %d raw → %d relevant", len(raw_items), len(relevant_items))
     return {
         "crawled": len(raw_items),
@@ -222,4 +243,3 @@ class CrawlScheduler:
             max_posts_per_platform=self.max_posts,
             output_path=self.output_path,
         )
-

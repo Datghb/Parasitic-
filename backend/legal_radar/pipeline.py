@@ -221,6 +221,32 @@ def _compute_reliability(
     return min(100, tier_sc + recency_sc + denial_sc + cite_sc)
 
 
+def _classify_comments(comments: list[dict], kg) -> list[dict]:
+    """Classify each comment through the legal engine. Returns annotated comments.
+
+    Only classifies comments with >= 10 chars to avoid noise from short
+    reactions like "Cảm ơn" or "OK". Each comment gets a 'label' and
+    'label_reason' field added.
+    """
+    from backend.legal_radar.engine import classify_claim_full
+    annotated = []
+    for c in comments:
+        text = (c.get("text") or "").strip()
+        if len(text) < 10:
+            annotated.append({**c, "label": None, "label_reason": ""})
+            continue
+        try:
+            result = classify_claim_full(text, None, kg)
+            annotated.append({
+                **c,
+                "label": result.nhan.value,
+                "label_reason": result.ly_do[:200] if result.ly_do else "",
+            })
+        except Exception:
+            annotated.append({**c, "label": None, "label_reason": ""})
+    return annotated
+
+
 class CommentIngestor:
     """Pipeline that processes social media comments through LLM extraction, legal engine classification, and source verification.
 
@@ -355,7 +381,7 @@ class CommentIngestor:
                 score=50,
                 confidence=30,
                 url=str(comment.get("url", "")),
-                comments=list(comment.get("comments") or []),
+            comments=_classify_comments(list(comment.get("comments") or []), self.kg),
                 spread_risk=_compute_risk(NhanPhanLoai.CAN_KIEM_CHUNG, int(comment.get("reach", 0) or 0), False, NhanNguon.CHUA_TIM_THAY_NGUON),
                 ai_accuracy=30,
                 source_reliability=0,
