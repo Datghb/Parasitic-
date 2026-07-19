@@ -64,7 +64,9 @@ export function Topbar() {
           try {
             const msg = JSON.parse(line);
             if (msg.type === "start") {
-              setCrawlMessage(`${msg.message} — đang phân tích...`);
+              setCrawlMessage(`${msg.message}`);
+            } else if (msg.type === "progress") {
+              setCrawlMessage(msg.message);
             } else if (msg.type === "error") {
               setCrawlMessage(msg.message);
               setCrawlState("error");
@@ -74,7 +76,8 @@ export function Topbar() {
               setCrawlMessage(`Đã phân tích ${itemCount} nội dung: ${msg.claim}...`);
               void queryClient.invalidateQueries({ queryKey: ["queue"] });
             } else if (msg.type === "done") {
-              setCrawlMessage(`Hoàn tất! ${itemCount} nội dung đã được thêm vào hàng đợi.`);
+              const summary = msg.crawled ? ` (${msg.crawled} crawled, ${msg.relevant} relevant)` : "";
+              setCrawlMessage(`Hoàn tất! ${itemCount} nội dung đã được thêm vào hàng đợi.${summary}`);
             }
           } catch { /* skip non-JSON */ }
         }

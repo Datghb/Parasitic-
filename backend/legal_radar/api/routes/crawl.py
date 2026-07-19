@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import threading
 from dataclasses import asdict
 from hashlib import sha1
 
@@ -124,98 +122,127 @@ def debug_crawl():
     return result
 
 
-def _try_live_crawl(keywords, max_posts, output_path):
-    """Try Bright Data crawl in a background thread with timeout."""
-    from backend.legal_radar.crawlers.scheduler import crawl_and_process
-
-    result = {"items": [], "crawled": 0, "relevant": 0}
-    error = None
-
-    def _run():
-        nonlocal error
-        try:
-            result.update(
-                crawl_and_process(
-                    keywords=keywords or None,
-                    max_posts=max_posts,
-                    output_path=output_path,
-                )
-            )
-        except Exception as exc:
-            error = str(exc)
-            logger.warning("Live crawl failed: %s", exc)
-
-    thread = threading.Thread(target=_run, daemon=True)
-    thread.start()
-    thread.join(timeout=600)
-    if thread.is_alive():
-        error = "Crawl timeout (600s)"
-    return result, error
+def _emit(data: dict) -> str:
+    return json.dumps(data, ensure_ascii=False) + "\n"
 
 
 @router.post("/crawl")
 def trigger_crawl(request: CrawlRequest):
     """Start a crawl job and stream progress events back to the caller."""
     from backend.legal_radar.settings import get_settings
+    from backend.legal_radar.crawlers.facebook import crawl_facebook, _discover_urls, _crawl_one_post, FALLBACK_QUERIES, _DISCOVER_META_KEYWORDS
+    from backend.legal_radar.crawlers.cleaner import clean_post
+    from backend.legal_radar.crawlers.filter import is_relevant
+    from backend.legal_radar.settings import get_settings as _gs
 
     settings = get_settings()
-    youtube_enabled = os.environ.get("CRAWL_YOUTUBE_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
-    news_enabled = os.environ.get("CRAWL_NEWS_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
-    if not settings.brightdata_api_key and not youtube_enabled and not news_enabled:
-
+    if not settings.brightdata_api_key:
         def stream_no_key():
-            yield (
-                json.dumps(
-                    {
-                        "type": "error",
-                        "message": "BRIGHTDATA_API_KEY chưa được cấu hình. Không thể quét MXH.",
-                        "crawled": 0,
-                        "relevant": 0,
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
-
+            yield _emit({"type": "error", "message": "BRIGHTDATA_API_KEY chưa được cấu hình. Không thể quét MXH.", "crawled": 0, "relevant": 0})
         return StreamingResponse(stream_no_key(), media_type="text/event-stream")
 
+    max_posts = request.max_posts_per_platform
     output_path = runs_dir() / "crawled_raw.jsonl"
 
-    live, error = _try_live_crawl(request.keywords, request.max_posts_per_platform, output_path)
-    items = live["items"]
-
     def stream():
-        if not items:
-            crawled = live["crawled"]
-            relevant = live["relevant"]
-            if error:
-                reason = f"Lỗi: {error}"
-            elif crawled == 0:
-                reason = "Discover API không tìm thấy URL nào. Kiểm tra BRIGHTDATA_API_KEY."
-            elif relevant == 0:
-                reason = f"Discover tìm thấy {crawled} URL nhưng không có nội dung liên quan sáp nhập ĐVHC."
-            else:
-                reason = "Không tìm thấy nội dung liên quan trên mạng xã hội"
-            yield (
-                json.dumps(
-                    {
-                        "type": "error",
-                        "message": f"Quét MXH thất bại: {reason}",
-                        "crawled": crawled,
-                        "relevant": relevant,
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
+        from pathlib import Path
+        import time as _time
+
+        queries = request.keywords or FALLBACK_QUERIES
+
+        # Step 1: Discover URLs
+        yield _emit({"type": "progress", "step": "discover", "message": f"Đang tìm URL trên Facebook ({len(queries)} queries)..."})
+        try:
+            discover_items = _discover_urls(queries, max_posts)
+        except Exception as exc:
+            yield _emit({"type": "error", "message": f"Discover API lỗi: {exc}", "crawled": 0, "relevant": 0})
             return
 
-        message = f"Đã thu thập {live['crawled']} nội dung, {live['relevant']} liên quan."
+        if not discover_items:
+            yield _emit({"type": "error", "message": "Discover API không tìm thấy URL nào.", "crawled": 0, "relevant": 0})
+            return
 
-        yield (
-            json.dumps({"type": "start", "message": message, "mode": "live", "total": len(items)}, ensure_ascii=False)
-            + "\n"
-        )
+        yield _emit({"type": "progress", "step": "discover_done", "message": f"Discover trả về {len(discover_items)} URL", "urls_found": len(discover_items)})
+
+        # Step 2: Scrape each URL
+        raw_items = []
+        failed = 0
+        skipped_meta = 0
+        for idx, item in enumerate(discover_items):
+            url = item.get("link", "")
+            title = item.get("title", "")
+            description = item.get("description", "")
+
+            if "facebook.com" not in url.lower():
+                skipped_meta += 1
+                continue
+
+            meta_text = f"{title} {description}".lower()
+            if not any(kw in meta_text for kw in _DISCOVER_META_KEYWORDS):
+                skipped_meta += 1
+                yield _emit({"type": "progress", "step": "scrape_skip", "message": f"Bỏ qua URL không liên quan: {title[:60]}", "index": idx + 1, "total": len(discover_items)})
+                continue
+
+            yield _emit({"type": "progress", "step": "scrape", "message": f"Đang scrape ({idx + 1}/{len(discover_items)}): {title[:60]}...", "index": idx + 1, "total": len(discover_items)})
+            try:
+                scraped = _crawl_one_post(url)
+                if scraped:
+                    raw_items.append(scraped)
+                    yield _emit({"type": "progress", "step": "scrape_ok", "message": f"Scrape thành công: {scraped.get('author', 'Unknown')} - {len(scraped.get('comments', []))} comments", "index": idx + 1, "total": len(discover_items)})
+                else:
+                    fallback = {
+                        "platform": "facebook", "content_type": "post",
+                        "text": description or title,
+                        "author": title[:50] if title else "Unknown",
+                        "url": url, "timestamp": "", "engagement": {"likes": 0, "shares": 0, "comments": 0}, "comments": [],
+                    }
+                    if fallback["text"] and len(fallback["text"]) >= 20:
+                        raw_items.append(fallback)
+                        yield _emit({"type": "progress", "step": "fallback", "message": f"Scraper fail, dùng metadata: {title[:60]}", "index": idx + 1, "total": len(discover_items)})
+                    else:
+                        failed += 1
+                        yield _emit({"type": "progress", "step": "scrape_fail", "message": f"Scraper fail, không có metadata: {url[:60]}", "index": idx + 1, "total": len(discover_items)})
+            except Exception as exc:
+                failed += 1
+                yield _emit({"type": "progress", "step": "scrape_error", "message": f"Lỗi scrape: {exc}", "index": idx + 1, "total": len(discover_items)})
+
+        if not raw_items:
+            yield _emit({"type": "error", "message": f"Scrape xong {len(discover_items)} URL nhưng không lấy được nội dung. {failed} lỗi, {skipped_meta} bỏ qua.", "crawled": 0, "relevant": 0})
+            return
+
+        yield _emit({"type": "progress", "step": "scrape_done", "message": f"Scrape xong: {len(raw_items)} bài, {failed} lỗi, {skipped_meta} bỏ qua", "crawled": len(raw_items)})
+
+        # Step 3: Clean + Filter
+        yield _emit({"type": "progress", "step": "filter", "message": "Đang lọc nội dung liên quan sáp nhập ĐVHC..."})
+        relevant_items = []
+        seen_urls = set()
+        for raw in raw_items:
+            cleaned = clean_post(raw)
+            if not cleaned:
+                continue
+            url = cleaned.get("url", "")
+            if url and url in seen_urls:
+                continue
+            if url:
+                seen_urls.add(url)
+            all_text = cleaned["text"]
+            for c in cleaned.get("comments", []):
+                all_text += " " + c.get("text", "")
+            if is_relevant(all_text):
+                relevant_items.append(cleaned)
+            else:
+                yield _emit({"type": "progress", "step": "filter_skip", "message": f"Không liên quan: {cleaned['text'][:80]}"})
+
+        relevant_items = relevant_items[:max_posts]
+
+        if not relevant_items:
+            yield _emit({"type": "error", "message": f"Tìm thấy {len(raw_items)} bài nhưng không có nội dung liên quan sáp nhập ĐVHC.", "crawled": len(raw_items), "relevant": 0})
+            return
+
+        yield _emit({"type": "progress", "step": "filter_done", "message": f"Đã lọc: {len(relevant_items)}/{len(raw_items)} bài liên quan", "relevant": len(relevant_items)})
+
+        # Step 4: Process through pipeline
+        yield _emit({"type": "start", "message": f"Đang phân tích {len(relevant_items)} bài viết...", "mode": "live", "total": len(relevant_items)})
 
         queue_path = _queue_path()
         ingestor = _build_crawled_ingestor(queue_path)
@@ -223,7 +250,7 @@ def trigger_crawl(request: CrawlRequest):
         count = 0
 
         with queue_path.open("a", encoding="utf-8") as queue_file:
-            for post in items:
+            for post in relevant_items:
                 url = str(post.get("url", ""))
                 timestamp = str(post.get("timestamp", ""))
                 post_platform = str(post.get("platform", "Facebook")).title()
@@ -232,18 +259,12 @@ def trigger_crawl(request: CrawlRequest):
                 post_author = str(post.get("author", ""))
                 engagement = post.get("engagement") or {}
                 post_reach = sum(int(v or 0) for v in engagement.values() if isinstance(v, (int, float)))
-
                 raw_comments = post.get("comments") or []
                 bundled_comments = [
-                    {
-                        "text": str(c.get("text", "")),
-                        "author": str(c.get("author", "")),
-                        "timestamp": str(c.get("timestamp", "")),
-                    }
+                    {"text": str(c.get("text", "")), "author": str(c.get("author", "")), "timestamp": str(c.get("timestamp", ""))}
                     for c in raw_comments[:20]
                     if str(c.get("text", "")).strip()
                 ]
-
                 candidate = {
                     "id": sha1(url.encode("utf-8")).hexdigest(),
                     "text": str(post.get("text", "")),
@@ -255,7 +276,6 @@ def trigger_crawl(request: CrawlRequest):
                     "reach": post_reach,
                     "comments": bundled_comments,
                 }
-
                 if not candidate.get("text", "").strip():
                     continue
                 try:
@@ -263,28 +283,22 @@ def trigger_crawl(request: CrawlRequest):
                     queue_file.write(json.dumps(asdict(queue_item), ensure_ascii=False) + "\n")
                     queue_file.flush()
                     count += 1
-                    yield (
-                        json.dumps(
-                            {
-                                "type": "item",
-                                "count": count,
-                                "id": queue_item.id,
-                                "claim": queue_item.claim[:100],
-                                "label": queue_item.nhan.value,
-                                "subject": queue_item.subject,
-                                "source_title": queue_item.source_title,
-                                "source_url": queue_item.source_url,
-                                "source_agency": queue_item.source_agency,
-                                "comments_count": len(bundled_comments),
-                            },
-                            ensure_ascii=False,
-                        )
-                        + "\n"
-                    )
+                    yield _emit({
+                        "type": "item",
+                        "count": count,
+                        "id": queue_item.id,
+                        "claim": queue_item.claim[:100],
+                        "label": queue_item.nhan.value,
+                        "subject": queue_item.subject,
+                        "source_title": queue_item.source_title,
+                        "source_url": queue_item.source_url,
+                        "source_agency": queue_item.source_agency,
+                        "comments_count": len(bundled_comments),
+                    })
                 except Exception as exc:
                     logger.warning("Crawl item error: %s", exc)
-                    continue
+                    yield _emit({"type": "progress", "step": "process_error", "message": f"Lỗi phân tích: {exc}"})
 
-        yield json.dumps({"type": "done", "analyzed": count}, ensure_ascii=False) + "\n"
+        yield _emit({"type": "done", "analyzed": count, "crawled": len(raw_items), "relevant": len(relevant_items)})
 
     return StreamingResponse(stream(), media_type="text/event-stream")
