@@ -15,3 +15,16 @@ def test_sliding_window_recovers_after_window_and_isolates_clients() -> None:
     assert limiter.check("client-a", now=100.0) is None
     assert limiter.check("client-b", now=101.0) is None
     assert limiter.check("client-a", now=110.0) is None
+
+
+def test_sliding_window_bounds_client_memory() -> None:
+    limiter = SlidingWindowRateLimiter(
+        max_requests=1,
+        window_seconds=60,
+        max_clients=2,
+    )
+
+    assert limiter.check("client-a", now=100.0) is None
+    assert limiter.check("client-b", now=101.0) is None
+    assert limiter.check("client-c", now=102.0) is None
+    assert limiter.check("client-a", now=103.0) is None
