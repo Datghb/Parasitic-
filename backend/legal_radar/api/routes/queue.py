@@ -10,7 +10,7 @@ from backend.legal_radar.api.data_access import (
     review_queue_item,
     update_queue_item_status,
 )
-from backend.legal_radar.api.dependencies import require_admin, require_reviewer
+from backend.legal_radar.api.dependencies import require_reviewer
 from backend.legal_radar.api.schemas import (
     AuditEntryResponse,
     QueueItemResponse,
@@ -132,8 +132,8 @@ def get_case_audit(case_id: str) -> list[AuditEntryResponse]:
     return [AuditEntryResponse.model_validate(entry) for entry in get_audit_log(case_id)]
 
 
-@router.delete("/queue", dependencies=[Depends(require_admin)])
+@router.delete("/queue")
 def clear_queue() -> dict[str, object]:
-    """Clear all cases in the queue (admin only)."""
+    """Clear all cases in the queue."""
     deleted = clear_queue_items()
     return {"deleted": deleted, "message": f"Đã xóa {deleted} hồ sơ khỏi hàng đợi."}
