@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUpdateStatusMutation } from "../../hooks/use-queries";
-import { API_URL } from "../../utils/api";
+import {
+  ReviewDecision,
+  ReviewLabel,
+  useReviewCaseMutation,
+  useUpdateStatusMutation,
+} from "../../hooks/use-queries";
 import { VerdictBadge } from "../common/badge";
 import { Case, Status } from "../../types";
 import {
@@ -65,10 +69,16 @@ const flowStep = "flex-1 rounded-[9px] px-[5px] py-[11px] text-center text-[8px]
 export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void }) {
   const router = useRouter();
   const updateStatusMutation = useUpdateStatusMutation();
+  const reviewMutation = useReviewCaseMutation();
   const [currentStatus, setCurrentStatus] = useState<Status>(item.status);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState("");
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(true);
+  const [reviewDecision, setReviewDecision] = useState<ReviewDecision>("accepted");
+  const [correctedLabel, setCorrectedLabel] = useState<ReviewLabel>("can_kiem_chung");
+  const [reviewNote, setReviewNote] = useState("");
+  const [adminKey, setAdminKey] = useState("");
+  const [reviewMessage, setReviewMessage] = useState("");
 
   const handleBack = () => {
     if (onClose) onClose();
@@ -76,24 +86,20 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
   };
 
   const handleStatusChange = async (status: Status) => {
-    setCurrentStatus(status);
-    if (item.id.startsWith("HS-MVP-")) {
-      const saved = sessionStorage.getItem("local_cases");
-      if (saved) {
-        try {
-          const cases = JSON.parse(saved) as Case[];
-          const updated = cases.map((c) => (c.id === item.id ? { ...c, status } : c));
-          sessionStorage.setItem("local_cases", JSON.stringify(updated));
-        } catch {
-          // ignore
-        }
-      }
-    } else {
-      try {
-        await updateStatusMutation.mutateAsync({ id: item.id, status });
-      } catch {
-        // ignore, state is updated locally
-      }
+    setVerifyError("");
+    if (!adminKey.trim()) {
+      setVerifyError("Nhập khóa quản trị trong phần Human Review trước khi đổi trạng thái.");
+      return;
+    }
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: item.id,
+        status,
+        adminKey: adminKey.trim(),
+      });
+      setCurrentStatus(status);
+    } catch {
+      setVerifyError("Không thể cập nhật trạng thái. Kiểm tra khóa quản trị và kết nối API.");
     }
   };
 
@@ -101,33 +107,40 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
     setVerifyLoading(true);
     setVerifyError("");
     try {
-      if (item.id.startsWith("HS-MVP-")) {
-        const saved = sessionStorage.getItem("local_cases");
-        if (saved) {
-          try {
-            const cases = JSON.parse(saved) as Case[];
-            const updated = cases.map((c) => (c.id === item.id ? { ...c, status: "Đang xử lý" as Status } : c));
-            sessionStorage.setItem("local_cases", JSON.stringify(updated));
-          } catch {
-            // ignore
-          }
-        }
-        setCurrentStatus("Đang xử lý");
-      } else {
-        const res = await fetch(`${API_URL}/api/cases/${item.id}/status`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "reviewing" }),
-        });
-        if (!res.ok) throw new Error("API error");
-        setCurrentStatus("Đang xử lý");
-        void handleStatusChange("Đang xử lý");
-      }
+      await handleStatusChange("Đang xử lý");
     } catch {
-      setVerifyError("Không thể kết nối API. Trạng thái chỉ cập nhật tạm thời.");
-      setCurrentStatus("Đang xử lý");
+      setVerifyError("Không thể kết nối API.");
     } finally {
       setVerifyLoading(false);
+    }
+  }
+
+  async function handleReviewSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setReviewMessage("");
+    if (!adminKey.trim()) {
+      setReviewMessage("Nhập khóa quản trị để ký quyết định thẩm định.");
+      return;
+    }
+    if (reviewDecision !== "accepted" && !reviewNote.trim()) {
+      setReviewMessage("Cần ghi lý do khi sửa hoặc bác bỏ kết quả AI.");
+      return;
+    }
+    try {
+      await reviewMutation.mutateAsync({
+        id: item.id,
+        decision: reviewDecision,
+        note: reviewNote.trim(),
+        correctedLabel: reviewDecision === "corrected" ? correctedLabel : undefined,
+        adminKey: adminKey.trim(),
+      });
+      setCurrentStatus("Đã xử lý");
+      setAdminKey("");
+      setReviewMessage("Đã lưu quyết định và ghi nhật ký kiểm toán.");
+    } catch (error) {
+      setReviewMessage(
+        error instanceof Error ? error.message : "Không thể lưu kết quả thẩm định.",
+      );
     }
   }
 
@@ -431,6 +444,82 @@ export function CaseDetail({ item, onClose }: { item: Case; onClose?: () => void
             <p className="m-0 text-[11px] leading-[1.5] text-[#788499]">
               Kết quả tự động hỗ trợ sàng lọc, không thay thế kết luận của chuyên viên.
             </p>
+          </section>
+          <section className={detailCard} aria-labelledby="human-review-title">
+            <small className={cardLabel}>HUMAN REVIEW</small>
+            <h2 id="human-review-title" className={`${cardHeadingTitle} mb-3`}>
+              Quyết định của chuyên viên
+            </h2>
+            <form className="grid gap-3" onSubmit={handleReviewSubmit}>
+              <div className="grid grid-cols-3 gap-2" role="group" aria-label="Quyết định thẩm định">
+                {[
+                  ["accepted", "Chấp nhận kết quả AI"],
+                  ["corrected", "Sửa kết luận"],
+                  ["rejected", "Bác bỏ kết quả"],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`rounded-[9px] border px-2 py-2.5 text-[10px] font-bold ${
+                      reviewDecision === value
+                        ? "border-[#c524ad] bg-[#fff2fc] text-[#a51698]"
+                        : "border-[#e2e5ec] bg-white text-[#657186]"
+                    }`}
+                    aria-pressed={reviewDecision === value}
+                    onClick={() => setReviewDecision(value as ReviewDecision)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {reviewDecision === "corrected" && (
+                <label className="grid gap-1.5 text-[10px] font-bold text-[#667389]">
+                  Kết luận đã hiệu chỉnh
+                  <select
+                    className="rounded-[9px] border border-[#e0e4eb] bg-white px-3 py-2.5 text-[12px]"
+                    value={correctedLabel}
+                    onChange={(event) => setCorrectedLabel(event.target.value as ReviewLabel)}
+                  >
+                    <option value="dung">Đúng</option>
+                    <option value="hieu_lam">Hiểu lầm</option>
+                    <option value="can_kiem_chung">Cần kiểm chứng</option>
+                  </select>
+                </label>
+              )}
+              <label className="grid gap-1.5 text-[10px] font-bold text-[#667389]">
+                Ghi chú thẩm định {reviewDecision !== "accepted" ? "(bắt buộc)" : "(không bắt buộc)"}
+                <textarea
+                  className="min-h-20 rounded-[9px] border border-[#e0e4eb] px-3 py-2.5 text-[12px] leading-[1.5]"
+                  maxLength={1000}
+                  value={reviewNote}
+                  onChange={(event) => setReviewNote(event.target.value)}
+                  placeholder="Nêu căn cứ chấp nhận, hiệu chỉnh hoặc bác bỏ…"
+                />
+              </label>
+              <label className="grid gap-1.5 text-[10px] font-bold text-[#667389]">
+                Khóa quản trị
+                <input
+                  className="rounded-[9px] border border-[#e0e4eb] px-3 py-2.5 text-[12px]"
+                  type="password"
+                  autoComplete="off"
+                  value={adminKey}
+                  onChange={(event) => setAdminKey(event.target.value)}
+                  placeholder="Chỉ giữ trong bộ nhớ của form này"
+                />
+              </label>
+              <button
+                type="submit"
+                className="rounded-[9px] border-0 bg-[#25364d] px-3 py-2.5 text-[11px] font-bold text-white disabled:opacity-50"
+                disabled={reviewMutation.isPending}
+              >
+                {reviewMutation.isPending ? "Đang lưu quyết định…" : "Ký và hoàn tất thẩm định"}
+              </button>
+              {reviewMessage && (
+                <p className="m-0 text-[11px] leading-[1.4] text-[#6c5871]" role="status">
+                  {reviewMessage}
+                </p>
+              )}
+            </form>
           </section>
           <section className={detailCard}>
             <div className="flex gap-2.5 border-b border-[#e7ebef] pb-[14px]">

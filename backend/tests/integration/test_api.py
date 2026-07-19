@@ -199,6 +199,32 @@ def test_reviewer_can_reject_result_and_create_audit_event(
     assert audit_rows[-1]["decision"] == "rejected"
     assert audit_rows[-1]["case_id"] == "review-me"
 
+def test_reviewer_must_explain_correction_or_rejection(monkeypatch, tmp_path) -> None:
+    from backend.legal_radar.api import data_access
+
+    (tmp_path / "queue.jsonl").write_text(
+        json.dumps(
+            {
+                "id": "needs-reason",
+                "claim": "Claim thử nghiệm",
+                "nhan": "can_kiem_chung",
+                "nhan_nguon": "chua_tim_thay_nguon",
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(data_access, "runs_dir", lambda: tmp_path)
+
+    response = client.post(
+        "/api/cases/needs-reason/review",
+        json={"decision": "rejected", "note": ""},
+    )
+
+    assert response.status_code == 400
+    assert not (tmp_path / "audit.jsonl").exists()
+
 
 def test_crawl_returns_supported_schema(monkeypatch, tmp_path) -> None:
     from backend.legal_radar.api.routes import crawl

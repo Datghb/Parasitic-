@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Case, ApiQueueItem, StudyCase, Status } from "../types";
 import { API_URL, mapApiCase } from "../utils/api";
 
+export type ReviewDecision = "accepted" | "corrected" | "rejected";
+export type ReviewLabel = "dung" | "hieu_lam" | "can_kiem_chung";
+
 export function useQueueQuery() {
   return useQuery<Case[]>({
     queryKey: ["queue"],
@@ -33,7 +36,15 @@ export function useVerifyQuery() {
 export function useUpdateStatusMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: Status }) => {
+    mutationFn: async ({
+      id,
+      status,
+      adminKey,
+    }: {
+      id: string;
+      status: Status;
+      adminKey: string;
+    }) => {
       const statusMap: Record<Status, string> = {
         Mới: "new",
         "Đang xử lý": "reviewing",
@@ -41,11 +52,54 @@ export function useUpdateStatusMutation() {
       };
       const response = await fetch(`${API_URL}/api/cases/${id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Key": adminKey,
+        },
         body: JSON.stringify({ status: statusMap[status] }),
       });
       if (!response.ok) throw new Error("Failed to update status");
       return response.json();
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["queue"] });
+    },
+  });
+}
+
+export function useReviewCaseMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      decision,
+      note,
+      correctedLabel,
+      adminKey,
+    }: {
+      id: string;
+      decision: ReviewDecision;
+      note: string;
+      correctedLabel?: ReviewLabel;
+      adminKey: string;
+    }) => {
+      const response = await fetch(`${API_URL}/api/cases/${id}/review`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Key": adminKey,
+        },
+        body: JSON.stringify({
+          decision,
+          note,
+          corrected_label: correctedLabel,
+        }),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+        throw new Error(body?.detail || "Không thể lưu kết quả thẩm định");
+      }
+      return mapApiCase((await response.json()) as ApiQueueItem);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["queue"] });

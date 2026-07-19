@@ -54,6 +54,11 @@ def review_case(case_id: str, body: ReviewRequest) -> QueueItemResponse:
             status_code=400,
             detail="corrected_label là bắt buộc khi decision là corrected",
         )
+    if body.decision in {"corrected", "rejected"} and not body.note.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="note là bắt buộc khi sửa hoặc bác bỏ kết quả AI",
+        )
     item = review_queue_item(
         case_id,
         body.decision,
